@@ -37,10 +37,12 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "django_extensions",
     "corsheaders",
+    "django_extensions",
+    "polymorphic",
     "rest_framework",
     "rest_framework_swagger",
+    "reference.openei.apps.OpenEIConfig",
 ]
 
 MIDDLEWARE = [

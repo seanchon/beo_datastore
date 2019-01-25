@@ -22,6 +22,7 @@ schema_view = get_swagger_view(title='BEO Datastore')
 
 urlpatterns = [
     url(r'^$', schema_view),
+    url(r'^openei/', include('reference.openei.urls')),
     url(r'^api-auth/', include('rest_framework.urls')),
     url(r'^admin/', admin.site.urls),
 ]
