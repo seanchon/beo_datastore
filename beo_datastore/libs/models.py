@@ -10,6 +10,7 @@ class ValidationModel(models.Model):
     should implement additional validation checks by overriding the clean()
     method.
     """
+
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
@@ -25,6 +26,7 @@ class PolymorphicValidationModel(PolymorphicModel):
     PolymorphicValidationModel should implement additional validation checks by
     overriding the clean() method.
     """
+
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)

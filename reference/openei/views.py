@@ -1,6 +1,4 @@
-from rest_framework import permissions, viewsets
-
-from beo_datastore.libs.permissions import IsOwnerOrReadOnly
+from rest_framework import viewsets
 
 from reference.openei.models import BuildingType, ReferenceBuilding
 from reference.openei.serializers import (
@@ -18,10 +16,6 @@ class BuildingTypeViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = BuildingType.objects.all()
     serializer_class = BuildingTypeSerializer
-    permission_classes = (
-        permissions.IsAuthenticatedOrReadOnly,
-        IsOwnerOrReadOnly,
-    )
 
 
 class ReferenceBuildingViewSet(viewsets.ReadOnlyModelViewSet):
@@ -33,7 +27,3 @@ class ReferenceBuildingViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = ReferenceBuilding.objects.all()
     serializer_class = ReferenceBuildingSerializer
-    permission_classes = (
-        permissions.IsAuthenticatedOrReadOnly,
-        IsOwnerOrReadOnly,
-    )

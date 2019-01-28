@@ -21,7 +21,7 @@ class ReferenceBuilding(ValidationModel):
     state = USStateField(choices=STATE_CHOICES, blank=True)
     TMY3_id = models.IntegerField(
         db_index=True,
-        validators=[MinValueValidator(100000), MaxValueValidator(999999)]
+        validators=[MinValueValidator(100000), MaxValueValidator(999999)],
     )
     source_file = models.URLField(max_length=254)
     building_type = models.ForeignKey(

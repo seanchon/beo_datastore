@@ -6,7 +6,7 @@ from django.conf.urls import url, include
 from reference.openei import views
 
 
-schema_view = get_schema_view(title="Pastebin API")
+schema_view = get_schema_view(title="OpenEI API")
 
 # Create a router and register our viewsets with it.
 router = DefaultRouter()

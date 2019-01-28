@@ -8,16 +8,16 @@ from reference.openei.models import BuildingType, ReferenceBuilding
 
 
 COMMERCIAL_LOAD_DATA = (
-    'https://openei.org/datasets/files/961/pub'
-    '/COMMERCIAL_LOAD_DATA_E_PLUS_OUTPUT/'
+    "https://openei.org/datasets/files/961/pub"
+    "/COMMERCIAL_LOAD_DATA_E_PLUS_OUTPUT/"
 )
 
 
 def get_links(url, filter_string):
     response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
+    soup = BeautifulSoup(response.content, "html.parser")
 
-    links = (x.get('href') for x in soup.find_all('a'))
+    links = (x.get("href") for x in soup.find_all("a"))
     links = [x for x in links if filter_string in x]
 
     return links
@@ -30,7 +30,7 @@ def get_commercial_load_data_directories(url):
     https://openei.org/datasets/files/961/pub
     /COMMERCIAL_LOAD_DATA_E_PLUS_OUTPUT/
     """
-    return [(url + x) for x in get_links(url, 'USA_CA')]
+    return [(url + x) for x in get_links(url, "USA_CA")]
 
 
 def get_all_commercial_load_data_links(url):
@@ -39,34 +39,34 @@ def get_all_commercial_load_data_links(url):
     """
     links = []
     for base_dir in get_commercial_load_data_directories(url):
-        links += [(base_dir + x) for x in get_links(base_dir, '.csv')]
+        links += [(base_dir + x) for x in get_links(base_dir, ".csv")]
 
     return links
 
 
 def parse_building_type(file_name):
-    building_type = file_name.split('RefBldg')[-1].split('New2004')[0]
+    building_type = file_name.split("RefBldg")[-1].split("New2004")[0]
     building_type = re.sub(r"(\w)([A-Z])", r"\1 \2", building_type)
 
-    if building_type == 'Out Patient':
-        return BuildingType.objects.get(name='Outpatient Health Care')
+    if building_type == "Out Patient":
+        return BuildingType.objects.get(name="Outpatient Health Care")
     else:
         return BuildingType.objects.get(name=building_type)
 
 
 def parse_location(dir_name):
-    location = re.split('USA_\w{2}_', dir_name)[-1]
-    location = re.split('\.\d{6}_TMY3', location)[0]
-    location = ' '.join(location.split('.')).title()
+    location = re.split("USA_\w{2}_", dir_name)[-1]
+    location = re.split("\.\d{6}_TMY3", location)[0]
+    location = " ".join(location.split(".")).title()
 
     for str_1, str_2 in [
-        ('Awos', 'AWOS'),
-        ('Ap', 'AP'),
-        ('Afb', 'AFB'),
-        ('Mcas', 'MCAS'),
-        ('Cgas', 'CGAS'),
-        ('Naf', 'NAF'),
-        ('Nas', 'NAS'),
+        ("Awos", "AWOS"),
+        ("Ap", "AP"),
+        ("Afb", "AFB"),
+        ("Mcas", "MCAS"),
+        ("Cgas", "CGAS"),
+        ("Naf", "NAF"),
+        ("Nas", "NAS"),
     ]:
         location = location.replace(str_1, str_2)
 
@@ -74,7 +74,7 @@ def parse_location(dir_name):
 
 
 def parse_tmy3(dir_name):
-    result = re.search('\d{6}', dir_name)
+    result = re.search("\d{6}", dir_name)
     if result:
         return result[0]
     else:
@@ -82,8 +82,8 @@ def parse_tmy3(dir_name):
 
 
 def parse_building_attributes(csv_url):
-    dir_name = csv_url.split('/')[-2]
-    file_name = csv_url.split('/')[-1]
+    dir_name = csv_url.split("/")[-2]
+    file_name = csv_url.split("/")[-1]
 
     try:
         building_type = parse_building_type(file_name)
@@ -101,7 +101,7 @@ def run():
     for (csv_url, building_type, location, tmy3) in building_attrs:
         ReferenceBuilding.objects.get_or_create(
             location=location,
-            state='CA',
+            state="CA",
             TMY3_id=tmy3,
             source_file=csv_url,
             building_type=building_type,
