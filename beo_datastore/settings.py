@@ -47,7 +47,11 @@ INSTALLED_APPS = [
     "allauth.account",
     "rest_framework_swagger",
     "polymorphic",
+
+    # apps
+    "interval.apps.IntervalConfig",
     "reference.openei.apps.OpenEIConfig",
+    "reference.reference_unit.apps.ReferenceUnitConfig",
 ]
 
 MIDDLEWARE = [
@@ -157,3 +161,6 @@ SWAGGER_SETTINGS = {
         "api_key": {"type": "apiKey", "in": "header", "name": "Authorization"}
     },
 }
+
+# MEDIA_ROOT
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media_root')
