@@ -1,0 +1,17 @@
+from rest_framework.routers import DefaultRouter
+from rest_framework.schemas import get_schema_view
+
+from django.conf.urls import url, include
+
+from reference.openei import views
+
+
+schema_view = get_schema_view(title="OpenEI API")
+
+# Create a router and register our viewsets with it.
+router = DefaultRouter()
+router.register(r"building_type", views.BuildingTypeViewSet)
+router.register(r"reference_building", views.ReferenceBuildingViewSet)
+
+# The API URLs are now determined automatically by the router.
+urlpatterns = [url(r"^schema/$", schema_view), url(r"^", include(router.urls))]
