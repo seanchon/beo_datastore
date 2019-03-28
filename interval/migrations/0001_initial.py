@@ -9,37 +9,58 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-        ('reference_unit', '0001_initial'),
-    ]
+    dependencies = [("reference_unit", "0001_initial")]
 
     operations = [
         migrations.CreateModel(
-            name='Meter',
+            name="Meter",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('export', models.BooleanField(default=False)),
-                ('data_unit', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='meters', to='reference_unit.DataUnit')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("export", models.BooleanField(default=False)),
+                (
+                    "data_unit",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        related_name="meters",
+                        to="reference_unit.DataUnit",
+                    ),
+                ),
             ],
-            options={
-                'abstract': False,
-            },
+            options={"abstract": False},
         ),
         migrations.CreateModel(
-            name='ServiceDrop',
+            name="ServiceDrop",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('sa_id', models.IntegerField(db_index=True)),
-                ('rate_plan', models.CharField(db_index=True, max_length=16)),
-                ('state', localflavor.us.models.USStateField(max_length=2)),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("sa_id", models.IntegerField(db_index=True)),
+                ("rate_plan", models.CharField(db_index=True, max_length=16)),
+                ("state", localflavor.us.models.USStateField(max_length=2)),
             ],
-            options={
-                'abstract': False,
-            },
+            options={"abstract": False},
         ),
         migrations.AddField(
-            model_name='meter',
-            name='service_drop',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='meters', to='interval.ServiceDrop'),
+            model_name="meter",
+            name="service_drop",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="meters",
+                to="interval.ServiceDrop",
+            ),
         ),
     ]

@@ -15,10 +15,13 @@ from reference.reference_unit.models import BuildingType, DataUnit
 
 
 class ReferenceBuildingQuerySet(models.QuerySet):
+    """
+    Overloads QuerySet operations for bulk file-handling.
+    """
+
     def delete(self, *args, **kwargs):
         """
-        Overloads delete() method so that intervalframes are deleted from disk
-        along with ReferenceBuilding instances.
+        Bulk delete IntervalFrame files from disk.
         """
         # TODO: Create a quicker cleanup method.
         for obj in self:
@@ -27,6 +30,18 @@ class ReferenceBuildingQuerySet(models.QuerySet):
 
 
 class ReferenceBuilding(ValidationModel):
+    """
+    OpenEI: Commercial and Residential Hourly Load Profiles for all TMY3
+    Locations in the United States.
+
+    Source: https://openei.org/doe-opendata/dataset/commercial-and-residential
+        -hourly-load-profiles-for-all-tmy3-locations-in-the-united-states
+
+    Based on Typical Meteorological Year 3 (TMY3) data.
+
+    Source: https://rredc.nrel.gov/solar/old_data/nsrdb/1991-2005/tmy3/
+    """
+
     location = models.CharField(max_length=64, blank=False)
     state = USStateField(choices=STATE_CHOICES, blank=True)
     TMY3_id = models.IntegerField(
@@ -40,9 +55,7 @@ class ReferenceBuilding(ValidationModel):
         on_delete=models.PROTECT,
     )
     data_unit = models.ForeignKey(
-        DataUnit,
-        related_name="reference_buildings",
-        on_delete=models.PROTECT
+        DataUnit, related_name="reference_buildings", on_delete=models.PROTECT
     )
 
     # custom QuerySet manager for intervalframe file-handling
@@ -71,18 +84,18 @@ class ReferenceBuilding(ValidationModel):
         Creates IntervalFrame from csv_url.
         """
         return ReferenceBuildingIntervalFrame.csv_url_to_intervalframe(
-            ref_object=self,
+            reference_object=self,
             csv_url=self.source_file_url,
             index_column="Date/Time",
         )
 
     @cached_property
-    def parquet_file_intervalframe(self):
+    def intervalframe_from_file(self):
         """
         Creates IntervalFrame from local parquet copy.
         """
-        return ReferenceBuildingIntervalFrame.get_parquet_intervalframe(
-            ref_object=self
+        return ReferenceBuildingIntervalFrame.get_frame_from_file(
+            reference_object=self
         )
 
     @property
@@ -91,8 +104,8 @@ class ReferenceBuilding(ValidationModel):
         Returns IntervalFrame sourced from the source_file_url or cached
         locally.
         """
-        if self.parquet_file_intervalframe:
-            self._intervalframe = self.parquet_file_intervalframe
+        if self.intervalframe_from_file:
+            self._intervalframe = self.intervalframe_from_file
         else:
             self._intervalframe = self.source_file_intervalframe
 
@@ -106,21 +119,21 @@ class ReferenceBuilding(ValidationModel):
         self._intervalframe = intervalframe
 
     @cached_property
-    def electricity_facility_288_average(self):
+    def average_288_dataframe(self):
         # TODO: save to disk if used often
         return self.intervalframe.get_288_matrix(
             "Electricity:Facility [kW](Hourly)", "average"
         )
 
     @cached_property
-    def electricity_facility_288_maximum(self):
+    def maximum_288_dataframe(self):
         # TODO: save to disk if used often
         return self.intervalframe.get_288_matrix(
             "Electricity:Facility [kW](Hourly)", "maximum"
         )
 
     @cached_property
-    def electricity_facility_288_count(self):
+    def count_288_dataframe(self):
         # TODO: save to disk if used often
         return self.intervalframe.get_288_matrix(
             "Electricity:Facility [kW](Hourly)", "count"
@@ -128,20 +141,33 @@ class ReferenceBuilding(ValidationModel):
 
 
 class ReferenceBuildingIntervalFrame(IntervalFrame):
-    file_directory = os.path.join(MEDIA_ROOT, "reference_buildings")
-    file_prefix = "rb_"
+    """
+    Model for handling ReferenceBuilding IntervalFrames, which have timestamps
+    with ambiguous year as well as multiple columns representing energy usage
+    in various categories (ex. facility, lights, HVAC, etc.).
+    """
 
-    def filter_dataframe(
-        self, column, month=None, day=None, hour=None, *args, **kwargs
+    reference_model = ReferenceBuilding
+    file_directory = os.path.join(MEDIA_ROOT, "reference_buildings")
+
+    @staticmethod
+    def validate_dataframe(dataframe):
+        """
+        Disable dataframe validation due to index missing year and extra
+        columns of values.
+        """
+        pass
+
+    @staticmethod
+    def mask_dataframe_date(
+        dataframe, month=None, day=None, hour=None, *args, **kwargs
     ):
         """
-        Returns self.dataframe filtered by column, month, day, and hour.
-        """
-        if column:
-            dataframe = self.dataframe[[column]]
-        else:
-            dataframe = self.dataframe
+        Returns dataframe masked to match month, day, and/or hour.
 
+        ReferenceBuilding timestamps are irregular and contain no year and use
+        hours 1 to 24 versus 0 to 23.
+        """
         if month is not None:
             month = str(month).zfill(2)
         else:

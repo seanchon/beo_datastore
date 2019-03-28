@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/1.11/ref/settings/
 """
 
 import os
+import sys
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -47,7 +48,6 @@ INSTALLED_APPS = [
     "allauth.account",
     "rest_framework_swagger",
     "polymorphic",
-
     # apps
     "interval.apps.IntervalConfig",
     "reference.openei.apps.OpenEIConfig",
@@ -162,5 +162,11 @@ SWAGGER_SETTINGS = {
     },
 }
 
+# testing flag
+TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
+
 # MEDIA_ROOT
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media_root')
+if not TESTING:
+    MEDIA_ROOT = os.path.join(BASE_DIR, "media_root")
+else:
+    MEDIA_ROOT = os.path.join(BASE_DIR, "media_root", "test_data")

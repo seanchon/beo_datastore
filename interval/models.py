@@ -14,6 +14,11 @@ from reference.reference_unit.models import DataUnit
 
 
 class ServiceDrop(ValidationModel):
+    """
+    A ServiceDrop is a connection point to the Utility's distribution grid
+    identified by a Service Address Identifier (sa_id).
+    """
+
     sa_id = models.IntegerField(db_index=True)
     rate_plan = models.CharField(max_length=16, db_index=True)
     state = USStateField(choices=STATE_CHOICES)
@@ -27,10 +32,13 @@ class ServiceDrop(ValidationModel):
 
 
 class MeterQuerySet(models.QuerySet):
+    """
+    Overloads QuerySet operations for bulk file-handling.
+    """
+
     def delete(self, *args, **kwargs):
         """
-        Overloads delete() method so that intervalframes are deleted from disk
-        along with Meter instances.
+        Bulk delete IntervalFrame files from disk.
         """
         # TODO: Create a quicker cleanup method.
         for obj in self:
@@ -39,6 +47,11 @@ class MeterQuerySet(models.QuerySet):
 
 
 class Meter(ValidationModel):
+    """
+    A Meter is a device that tracks energy consumption (export=False) or energy
+    generation (export=True).
+    """
+
     export = models.BooleanField(default=False)
     data_unit = models.ForeignKey(
         DataUnit, related_name="meters", on_delete=models.PROTECT
@@ -64,11 +77,11 @@ class Meter(ValidationModel):
         super().delete(*args, **kwargs)
 
     @cached_property
-    def parquet_file_intervalframe(self):
+    def intervalframe_from_file(self):
         """
         Creates IntervalFrame from local parquet copy.
         """
-        return MeterIntervalFrame.get_parquet_intervalframe(ref_object=self)
+        return MeterIntervalFrame.get_frame_from_file(reference_object=self)
 
     @property
     def intervalframe(self):
@@ -76,7 +89,7 @@ class Meter(ValidationModel):
         Retrieves IntervalFrame from parquet file.
         """
         if not getattr(self, "_intervalframe", None):
-            self._intervalframe = self.parquet_file_intervalframe
+            self._intervalframe = self.intervalframe_from_file
         return self._intervalframe
 
     @intervalframe.setter
@@ -86,16 +99,23 @@ class Meter(ValidationModel):
         """
         self._intervalframe = intervalframe
 
-    def get_288_average(self):
+    @cached_property
+    def average_288_dataframe(self):
         return self.intervalframe.get_288_matrix("value", "average")
 
-    def get_288_maximum(self):
+    @cached_property
+    def maximum_288_dataframe(self):
         return self.intervalframe.get_288_matrix("value", "maximum")
 
-    def get_288_count(self):
+    @cached_property
+    def count_288_dataframe(self):
         return self.intervalframe.get_288_matrix("value", "count")
 
 
 class MeterIntervalFrame(IntervalFrame):
+    """
+    Model for handling Meter IntervalFrames, which have timestamps and values.
+    """
+
+    reference_model = Meter
     file_directory = os.path.join(MEDIA_ROOT, "meters")
-    file_prefix = "meter_"

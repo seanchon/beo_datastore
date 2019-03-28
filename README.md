@@ -7,11 +7,11 @@ A place to store data for use in the CEC BEO project.
 The following are the steps to get this project up and running. The virtualenv should be built using python3.6.
 
 ```
-$ virtualenv env
-$ source env/bin/activate
-(env)$ pip install -r requirements.txt
-(env)$ python manage.py migrate
-(env)$ python manage.py runserver_plus
+$ virtualenv <env_name>
+$ source <env_name>/bin/activate
+(<env_name>)$ pip install -r requirements.txt
+(<env_name>)$ python manage.py migrate
+(<env_name>)$ python manage.py runserver_plus
 ```
 
 # LOADING DATA
@@ -21,7 +21,7 @@ $ source env/bin/activate
 The following script will prime the database with all OpenEI reference buildings located in California. The script can be modified to allow for all data or different states.
 
 ```
-(env)$ python manage.py runscript reference.openei.scripts.ingest_reference_buildings
+(<env_name>)$ python manage.py runscript reference.openei.scripts.ingest_reference_buildings
 ```
 
 ## PG&E
@@ -29,7 +29,7 @@ The following script will prime the database with all OpenEI reference buildings
 The following script will load PG&E Item 17 data (file will need to be downloaded locally).
 
 ```
-python manage.py runscript interval.scripts.ingest_pge_data --script-args EXCEL_FILE SHEET_NAME
+(<env_name>)$ python manage.py runscript interval.scripts.ingest_pge_data --script-args EXCEL_FILE SHEET_NAME
 ```
 
 # UPDATING PIP PACKAGES

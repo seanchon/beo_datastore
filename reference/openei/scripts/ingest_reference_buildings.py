@@ -111,6 +111,6 @@ def run():
             state="CA",
             TMY3_id=tmy3,
             source_file_url=csv_url,
-            data_unit=DataUnit.objects.get(name='kwh'),
+            data_unit=DataUnit.objects.get(name="kwh"),
             building_type=building_type,
         )

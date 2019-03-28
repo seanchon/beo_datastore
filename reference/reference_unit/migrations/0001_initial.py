@@ -7,30 +7,41 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='BuildingType',
+            name="BuildingType",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=32)),
-                ('floor_area', models.IntegerField()),
-                ('number_of_floors', models.IntegerField()),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=32)),
+                ("floor_area", models.IntegerField()),
+                ("number_of_floors", models.IntegerField()),
             ],
-            options={
-                'abstract': False,
-            },
+            options={"abstract": False},
         ),
         migrations.CreateModel(
-            name='DataUnit',
+            name="DataUnit",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=8)),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=8)),
             ],
-            options={
-                'abstract': False,
-            },
+            options={"abstract": False},
         ),
     ]

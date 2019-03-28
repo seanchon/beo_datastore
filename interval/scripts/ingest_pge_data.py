@@ -40,7 +40,13 @@ def run(*args):
 
     for said in saids:
         frame = filter_dataframe(dataframe, said, "R", "RS")
+        if frame.empty:
+            frame = filter_dataframe(dataframe, said, "D", "RS")
+        if frame.empty:
+            continue
+
         rate_plan = frame[frame.index[0]]
+
         service_drop, _ = ServiceDrop.objects.get_or_create(
             sa_id=said, rate_plan=rate_plan, state="CA"
         )
@@ -64,7 +70,7 @@ def run(*args):
 
             meter, _ = Meter.objects.get_or_create(
                 export=export,
-                data_unit=DataUnit.objects.get(name='kwh'),
+                data_unit=DataUnit.objects.get(name="kwh"),
                 service_drop=service_drop,
             )
             meter.intervalframe = MeterIntervalFrame(meter, df)
