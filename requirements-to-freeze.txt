@@ -1,0 +1,20 @@
+# see https://www.kennethreitz.org/essays/a-better-pip-workflow
+black
+bs4
+Django
+django-allauth
+django-extensions
+django-localflavor
+django-polymorphic
+django-rest-auth
+django-rest-swagger
+djangorestframework
+ipdb
+ipython
+pandas
+pre-commit
+pyarrow
+requests
+us
+Werkzeug
+xlrd

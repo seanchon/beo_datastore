@@ -1,0 +1,29 @@
+[
+{
+  "model": "interval.servicedrop",
+  "pk": 1,
+  "fields": {
+    "sa_id": 0,
+    "rate_plan": "TEST",
+    "state": "CA"
+  }
+},
+{
+  "model": "interval.meter",
+  "pk": 1,
+  "fields": {
+    "export": true,
+    "data_unit": 1,
+    "service_drop": 1
+  }
+},
+{
+  "model": "interval.meter",
+  "pk": 2,
+  "fields": {
+    "export": false,
+    "data_unit": 1,
+    "service_drop": 1
+  }
+}
+]

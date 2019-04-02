@@ -3,14 +3,20 @@ import re
 import requests
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.management import call_command
 
-from reference.openei.models import BuildingType, ReferenceBuilding
+from reference.openei.models import ReferenceBuilding
+from reference.reference_unit.models import BuildingType, DataUnit
 
 
 COMMERCIAL_LOAD_DATA = (
     "https://openei.org/datasets/files/961/pub"
     "/COMMERCIAL_LOAD_DATA_E_PLUS_OUTPUT/"
 )
+
+
+def load_reference_units():
+    call_command("loaddata", "reference_unit")
 
 
 def get_links(url, filter_string):
@@ -96,6 +102,7 @@ def parse_building_attributes(csv_url):
 
 
 def run():
+    load_reference_units()
     links = get_all_commercial_load_data_links(COMMERCIAL_LOAD_DATA)
     building_attrs = [parse_building_attributes(link) for link in links]
     for (csv_url, building_type, location, tmy3) in building_attrs:
@@ -103,6 +110,7 @@ def run():
             location=location,
             state="CA",
             TMY3_id=tmy3,
-            source_file=csv_url,
+            source_file_url=csv_url,
+            data_unit=DataUnit.objects.get(name="kwh"),
             building_type=building_type,
         )
