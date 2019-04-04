@@ -20,8 +20,13 @@ class ServiceDrop(ValidationModel):
     """
 
     sa_id = models.IntegerField(db_index=True)
-    rate_plan = models.CharField(max_length=16, db_index=True)
+    rate_plan = models.CharField(
+        max_length=16, db_index=True, blank=True, null=True
+    )
     state = USStateField(choices=STATE_CHOICES)
+
+    class Meta:
+        ordering = ["id"]
 
     def __str__(self):
         return str(self.sa_id)
@@ -63,6 +68,9 @@ class Meter(ValidationModel):
     # custom QuerySet manager for intervalframe file-handling
     objects = MeterQuerySet.as_manager()
 
+    class Meta:
+        ordering = ["id"]
+
     def __str__(self):
         return "{} (export: {})".format(self.service_drop, self.export)
 
@@ -99,17 +107,17 @@ class Meter(ValidationModel):
         """
         self._intervalframe = intervalframe
 
-    @cached_property
+    @property
     def average_288_dataframe(self):
-        return self.intervalframe.get_288_matrix("value", "average")
+        return self.intervalframe.average_288_dataframe
 
-    @cached_property
+    @property
     def maximum_288_dataframe(self):
-        return self.intervalframe.get_288_matrix("value", "maximum")
+        return self.intervalframe.maximum_288_dataframe
 
-    @cached_property
+    @property
     def count_288_dataframe(self):
-        return self.intervalframe.get_288_matrix("value", "count")
+        return self.intervalframe.count_288_dataframe
 
 
 class MeterIntervalFrame(IntervalFrame):

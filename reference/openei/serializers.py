@@ -17,4 +17,12 @@ class BuildingTypeSerializer(serializers.HyperlinkedModelSerializer):
 class ReferenceBuildingSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = ReferenceBuilding
-        fields = ("location", "state", "source_file_url", "building_type")
+        fields = (
+            "location",
+            "state",
+            "source_file_url",
+            "building_type",
+            "average_288_dataframe",
+            "maximum_288_dataframe",
+            "count_288_dataframe",
+        )

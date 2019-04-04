@@ -1,12 +1,15 @@
+from datetime import datetime
 from localflavor.us.models import USStateField
 from localflavor.us.us_states import STATE_CHOICES
 import os
+import pandas as pd
 import us
 
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.utils.functional import cached_property
 
+from beo_datastore.libs.dataframe import csv_url_to_dataframe
 from beo_datastore.libs.intervalframe import IntervalFrame
 from beo_datastore.libs.models import ValidationModel
 from beo_datastore.settings import MEDIA_ROOT
@@ -64,6 +67,9 @@ class ReferenceBuilding(ValidationModel):
     def __str__(self):
         return self.building_type.name + ": " + self.location
 
+    class Meta:
+        ordering = ["id"]
+
     def save(self, *args, **kwargs):
         if self.intervalframe:
             self.intervalframe.save()
@@ -83,10 +89,18 @@ class ReferenceBuilding(ValidationModel):
         """
         Creates IntervalFrame from csv_url.
         """
-        return ReferenceBuildingIntervalFrame.csv_url_to_intervalframe(
-            reference_object=self,
-            csv_url=self.source_file_url,
-            index_column="Date/Time",
+        dataframe = csv_url_to_dataframe(self.source_file_url)
+
+        # add 2018 datetime column
+        dataframe["start"] = pd.date_range(
+            start=datetime(2018, 1, 1),
+            end=datetime(2018, 12, 31, 23),
+            freq="3600S",
+        )
+        dataframe.set_index("start", inplace=True)
+
+        return ReferenceBuildingIntervalFrame(
+            reference_object=self, dataframe=dataframe
         )
 
     @cached_property
@@ -102,12 +116,18 @@ class ReferenceBuilding(ValidationModel):
     def intervalframe(self):
         """
         Returns IntervalFrame sourced from the source_file_url or cached
-        locally.
+        locally. If sourced from source_file_url, performs save() to disk.
         """
-        if self.intervalframe_from_file:
-            self._intervalframe = self.intervalframe_from_file
-        else:
-            self._intervalframe = self.source_file_intervalframe
+        if not hasattr(self, "_intervalframe"):
+            if self.intervalframe_from_file:
+                # attempt to retrieve from file
+                self._intervalframe = self.intervalframe_from_file
+            if self._intervalframe.dataframe.equals(
+                ReferenceBuildingIntervalFrame.default_dataframe
+            ):
+                # file does not exist
+                self._intervalframe = self.source_file_intervalframe
+                self._intervalframe.save()  # save to disk
 
         return self._intervalframe
 
@@ -118,26 +138,17 @@ class ReferenceBuilding(ValidationModel):
         """
         self._intervalframe = intervalframe
 
-    @cached_property
+    @property
     def average_288_dataframe(self):
-        # TODO: save to disk if used often
-        return self.intervalframe.get_288_matrix(
-            "Electricity:Facility [kW](Hourly)", "average"
-        )
+        return self.intervalframe.average_288_dataframe
 
-    @cached_property
+    @property
     def maximum_288_dataframe(self):
-        # TODO: save to disk if used often
-        return self.intervalframe.get_288_matrix(
-            "Electricity:Facility [kW](Hourly)", "maximum"
-        )
+        return self.intervalframe.maximum_288_dataframe
 
-    @cached_property
+    @property
     def count_288_dataframe(self):
-        # TODO: save to disk if used often
-        return self.intervalframe.get_288_matrix(
-            "Electricity:Facility [kW](Hourly)", "count"
-        )
+        return self.intervalframe.count_288_dataframe
 
 
 class ReferenceBuildingIntervalFrame(IntervalFrame):
@@ -149,40 +160,16 @@ class ReferenceBuildingIntervalFrame(IntervalFrame):
 
     reference_model = ReferenceBuilding
     file_directory = os.path.join(MEDIA_ROOT, "reference_buildings")
+    default_column = "Electricity:Facility [kW](Hourly)"
 
     @staticmethod
     def validate_dataframe(dataframe):
         """
-        Disable dataframe validation due to index missing year and extra
-        columns of values.
+        Checks that dataframe.index is a DatetimeIndex. Multiple columns exist
+        in OpenEI for a variety of use cases (ex. heating), so columns are not
+        validated.
         """
-        pass
-
-    @staticmethod
-    def mask_dataframe_date(
-        dataframe, month=None, day=None, hour=None, *args, **kwargs
-    ):
-        """
-        Returns dataframe masked to match month, day, and/or hour.
-
-        ReferenceBuilding timestamps are irregular and contain no year and use
-        hours 1 to 24 versus 0 to 23.
-        """
-        if month is not None:
-            month = str(month).zfill(2)
-        else:
-            month = "\d\d"
-        if day is not None:
-            day = str(day).zfill(2)
-        else:
-            day = "\d\d"
-        if hour is not None:
-            hour += 1  # TODO: investigate OpenEI time formatting
-            hour = str(hour).zfill(2)
-        else:
-            hour = "\d\d"
-
-        search_string = "{}\/{}  {}".format(month, day, hour)
-        dataframe = dataframe[dataframe.index.str.contains(search_string)]
-
-        return dataframe
+        if not isinstance(
+            dataframe.index, pd.core.indexes.datetimes.DatetimeIndex
+        ):
+            raise TypeError("DataFrame index must be DatetimeIndex.")

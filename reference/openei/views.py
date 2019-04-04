@@ -9,7 +9,7 @@ from reference.openei.serializers import (
 
 class BuildingTypeViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    OpenEI Commercial Reference Buildings
+    OpenEI Commercial Reference Building Types
 
     Defined by: https://www.energy.gov/eere/buildings/commercial-reference-buildings
     """
