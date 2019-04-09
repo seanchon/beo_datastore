@@ -271,7 +271,7 @@ class IntervalFrame(DataFrameFile):
         """
         dataframe = pd.read_csv(csv_location)
         if index_column:
-            dataframe = IntervalFrame.set_index(
+            dataframe = cls.set_index(
                 dataframe, index_column, convert_to_datetime
             )
 
@@ -296,7 +296,7 @@ class IntervalFrame(DataFrameFile):
         """
         dataframe = csv_url_to_dataframe(csv_url)
         if index_column:
-            dataframe = IntervalFrame.set_index(
+            dataframe = cls.set_index(
                 dataframe, index_column, convert_to_datetime
             )
 
@@ -422,7 +422,7 @@ class Frame288(DataFrameFile):
 
     # returns this blank dataframe if parquet file does not exist
     default_dataframe = pd.DataFrame(
-        columns=[x for x in range(1, 13)], index=[x for x in range(0, 24)]
+        columns=np.array(range(1, 13)), index=np.array(range(0, 24))
     )
 
     def save(self, *args, **kwargs):

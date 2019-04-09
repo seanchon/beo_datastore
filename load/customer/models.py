@@ -75,13 +75,13 @@ class Meter(ValidationModel):
         return "{} (export: {})".format(self.service_drop, self.export)
 
     def save(self, *args, **kwargs):
-        if self.intervalframe:
-            self.intervalframe.save()
+        if hasattr(self, "_intervalframe"):
+            self._intervalframe.save()
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        if self.intervalframe:
-            self.intervalframe.delete()
+        if hasattr(self, "_intervalframe"):
+            self._intervalframe.delete()
         super().delete(*args, **kwargs)
 
     @cached_property
@@ -96,7 +96,7 @@ class Meter(ValidationModel):
         """
         Retrieves IntervalFrame from parquet file.
         """
-        if not getattr(self, "_intervalframe", None):
+        if not hasattr(self, "_intervalframe"):
             self._intervalframe = self.intervalframe_from_file
         return self._intervalframe
 

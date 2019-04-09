@@ -19,27 +19,39 @@ $ source <env_name>/bin/activate
 
 ## Base Fixtures
 
-The following base data can be installed via fixtures. The first is for required reference units and the second is optional to load OpenEI data. Loading OpenEI fixtures can be done in lieu of running the following OpenEI script.
+The following base data can be installed via fixtures. The first is for required reference units and the second is optional to load OpenEI data. Loading OpenEI fixtures can be done in lieu of running the OpenEI script.
 
 ```
 (<env_name>)$ python manage.py loaddata reference_unit
 (<env_name>)$ python manage.py loaddata openei
 ```
 
-## OpenEI
+## Load Data
 
-The following script will prime the database with all OpenEI reference buildings located in California. It reaches out to the OpenEI website and scrapes the site's content. The script can be modified to allow for all data or different states.
+### OpenEI
+
+The following script will prime the database with all OpenEI reference buildings located in California. It reaches out to the OpenEI website and scrapes the site's content. The script can be modified to ingest data from different states or the entire site.
 
 ```
 (<env_name>)$ python manage.py runscript load.openei.scripts.ingest_reference_buildings
 ```
 
-## PG&E
+### PG&E
 
 The following script will load PG&E Item 17 data (the Excel file will need to be downloaded locally).
 
 ```
 (<env_name>)$ python manage.py runscript load.customer.scripts.ingest_pge_data --script-args EXCEL_FILE SHEET_NAME
+```
+
+## Cost Data
+
+### Clean Net Short GHG
+
+The following script will ingest GHG lookup tables from the CPUC's Clean Net Short Calculator Tool - http://www.cpuc.ca.gov/General.aspx?id=6442451195.
+
+```
+(<env_name>)$ python manage.py runscript cost.ghg.scripts.ingest_cns_data
 ```
 
 # UPDATING PIP PACKAGES
