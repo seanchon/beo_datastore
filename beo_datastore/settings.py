@@ -139,7 +139,7 @@ LOGOUT_URL = "rest_framework:logout"
 # DRF Settings
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": 10,
+    "PAGE_SIZE": 20,
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.TokenAuthentication",
@@ -169,4 +169,4 @@ TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
 if not TESTING:
     MEDIA_ROOT = os.path.join(BASE_DIR, "media_root")
 else:
-    MEDIA_ROOT = os.path.join(BASE_DIR, "media_root", "test_data")
+    MEDIA_ROOT = os.path.join(BASE_DIR, "media_root_test")

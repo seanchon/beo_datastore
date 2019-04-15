@@ -25,6 +25,14 @@ def get_dataframe_saids(dataframe):
     return set(dataframe["Anon SA_ID"])
 
 
+def get_rate_plan(dataframe, said):
+    rate_plan = dataframe[dataframe["Anon SA_ID"] == said]["RS"].iloc[0]
+    if rate_plan != rate_plan:  # check for nan
+        rate_plan = None
+
+    return rate_plan
+
+
 def run(*args):
     if len(args) != 2:
         print(
@@ -39,13 +47,7 @@ def run(*args):
     columns = ["DATE"] + timestamp_columns
 
     for said in saids:
-        frame = filter_dataframe(dataframe, said, "R", "RS")
-        if frame.empty:
-            frame = filter_dataframe(dataframe, said, "D", "RS")
-        if frame.empty:
-            continue
-
-        rate_plan = frame[frame.index[0]]
+        rate_plan = get_rate_plan(dataframe, said)
 
         service_drop, _ = ServiceDrop.objects.get_or_create(
             sa_id=said, rate_plan=rate_plan, state="CA"

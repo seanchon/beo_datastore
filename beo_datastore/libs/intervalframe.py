@@ -1,8 +1,8 @@
-import io
 import os
 import numpy as np
 import pandas as pd
-import requests
+
+from beo_datastore.libs.dataframe import csv_url_to_dataframe
 
 
 class DataFrameFile(object):
@@ -67,6 +67,20 @@ class DataFrameFile(object):
         raise NotImplementedError()
 
     @property
+    def default_dataframe(self):
+        """
+        Set as an attribute in child class to default pandas DataFrame. The
+        following example is the default for an IntervalFrame:
+
+        ex.
+            default_dataframe = pd.DataFrame(
+                columns=["value"],
+                index=pd.to_datetime([])
+            )
+        """
+        raise NotImplementedError()
+
+    @property
     def filename(self):
         return self.get_filename(self.reference_object)
 
@@ -97,17 +111,17 @@ class DataFrameFile(object):
     @classmethod
     def get_frame_from_file(cls, reference_object):
         """
-        Returns IntervalFrame based on reference_object.id if it exists.
+        Returns DataFrameFile based on reference_object.id if it exists.
 
         :param reference_object: reference object IntervalFrame belongs to
-        :return: pandas Frame288
+        :return: cls instance
         """
         file_path = cls.get_file_path(reference_object)
 
         if os.path.exists(file_path):
             return cls(reference_object, pd.read_parquet(file_path))
         else:
-            return None
+            return cls(reference_object, cls.default_dataframe)
 
     @staticmethod
     def validate_dataframe(dataframe):
@@ -142,13 +156,76 @@ class IntervalFrame(DataFrameFile):
 
     DatetimeIndex   |   value   |
     datetime        |   float   |
+
+    The following attributes can be modified for additional use cases:
+    -   default_column can be updated to compute 288 summary tables on
+        different columns (note: validate_dataframe will need to be updated for
+        dataframes with more than one column of values).
+    -   average_288_model, maximum_288_model, count_288_model can be set to
+        properly-configured subclasses of Frame288 to enable file caching of
+        288 summary tables.
     """
+
+    # returns this blank dataframe if parquet file does not exist
+    default_dataframe = pd.DataFrame(
+        columns=["value"], index=pd.to_datetime([])
+    )
+
+    # used for average/max/count calculation, can be overwritten
+    default_column = "value"
+
+    # set to subclass of Frame288 to enable file caching
+    average_288_model = None
+    maximum_288_model = None
+    count_288_model = None
+
+    @property
+    def average_288_dataframe(self):
+        """
+        Returns a 12 x 24 dataframe of average values.
+        """
+        if self.average_288_model is None:
+            # generate frame 288
+            return self.compute_288_dataframe("average")
+        else:
+            # retrieve from disk
+            return self.read_frame_288_from_disk(
+                frame_288_model=self.average_288_model
+            ).dataframe
+
+    @property
+    def maximum_288_dataframe(self):
+        """
+        Returns a 12 x 24 dataframe of maximum values.
+        """
+        if self.maximum_288_model is None:
+            # generate frame 288
+            return self.compute_288_dataframe("maximum")
+        else:
+            # retrieve from disk
+            return self.read_frame_288_from_disk(
+                frame_288_model=self.maximum_288_model
+            ).dataframe
+
+    @property
+    def count_288_dataframe(self):
+        """
+        Returns a 12 x 24 dataframe of counts.
+        """
+        if self.count_288_model is None:
+            # generate frame 288
+            return self.compute_288_dataframe("count")
+        else:
+            # retrieve from disk
+            return self.read_frame_288_from_disk(
+                frame_288_model=self.count_288_model
+            ).dataframe
 
     @staticmethod
     def validate_dataframe(dataframe):
         """
-        Checks that dataframe.index is a DatetimeIndex and that a value column
-        exists.
+        Checks that dataframe.index is a DatetimeIndex and that a single value
+        column exists.
         """
         if not isinstance(
             dataframe.index, pd.core.indexes.datetimes.DatetimeIndex
@@ -161,8 +238,8 @@ class IntervalFrame(DataFrameFile):
     @staticmethod
     def set_index(dataframe, index_column, convert_to_datetime=False):
         """
-        Sets index on index_column and if convert_to_datetime is True, attempts
-        to covert to a datetime column.
+        Sets index on index_column. If convert_to_datetime is True, attempts
+        to set index as a DatetimeIndex.
 
         :param dataframe: pandas DataFrame
         :param index_column: column to use as index
@@ -217,8 +294,7 @@ class IntervalFrame(DataFrameFile):
         :param convert_to_datetime: convert index_column to datetime if True
         :return: pandas DataFrame
         """
-        csv = requests.get(csv_url).content
-        dataframe = pd.read_csv(io.StringIO(csv.decode("utf-8")))
+        dataframe = csv_url_to_dataframe(csv_url)
         if index_column:
             dataframe = IntervalFrame.set_index(
                 dataframe, index_column, convert_to_datetime
@@ -226,64 +302,110 @@ class IntervalFrame(DataFrameFile):
 
         return cls(reference_object, dataframe)
 
-    @staticmethod
-    def mask_dataframe_date(
-        dataframe, year=None, month=None, day=None, hour=None, *args, **kwargs
-    ):
+    def compute_288_dataframe(self, value_type):
         """
-        Returns dataframe masked to match year, month, day, and/or hour.
-        This method can be overwritten if self.dataframe.index is not a
-        DatetimeIndex.
+        Calculates a 12-month by 24-hour (12 x 24 = 288) dataframe where each
+        cell is either the "average", "maximum", or "count" of all values in
+        that particular month and hour.
 
-        :param year: integer year
-        :param month: integer month
-        :param day: integer day
-        :param hour: integer hour
-        :return: pandas DataFrame
+        :param value_type: choice "average", "maximum", "count"
         """
-        if year is not None:
-            dataframe = dataframe[dataframe.index.year == year]
-        if month is not None:
-            dataframe = dataframe[dataframe.index.month == month]
-        if day is not None:
-            dataframe = dataframe[dataframe.index.day == day]
-        if hour is not None:
-            dataframe = dataframe[dataframe.index.hour == hour]
+        if value_type == "average":
+            default_value = 0  # TODO: default to np.nan fails test
+            aggfunc = np.mean
+        elif value_type == "maximum":
+            default_value = 0  # TODO: default to np.nan fails test
+            aggfunc = np.max
+        elif value_type == "count":
+            default_value = 0
+            aggfunc = len
+        else:
+            raise LookupError("Valid choices are average, maximum, and count.")
 
-        return dataframe
+        # create a default 288
+        default_288 = pd.DataFrame(
+            default_value,
+            columns=[x for x in range(1, 13)],
+            index=[x for x in range(0, 24)],
+        )
 
-    def get_288_matrix(self, column, matrix_values):
+        # create summary 288 limited to self.default_column
+        dataframe = self.dataframe[[self.default_column]]
+        summary_288 = (
+            pd.crosstab(
+                dataframe.index.hour,
+                dataframe.index.month,
+                dataframe.values,
+                aggfunc=aggfunc,
+            )
+            .rename_axis(None)
+            .rename_axis(None, axis=1)
+        )
+
+        # merge summary 288 values into default values
+        default_288.update(summary_288)
+
+        return default_288
+
+    def save_288_objects_to_disk(self):
         """
-        Returns a 12 month by 24 hour (12 x 24 = 288) matrix where each cell is
-        either the "average", "maximum", or "count" of all values in that
-        particular month and hour.
-
-        :param column: column to use for 288 matrix calculation
-        :param matrix_values: choice of "average", "maximum", or "count"
-        :return: pandas 12 x 24 DataFrame
+        Saves average/maximum/count 288 dataframes to disk to reduce future
+        computation time.
         """
-        frame_288 = {}
-
-        for month in range(1, 13):
-            for hour in range(0, 24):
-                if month not in frame_288.keys():
-                    frame_288[month] = {}
-
-                df = self.mask_dataframe_date(
-                    self.dataframe[column], month=month, hour=hour
+        for model_288, value_type in [
+            (self.average_288_model, "average"),
+            (self.maximum_288_model, "maximum"),
+            (self.count_288_model, "count"),
+        ]:
+            if model_288 is not None:
+                obj = model_288(
+                    reference_object=self.reference_object,
+                    dataframe=self.compute_288_dataframe(value_type),
                 )
+                obj.save()
 
-                if df.empty and matrix_values in ["average", "maximum"]:
-                    frame_288[month][hour] = None
-                else:
-                    if matrix_values == "average":
-                        frame_288[month][hour] = df.sum() / df.count()
-                    elif matrix_values == "maximum":
-                        frame_288[month][hour] = df.max()
-                    elif matrix_values == "count":
-                        frame_288[month][hour] = df.count()
+    def read_frame_288_from_disk(self, frame_288_model):
+        """
+        Attempts to retieve Frame288 file from disk or generates and saves to
+        disk if it does not exist.
 
-        return pd.DataFrame.from_dict(frame_288)
+        :param frame_288_model: subclass of Frame288
+        :return: subclass of Frame288 object
+        """
+        frame_288 = frame_288_model.get_frame_from_file(
+            reference_object=self.reference_object
+        )
+
+        # if Frame288 is not found on disk, do one-time calculation of all
+        # frames and save to disk to reduce future computation time
+        if frame_288.dataframe.equals(frame_288_model.default_dataframe):
+            self.save_288_objects_to_disk()
+            frame_288 = frame_288_model.get_frame_from_file(
+                reference_object=self.reference_object
+            )
+
+        return frame_288
+
+    def delete(self, *args, **kwargs):
+        """
+        Delete associated 288 objects from disk.
+        """
+        self.delete_288_objects_from_disk()
+        super().delete(*args, **kwargs)
+
+    def delete_288_objects_from_disk(self):
+        """
+        If associated 288 objects exist on disk, delete them.
+        """
+        for model_288 in [
+            self.average_288_model,
+            self.maximum_288_model,
+            self.count_288_model,
+        ]:
+            if model_288 is not None:
+                file_path = model_288.get_file_path(self.reference_object)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
 
 
 class Frame288(DataFrameFile):
@@ -297,6 +419,11 @@ class Frame288(DataFrameFile):
     22          |   float   |   float   |       |   float   |   float   |
     23          |   float   |   float   |       |   float   |   float   |
     """
+
+    # returns this blank dataframe if parquet file does not exist
+    default_dataframe = pd.DataFrame(
+        columns=[x for x in range(1, 13)], index=[x for x in range(0, 24)]
+    )
 
     def save(self, *args, **kwargs):
         """
@@ -335,7 +462,11 @@ class Frame288(DataFrameFile):
         :param reference_object: reference object IntervalFrame belongs to
         :return: pandas Frame288
         """
-        frame = super().get_frame_from_file(reference_object, *args, **kwargs)
-        if frame:
-            frame.convert_columns_type(np.int64)
-        return frame
+        file_path = cls.get_file_path(reference_object)
+
+        if os.path.exists(file_path):
+            dataframe = pd.read_parquet(file_path)
+            dataframe.columns = dataframe.columns.astype(np.int64)
+            return cls(reference_object, dataframe)
+        else:
+            return cls(reference_object, cls.default_dataframe)
