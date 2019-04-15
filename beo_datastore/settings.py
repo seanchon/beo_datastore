@@ -49,8 +49,8 @@ INSTALLED_APPS = [
     "rest_framework_swagger",
     "polymorphic",
     # apps
-    "interval.apps.IntervalConfig",
-    "reference.openei.apps.OpenEIConfig",
+    "load.customer.apps.CustomerConfig",
+    "load.openei.apps.OpenEIConfig",
     "reference.reference_unit.apps.ReferenceUnitConfig",
 ]
 

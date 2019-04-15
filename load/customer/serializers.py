@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from interval.models import Meter, ServiceDrop
+from load.customer.models import Meter, ServiceDrop
 
 
 class ServiceDropSerializer(serializers.HyperlinkedModelSerializer):

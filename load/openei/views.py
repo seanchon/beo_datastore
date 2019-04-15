@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 
-from reference.openei.models import BuildingType, ReferenceBuilding
-from reference.openei.serializers import (
+from load.openei.models import BuildingType, ReferenceBuilding
+from load.openei.serializers import (
     BuildingTypeSerializer,
     ReferenceBuildingSerializer,
 )

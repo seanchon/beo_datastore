@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 from django.contrib import admin
 
 
-from interval.models import ServiceDrop, Meter
+from load.customer.models import ServiceDrop, Meter
 
 
 class MeterInline(admin.TabularInline):
