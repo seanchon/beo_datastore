@@ -5,7 +5,7 @@ import requests
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.management import call_command
 
-from reference.openei.models import ReferenceBuilding
+from load.openei.models import ReferenceBuilding
 from reference.reference_unit.models import BuildingType, DataUnit
 
 

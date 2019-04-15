@@ -3,8 +3,8 @@ from shutil import copyfile
 
 from beo_datastore.settings import MEDIA_ROOT
 
-from interval.models import Meter, MeterIntervalFrame
-from reference.openei.models import (
+from load.customer.models import Meter, MeterIntervalFrame
+from load.openei.models import (
     ReferenceBuilding,
     ReferenceBuildingIntervalFrame,
 )
@@ -22,7 +22,8 @@ def load_intervalframe_fixtures():
             os.mkdir(MeterIntervalFrame.file_directory)
         copyfile(
             os.path.join(
-                "interval/fixtures/", MeterIntervalFrame.get_filename(meter)
+                "load/customer/fixtures/",
+                MeterIntervalFrame.get_filename(meter),
             ),
             MeterIntervalFrame.get_file_path(meter),
         )
@@ -32,7 +33,7 @@ def load_intervalframe_fixtures():
             os.mkdir(ReferenceBuildingIntervalFrame.file_directory)
         copyfile(
             os.path.join(
-                "reference/openei/fixtures/",
+                "load/openei/fixtures/",
                 ReferenceBuildingIntervalFrame.get_filename(
                     reference_building
                 ),

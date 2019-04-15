@@ -11,13 +11,13 @@ from beo_datastore.libs.fixtures import (
 )
 
 
-class TestEndpointsOpenEI(APITestCase, BasicAuthenticationTestMixin):
+class TestEndpointsInterval(APITestCase, BasicAuthenticationTestMixin):
     """
     Ensures endpoints are only accessible to logged-in users and are rendered
     without errors.
     """
 
-    fixtures = ["reference_unit", "single_reference_building"]
+    fixtures = ["reference_unit", "customer"]
 
     def setUp(self):
         """
@@ -33,8 +33,8 @@ class TestEndpointsOpenEI(APITestCase, BasicAuthenticationTestMixin):
 
         # test following endpoints
         self.endpoints = [
-            "/v1/reference_load/building_type/",
-            "/v1/reference_load/reference_building/",
+            "/v1/load/customer_meter/",
+            "/v1/load/customer_service_drop/",
         ]
 
     def tearDown(self):

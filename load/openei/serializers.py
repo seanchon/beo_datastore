@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from reference.openei.models import BuildingType, ReferenceBuilding
+from load.openei.models import BuildingType, ReferenceBuilding
 
 
 class BuildingTypeSerializer(serializers.HyperlinkedModelSerializer):

@@ -1,6 +1,6 @@
 [
 {
-  "model": "interval.servicedrop",
+  "model": "customer.servicedrop",
   "pk": 1,
   "fields": {
     "sa_id": 0,
@@ -9,7 +9,7 @@
   }
 },
 {
-  "model": "interval.meter",
+  "model": "customer.meter",
   "pk": 1,
   "fields": {
     "export": true,
@@ -18,7 +18,7 @@
   }
 },
 {
-  "model": "interval.meter",
+  "model": "customer.meter",
   "pk": 2,
   "fields": {
     "export": false,

@@ -1,7 +1,7 @@
 from datetime import time
 import pandas as pd
 
-from interval.models import ServiceDrop, Meter, MeterIntervalFrame
+from load.customer.models import ServiceDrop, Meter, MeterIntervalFrame
 from reference.reference_unit.models import DataUnit
 
 
@@ -37,7 +37,8 @@ def run(*args):
     if len(args) != 2:
         print(
             "USAGE `python manage.py runscript "
-            "interval.scripts.ingest_mce_data --script-args FILE SHEET_NAME`"
+            "load.customer.scripts.ingest_pge_data "
+            "--script-args EXCEL_FILE SHEET_NAME`"
         )
         return
     dataframe = pd.read_excel(open(args[0], "rb"), sheet_name=args[1])

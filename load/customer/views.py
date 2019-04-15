@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 
-from interval.models import Meter, ServiceDrop
-from interval.serializers import MeterSerializer, ServiceDropSerializer
+from load.customer.models import Meter, ServiceDrop
+from load.customer.serializers import MeterSerializer, ServiceDropSerializer
 
 
 class ServiceDropViewSet(viewsets.ReadOnlyModelViewSet):
