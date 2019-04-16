@@ -1,0 +1,30 @@
+[
+{
+  "model": "ghg.cleannetshort",
+  "pk": 1,
+  "fields": {
+    "effective": "2018-01-01"
+  }
+},
+{
+  "model": "ghg.cleannetshort",
+  "pk": 2,
+  "fields": {
+    "effective": "2022-01-01"
+  }
+},
+{
+  "model": "ghg.cleannetshort",
+  "pk": 3,
+  "fields": {
+    "effective": "2026-01-01"
+  }
+},
+{
+  "model": "ghg.cleannetshort",
+  "pk": 4,
+  "fields": {
+    "effective": "2030-01-01"
+  }
+}
+]

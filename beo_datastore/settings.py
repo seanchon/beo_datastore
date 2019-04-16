@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "rest_framework_swagger",
     "polymorphic",
     # apps
+    "cost.ghg.apps.GhgConfig",
     "load.customer.apps.CustomerConfig",
     "load.openei.apps.OpenEIConfig",
     "reference.reference_unit.apps.ReferenceUnitConfig",
