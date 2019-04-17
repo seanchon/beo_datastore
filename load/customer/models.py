@@ -6,7 +6,7 @@ import us
 from django.db import models
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.intervalframe import IntervalFrame
+from beo_datastore.libs.intervalframe import IntervalFrameFile
 from beo_datastore.libs.models import ValidationModel
 from beo_datastore.settings import MEDIA_ROOT
 
@@ -43,7 +43,7 @@ class MeterQuerySet(models.QuerySet):
 
     def delete(self, *args, **kwargs):
         """
-        Bulk delete IntervalFrame files from disk.
+        Bulk delete IntervalFrameFile files from disk.
         """
         # TODO: Create a quicker cleanup method.
         for obj in self:
@@ -87,14 +87,14 @@ class Meter(ValidationModel):
     @cached_property
     def intervalframe_from_file(self):
         """
-        Creates IntervalFrame from local parquet copy.
+        Creates IntervalFrameFile from local parquet copy.
         """
         return MeterIntervalFrame.get_frame_from_file(reference_object=self)
 
     @property
     def intervalframe(self):
         """
-        Retrieves IntervalFrame from parquet file.
+        Retrieves IntervalFrameFile from parquet file.
         """
         if not hasattr(self, "_intervalframe"):
             self._intervalframe = self.intervalframe_from_file
@@ -120,9 +120,10 @@ class Meter(ValidationModel):
         return self.intervalframe.count_288_dataframe
 
 
-class MeterIntervalFrame(IntervalFrame):
+class MeterIntervalFrame(IntervalFrameFile):
     """
-    Model for handling Meter IntervalFrames, which have timestamps and values.
+    Model for handling Meter IntervalFrameFiles, which have timestamps and
+    values.
     """
 
     reference_model = Meter
