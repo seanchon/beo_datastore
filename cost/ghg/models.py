@@ -2,7 +2,7 @@ import os
 
 from django.db import models
 
-from beo_datastore.libs.intervalframe import Frame288
+from beo_datastore.libs.intervalframe import Frame288File
 from beo_datastore.libs.models import ValidationModel
 
 
@@ -56,7 +56,7 @@ class CleanNetShort(ValidationModel):
         return self.lookup_table.dataframe
 
 
-class CleanNetShortLookupTable(Frame288):
+class CleanNetShortLookupTable(Frame288File):
     """
     Model for handling CleanNetShortLookupTable Frame288s.
     """

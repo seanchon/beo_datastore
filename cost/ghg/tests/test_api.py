@@ -32,9 +32,7 @@ class TestEndpointsGHG(APITestCase, BasicAuthenticationTestMixin):
         )
 
         # test following endpoints
-        self.endpoints = [
-            "/v1/cost/ghg_clean_net_short/",
-        ]
+        self.endpoints = ["/v1/cost/ghg_clean_net_short/"]
 
     def tearDown(self):
         flush_intervalframe_fixtures()

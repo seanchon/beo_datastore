@@ -64,16 +64,20 @@ def run(*args):
             df["level_1"] = df["level_1"].astype(str)
             df["index"] = df["DATE"] + " " + df["level_1"]
             df.drop(["DATE", "level_1"], axis=1, inplace=True)
-            df.rename(index=str, columns={0: "value"}, inplace=True)
+            df.rename(index=str, columns={0: "kw"}, inplace=True)
             df.set_index("index", inplace=True)
             df.index = pd.to_datetime(df.index)
 
             if export:
-                df["value"] = df["value"] * -1.0
+                df["kw"] = df["kw"] * -1.0
+
+            # convert 15-minute kwh to kw
+            if "15-minute" in args[1]:
+                df["kw"] = df["kw"] * 4.0
 
             meter, _ = Meter.objects.get_or_create(
                 export=export,
-                data_unit=DataUnit.objects.get(name="kwh"),
+                data_unit=DataUnit.objects.get(name="kw"),
                 service_drop=service_drop,
             )
             meter.intervalframe = MeterIntervalFrame(meter, df)

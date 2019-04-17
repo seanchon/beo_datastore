@@ -10,7 +10,7 @@ from django.db import models
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.dataframe import csv_url_to_dataframe
-from beo_datastore.libs.intervalframe import IntervalFrame
+from beo_datastore.libs.intervalframe import IntervalFrameFile
 from beo_datastore.libs.models import ValidationModel
 from beo_datastore.settings import MEDIA_ROOT
 
@@ -24,7 +24,7 @@ class ReferenceBuildingQuerySet(models.QuerySet):
 
     def delete(self, *args, **kwargs):
         """
-        Bulk delete IntervalFrame files from disk.
+        Bulk delete IntervalFrameFile files from disk.
         """
         # TODO: Create a quicker cleanup method.
         for obj in self:
@@ -87,7 +87,7 @@ class ReferenceBuilding(ValidationModel):
     @cached_property
     def source_file_intervalframe(self):
         """
-        Creates IntervalFrame from csv_url.
+        Creates IntervalFrameFile from csv_url.
         """
         dataframe = csv_url_to_dataframe(self.source_file_url)
 
@@ -106,7 +106,7 @@ class ReferenceBuilding(ValidationModel):
     @cached_property
     def intervalframe_from_file(self):
         """
-        Creates IntervalFrame from local parquet copy.
+        Creates IntervalFrameFile from local parquet copy.
         """
         return ReferenceBuildingIntervalFrame.get_frame_from_file(
             reference_object=self
@@ -115,7 +115,7 @@ class ReferenceBuilding(ValidationModel):
     @property
     def intervalframe(self):
         """
-        Returns IntervalFrame sourced from the source_file_url or cached
+        Returns IntervalFrameFile sourced from the source_file_url or cached
         locally. If sourced from source_file_url, performs save() to disk.
         """
         if not hasattr(self, "_intervalframe"):
@@ -151,25 +151,21 @@ class ReferenceBuilding(ValidationModel):
         return self.intervalframe.count_288_dataframe
 
 
-class ReferenceBuildingIntervalFrame(IntervalFrame):
+class ReferenceBuildingIntervalFrame(IntervalFrameFile):
     """
-    Model for handling ReferenceBuilding IntervalFrames, which have timestamps
-    with ambiguous year as well as multiple columns representing energy usage
-    in various categories (ex. facility, lights, HVAC, etc.).
+    Model for handling ReferenceBuilding IntervalFrameFiles, which have
+    timestamps with ambiguous year as well as multiple columns representing
+    energy usage in various categories (ex. facility, lights, HVAC, etc.).
     """
 
     reference_model = ReferenceBuilding
     file_directory = os.path.join(MEDIA_ROOT, "reference_buildings")
-    default_column = "Electricity:Facility [kW](Hourly)"
+    aggregation_column = "Electricity:Facility [kW](Hourly)"
 
-    @staticmethod
-    def validate_dataframe(dataframe):
+    @classmethod
+    def validate_dataframe_columns(cls, dataframe):
         """
-        Checks that dataframe.index is a DatetimeIndex. Multiple columns exist
-        in OpenEI for a variety of use cases (ex. heating), so columns are not
-        validated.
+        Multiple columns exist in OpenEI for a variety of use cases
+        (ex. heating), so columns are not validated.
         """
-        if not isinstance(
-            dataframe.index, pd.core.indexes.datetimes.DatetimeIndex
-        ):
-            raise TypeError("DataFrame index must be DatetimeIndex.")
+        pass

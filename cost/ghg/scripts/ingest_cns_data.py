@@ -15,12 +15,12 @@ def get_year_from_filename(filename):
 
 
 def run():
-    data_dir = 'cost/ghg/scripts/data/'
+    data_dir = "cost/ghg/scripts/data/"
     for csv_file in [
-        'cns_2018.csv',
-        'cns_2022.csv',
-        'cns_2026.csv',
-        'cns_2030.csv',
+        "cns_2018.csv",
+        "cns_2022.csv",
+        "cns_2026.csv",
+        "cns_2030.csv",
     ]:
         path = os.path.join(BASE_DIR, data_dir, csv_file)
         dataframe = pd.read_csv(path, index_col=0)
@@ -33,7 +33,6 @@ def run():
             effective=date(get_year_from_filename(csv_file), 1, 1)
         )
         cns.lookup_table = CleanNetShortLookupTable(
-            reference_object=cns,
-            dataframe=dataframe,
+            reference_object=cns, dataframe=dataframe
         )
         cns.save()
