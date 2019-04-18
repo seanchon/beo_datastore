@@ -1,6 +1,8 @@
 import os
 from shutil import copyfile, rmtree
 
+from django.core.management import call_command
+
 from beo_datastore.settings import MEDIA_ROOT
 
 from cost.ghg.models import CleanNetShort, CleanNetShortLookupTable
@@ -11,7 +13,21 @@ from load.openei.models import (
 )
 
 
-def load_intervalframe_fixtures():
+def load_all_fixtures():
+    """
+    Loads base fixtures in defined order.
+    """
+    call_command(
+        "loaddata",
+        "reference_model",
+        "customer",
+        "ghg",
+        "openei",
+        "utility_rate",
+    )
+
+
+def load_intervalframe_files():
     """
     Loads parquet fixtures to MEDIA_ROOT.
     """
@@ -30,13 +46,14 @@ def load_intervalframe_fixtures():
         for object in reference_model.objects.all():
             if not os.path.exists(frame_model.file_directory):
                 os.mkdir(frame_model.file_directory)
-            copyfile(
-                os.path.join(fixture_dir, frame_model.get_filename(object)),
-                frame_model.get_file_path(object),
+            intervalframe_file = os.path.join(
+                fixture_dir, frame_model.get_filename(object)
             )
+            if os.path.exists(intervalframe_file):
+                copyfile(intervalframe_file, frame_model.get_file_path(object))
 
 
-def flush_intervalframe_fixtures():
+def flush_intervalframe_files():
     """
     Deletes parquet fixtures from MEDIA_ROOT.
     """

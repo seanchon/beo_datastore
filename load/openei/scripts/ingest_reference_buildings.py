@@ -29,22 +29,22 @@ def get_links(url, filter_string):
     return links
 
 
-def get_commercial_load_data_directories(url):
+def get_commercial_load_data_directories(url, state):
     """
     Returns all directory links (CA only) from:
 
     https://openei.org/datasets/files/961/pub
     /COMMERCIAL_LOAD_DATA_E_PLUS_OUTPUT/
     """
-    return [(url + x) for x in get_links(url, "USA_CA")]
+    return [(url + x) for x in get_links(url, "USA_{}".format(state))]
 
 
-def get_all_commercial_load_data_links(url):
+def get_all_commercial_load_data_links(url, state):
     """
     Returns all .csv files located in sub directories.
     """
     links = []
-    for base_dir in get_commercial_load_data_directories(url):
+    for base_dir in get_commercial_load_data_directories(url, state):
         links += [(base_dir + x) for x in get_links(base_dir, ".csv")]
 
     return links
@@ -101,14 +101,27 @@ def parse_building_attributes(csv_url):
         return None
 
 
-def run():
+def run(*args):
+    """
+    Usage:
+        - python manage.py runscript load.openei.ingest_reference_buildings --script-args STATE
+    """
+    if len(args) != 1:
+        print(
+            "USAGE `python manage.py runscript "
+            "load.openei.ingest_reference_buildings "
+            "--script-args STATE`"
+        )
+        return
+    state = args[0]
+
     load_reference_models()
-    links = get_all_commercial_load_data_links(COMMERCIAL_LOAD_DATA)
+    links = get_all_commercial_load_data_links(COMMERCIAL_LOAD_DATA, state)
     building_attrs = [parse_building_attributes(link) for link in links]
     for (csv_url, building_type, location, tmy3) in building_attrs:
         ReferenceBuilding.objects.get_or_create(
             location=location,
-            state="CA",
+            state=state,
             TMY3_id=tmy3,
             source_file_url=csv_url,
             data_unit=DataUnit.objects.get(name="kwh"),

@@ -15,6 +15,10 @@ def get_year_from_filename(filename):
 
 
 def run():
+    """
+    Usage:
+        - python manage.py runscript cost.ghg.scripts.ingest_cns_data
+    """
     data_dir = "cost/ghg/scripts/data/"
     for csv_file in [
         "cns_2018.csv",
@@ -28,6 +32,9 @@ def run():
 
         # convert from hours 1 through 24 to 0 through 23
         dataframe.index = dataframe.index - 1
+
+        # convert from tCO2/MWh to tCO2/kWh
+        dataframe = dataframe / 1000
 
         cns, _ = CleanNetShort.objects.get_or_create(
             effective=date(get_year_from_filename(csv_file), 1, 1)
