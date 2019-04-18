@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 from django.contrib import admin
 
 
-from reference.reference_unit.models import BuildingType, DataUnit
+from reference.reference_model.models import BuildingType, DataUnit
 
 
 @admin.register(BuildingType)

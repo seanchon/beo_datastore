@@ -20,7 +20,8 @@ class MeterSerializer(serializers.HyperlinkedModelSerializer):
             "export",
             "data_unit",
             "service_drop",
-            "average_288_dataframe",
-            "maximum_288_dataframe",
-            "count_288_dataframe",
+            "count_288",
+            "total_288",
+            "average_288",
+            "peak_288",
         )

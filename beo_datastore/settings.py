@@ -50,9 +50,10 @@ INSTALLED_APPS = [
     "polymorphic",
     # apps
     "cost.ghg.apps.GhgConfig",
+    "cost.utility_rate.apps.UtilityRateConfig",
     "load.customer.apps.CustomerConfig",
     "load.openei.apps.OpenEIConfig",
-    "reference.reference_unit.apps.ReferenceUnitConfig",
+    "reference.reference_model.apps.ReferenceModelConfig",
 ]
 
 MIDDLEWARE = [

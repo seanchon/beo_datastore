@@ -22,7 +22,8 @@ class ReferenceBuildingSerializer(serializers.HyperlinkedModelSerializer):
             "state",
             "source_file_url",
             "building_type",
-            "average_288_dataframe",
-            "maximum_288_dataframe",
-            "count_288_dataframe",
+            "count_288",
+            "total_288",
+            "average_288",
+            "peak_288",
         )

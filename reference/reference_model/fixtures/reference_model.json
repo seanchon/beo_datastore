@@ -1,6 +1,6 @@
 [
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 1,
   "fields": {
     "name": "Large Office",
@@ -9,7 +9,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 2,
   "fields": {
     "name": "Medium Office",
@@ -18,7 +18,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 3,
   "fields": {
     "name": "Small Office",
@@ -27,7 +27,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 4,
   "fields": {
     "name": "Warehouse",
@@ -36,7 +36,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 5,
   "fields": {
     "name": "Stand-alone Retail",
@@ -45,7 +45,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 6,
   "fields": {
     "name": "Strip Mall",
@@ -54,7 +54,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 7,
   "fields": {
     "name": "Primary School",
@@ -63,7 +63,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 8,
   "fields": {
     "name": "Secondary School",
@@ -72,7 +72,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 9,
   "fields": {
     "name": "Super Market",
@@ -81,7 +81,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 10,
   "fields": {
     "name": "Quick Service Restaurant",
@@ -90,7 +90,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 11,
   "fields": {
     "name": "Full Service Restaurant",
@@ -99,7 +99,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 12,
   "fields": {
     "name": "Hospital",
@@ -108,7 +108,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 13,
   "fields": {
     "name": "Outpatient Health Care",
@@ -117,7 +117,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 14,
   "fields": {
     "name": "Small Hotel",
@@ -126,7 +126,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 15,
   "fields": {
     "name": "Large Hotel",
@@ -135,7 +135,7 @@
   }
 },
 {
-  "model": "reference_unit.buildingtype",
+  "model": "reference_model.buildingtype",
   "pk": 16,
   "fields": {
     "name": "Midrise Apartment",
@@ -144,24 +144,79 @@
   }
 },
 {
-  "model": "reference_unit.dataunit",
+  "model": "reference_model.dataunit",
   "pk": 1,
   "fields": {
     "name": "kwh"
   }
 },
 {
-  "model": "reference_unit.dataunit",
+  "model": "reference_model.dataunit",
   "pk": 2,
   "fields": {
     "name": "kw"
   }
 },
 {
-  "model": "reference_unit.dataunit",
+  "model": "reference_model.dataunit",
   "pk": 3,
   "fields": {
     "name": "therm"
+  }
+},
+{
+  "model": "reference_model.utility",
+  "pk": 1,
+  "fields": {
+    "name": "Pacific Gas & Electric Co"
+  }
+},
+{
+  "model": "reference_model.voltagecategory",
+  "pk": 1,
+  "fields": {
+    "name": "Primary",
+    "utility": 1
+  }
+},
+{
+  "model": "reference_model.voltagecategory",
+  "pk": 2,
+  "fields": {
+    "name": "Secondary",
+    "utility": 1
+  }
+},
+{
+  "model": "reference_model.voltagecategory",
+  "pk": 3,
+  "fields": {
+    "name": "Transmission",
+    "utility": 1
+  }
+},
+{
+  "model": "reference_model.sector",
+  "pk": 1,
+  "fields": {
+    "name": "Residential",
+    "utility": 1
+  }
+},
+{
+  "model": "reference_model.sector",
+  "pk": 2,
+  "fields": {
+    "name": "Commercial",
+    "utility": 1
+  }
+},
+{
+  "model": "reference_model.sector",
+  "pk": 3,
+  "fields": {
+    "name": "Industrial",
+    "utility": 1
   }
 }
 ]

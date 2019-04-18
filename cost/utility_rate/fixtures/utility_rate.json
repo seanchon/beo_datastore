@@ -1,0 +1,26 @@
+[
+{
+  "model": "utility_rate.rateplan",
+  "pk": 1,
+  "fields": {
+    "name": "E-1 - Baseline Region Q",
+    "description": "This schedule is applicable to single-phase and polyphase residential service in single-family dwellings and in flats and apartments separately metered by PG&E; to single-phase and polyphase service in common areas in a multifamily complex; and to all single-phase and polyphase farm service on the premises operated by the person whose residence is supplied through the same meter.",
+    "demand_min": null,
+    "demand_max": null,
+    "utility": 1,
+    "sector": 1,
+    "voltage_category": null
+  }
+},
+{
+  "model": "utility_rate.ratecollection",
+  "pk": 1,
+  "fields": {
+    "rate_data": "{\"_id\":{\"$oid\":\"539f6b25ec4f024411ec98c9\"},\"approved\":true,\"demandRateUnits\":\"kW\",\"description\":\"This schedule is applicable to single-phase and polyphase residential service in single-family dwellings and in flats and apartments separately metered by PG&E; to single-phase and polyphase service in common areas in a multifamily complex; and to all single-phase and polyphase farm service on the premises operated by the person whose residence is supplied through the same meter.\",\"effectiveDate\":{\"$date\":1388556000000},\"eiaId\":14328,\"endDate\":{\"$date\":1406764800000},\"energyComments\":\"A Minimum Charge Rate of $0.14784 per meter per day may apply.\",\"energyRateStrux\":[{\"energyRateTiers\":[{\"max\":7.5,\"rate\":0.1323,\"adj\":0,\"unit\":\"kWh\"},{\"max\":9.75,\"rate\":0.1504,\"adj\":0,\"unit\":\"kWh\"},{\"max\":15,\"rate\":0.32377,\"adj\":0,\"unit\":\"kWh\"},{\"max\":22.5,\"rate\":0.36377,\"adj\":0,\"unit\":\"kWh\"},{\"rate\":0.36377,\"adj\":0,\"unit\":\"kWh\"}]},{\"energyRateTiers\":[{\"max\":11.7,\"rate\":0.1323,\"adj\":0,\"unit\":\"kWh\"},{\"max\":15.21,\"rate\":0.1504,\"adj\":0,\"unit\":\"kWh\"},{\"max\":23.4,\"rate\":0.32377,\"adj\":0,\"unit\":\"kWh\"},{\"max\":35.1,\"rate\":0.36377,\"adj\":0,\"unit\":\"kWh\"},{\"rate\":0.36377,\"adj\":0,\"unit\":\"kWh\"}]}],\"energyWeekdaySched\":[[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],\"energyWeekendSched\":[[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]],\"flatDemandUnits\":\"kW\",\"rateName\":\"E-1 - Baseline Region Q\",\"revisions\":[{\"date\":{\"$date\":1392229734000},\"userid\":\"3646\"},{\"date\":{\"$date\":1392229777000},\"userid\":\"3646\"},{\"date\":{\"$date\":1392229804000},\"userid\":\"3646\"},{\"date\":{\"$date\":1392229922000},\"userid\":\"3646\"},{\"date\":{\"$date\":1393366371000},\"userid\":\"3646\"},{\"userid\":\"6879\",\"date\":{\"$date\":1409063763000}},{\"date\":{\"$date\":1427405218514},\"userid\":\"3070\"}],\"sector\":\"Residential\",\"sourceParent\":\"http://www.pge.com/tariffs/ERS.SHTML#ERS\",\"sourceReference\":\"http://www.pge.com/tariffs/tm2/pdf/ELEC_SCHEDS_E-1.pdf\",\"utilityName\":\"Pacific Gas & Electric Co\",\"demandUnits\":\"kW\"}",
+    "openei_url": "https://openei.org/apps/USURDB/rate_data/view/539f6b25ec4f024411ec98c9",
+    "utility_url": "http://www.pge.com/tariffs/tm2/pdf/ELEC_SCHEDS_E-1.pdf",
+    "effective_date": "2014-01-01",
+    "rate_plan": 1
+  }
+}
+]

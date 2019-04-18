@@ -22,7 +22,7 @@ $ source <env_name>/bin/activate
 The following base data can be installed via fixtures. The first is for required reference units and the second is optional to load OpenEI data. Loading OpenEI fixtures can be done in lieu of running the OpenEI script.
 
 ```
-(<env_name>)$ python manage.py loaddata reference_unit
+(<env_name>)$ python manage.py loaddata reference_model
 (<env_name>)$ python manage.py loaddata openei
 ```
 

@@ -11,13 +11,13 @@ from beo_datastore.libs.fixtures import (
 )
 
 
-class TestEndpointsCustomer(APITestCase, BasicAuthenticationTestMixin):
+class TestEndpointsUtilityRate(APITestCase, BasicAuthenticationTestMixin):
     """
     Ensures endpoints are only accessible to logged-in users and are rendered
     without errors.
     """
 
-    fixtures = ["reference_model", "customer"]
+    fixtures = ["reference_model", "utility_rate"]
 
     def setUp(self):
         """
@@ -33,8 +33,8 @@ class TestEndpointsCustomer(APITestCase, BasicAuthenticationTestMixin):
 
         # test following endpoints
         self.endpoints = [
-            "/v1/load/customer_meter/",
-            "/v1/load/customer_service_drop/",
+            "/v1/cost/utility_rate_plan/",
+            "/v1/cost/utility_rate_collection/",
         ]
 
     def tearDown(self):

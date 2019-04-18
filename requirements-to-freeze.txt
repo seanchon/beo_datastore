@@ -12,6 +12,7 @@ djangorestframework
 Faker
 ipdb
 ipython
+jsonfield
 pandas
 pre-commit
 pyarrow
