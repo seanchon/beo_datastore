@@ -9,7 +9,7 @@ from load.customer.models import Meter
 
 
 class TestDataFrameFile(TestCase):
-    fixtures = ["reference_unit", "customer"]
+    fixtures = ["reference_model", "customer"]
 
     def setUp(self):
         """

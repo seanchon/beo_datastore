@@ -6,7 +6,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.core.management import call_command
 
 from load.openei.models import ReferenceBuilding
-from reference.reference_unit.models import BuildingType, DataUnit
+from reference.reference_model.models import BuildingType, DataUnit
 
 
 COMMERCIAL_LOAD_DATA = (
@@ -15,8 +15,8 @@ COMMERCIAL_LOAD_DATA = (
 )
 
 
-def load_reference_units():
-    call_command("loaddata", "reference_unit")
+def load_reference_models():
+    call_command("loaddata", "reference_model")
 
 
 def get_links(url, filter_string):
@@ -102,7 +102,7 @@ def parse_building_attributes(csv_url):
 
 
 def run():
-    load_reference_units()
+    load_reference_models()
     links = get_all_commercial_load_data_links(COMMERCIAL_LOAD_DATA)
     building_attrs = [parse_building_attributes(link) for link in links]
     for (csv_url, building_type, location, tmy3) in building_attrs:

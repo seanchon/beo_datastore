@@ -2,7 +2,7 @@ from datetime import time
 import pandas as pd
 
 from load.customer.models import ServiceDrop, Meter, MeterIntervalFrame
-from reference.reference_unit.models import DataUnit
+from reference.reference_model.models import DataUnit
 
 
 # BEO source file located at https://tvrp.app.box.com/file/420277168014

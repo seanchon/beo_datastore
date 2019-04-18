@@ -14,7 +14,7 @@ from beo_datastore.libs.intervalframe import IntervalFrameFile
 from beo_datastore.libs.models import ValidationModel
 from beo_datastore.settings import MEDIA_ROOT
 
-from reference.reference_unit.models import BuildingType, DataUnit
+from reference.reference_model.models import BuildingType, DataUnit
 
 
 class ReferenceBuildingQuerySet(models.QuerySet):
@@ -139,15 +139,31 @@ class ReferenceBuilding(ValidationModel):
         self._intervalframe = intervalframe
 
     @property
-    def average_288_dataframe(self):
+    def total_288(self):
+        """
+        Returns a 12 x 24 dataframe of totals (sums).
+        """
+        return self.intervalframe.sum_288_dataframe
+
+    @property
+    def average_288(self):
+        """
+        Returns a 12 x 24 dataframe of averages.
+        """
         return self.intervalframe.average_288_dataframe
 
     @property
-    def maximum_288_dataframe(self):
+    def peak_288(self):
+        """
+        Returns a 12 x 24 dataframe of peaks.
+        """
         return self.intervalframe.maximum_288_dataframe
 
     @property
-    def count_288_dataframe(self):
+    def count_288(self):
+        """
+        Returns a 12 x 24 dataframe of counts.
+        """
         return self.intervalframe.count_288_dataframe
 
 

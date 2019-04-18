@@ -391,8 +391,11 @@ class Frame288File(ValidationFrame288, DataFrameFile):
         """
         Convert columns to string on save().
         """
-        self.dataframe = convert_columns_type(self.dataframe, np.int64)
-        super().save(*args, **kwargs)
+        if not os.path.exists(self.file_directory):
+            os.mkdir(self.file_directory)
+        if self.reference_object.id is not None:
+            dataframe = convert_columns_type(self.dataframe, str)
+            dataframe.to_parquet(self.file_path)
 
     @classmethod
     def get_frame_from_file(cls, reference_object, *args, **kwargs):

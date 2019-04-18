@@ -17,7 +17,7 @@ class TestEndpointsOpenEI(APITestCase, BasicAuthenticationTestMixin):
     without errors.
     """
 
-    fixtures = ["reference_unit", "single_reference_building"]
+    fixtures = ["reference_model", "single_reference_building"]
 
     def setUp(self):
         """
