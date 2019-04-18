@@ -54,6 +54,14 @@ The following script will ingest GHG lookup tables from the CPUC's Clean Net Sho
 (<env_name>)$ python manage.py runscript cost.ghg.scripts.ingest_cns_data
 ```
 
+### OpenEI Utility Rate Database
+
+The following script will ingest utility rate data from OpenEI's Utility Rate Database.
+
+```
+(<env_name>)$ python manage.py runscript cost.utility_rate.scripts.ingest_utility_rates --script-args UTILITY_NAME
+```
+
 # UPDATING PIP PACKAGES
 
 This project follows the recommended process outlined in https://www.kennethreitz.org/essays/a-better-pip-workflow.
