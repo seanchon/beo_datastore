@@ -91,7 +91,7 @@ Where EXCEL_FILE is the location of an Item 17 file and SHEET_NAME is the name o
 The following script will ingest GHG lookup tables from the CPUC's Clean Net Short Calculator Tool - http://www.cpuc.ca.gov/General.aspx?id=6442451195.
 
 ```
-(<env_name>)$ python manage.py runscript cost.ghg.scripts.ingest_cns_data
+(<env_name>)$ python manage.py runscript cost.ghg.scripts.ingest_ghg_data
 ```
 
 ### OpenEI Utility Rate Database

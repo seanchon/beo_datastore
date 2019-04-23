@@ -16,6 +16,7 @@ class BuildingType(ValidationModel):
 
     class Meta:
         ordering = ["id"]
+        unique_together = ("name", "floor_area", "number_of_floors")
 
     def __str__(self):
         return self.name
@@ -28,7 +29,7 @@ class DataUnit(ValidationModel):
     Ex. kw, kwh, therms
     """
 
-    name = models.CharField(max_length=8)
+    name = models.CharField(max_length=8, unique=True)
 
     class Meta:
         ordering = ["id"]
@@ -37,12 +38,36 @@ class DataUnit(ValidationModel):
         return self.name
 
 
+class RateUnit(ValidationModel):
+    """
+    Units of rate.
+
+    Ex. $/kw, $/day, tCO2/kwh
+    """
+
+    numerator = models.ForeignKey(
+        DataUnit, related_name="rate_unit_numerators", on_delete=models.PROTECT
+    )
+    denominator = models.ForeignKey(
+        DataUnit,
+        related_name="rate_unit_denominators",
+        on_delete=models.PROTECT,
+    )
+
+    class Meta:
+        ordering = ["id"]
+        unique_together = ("numerator", "denominator")
+
+    def __str__(self):
+        return "{}/{}".format(self.numerator, self.denominator)
+
+
 class Utility(ValidationModel):
     """
     Investor Owned Utility.
     """
 
-    name = models.CharField(max_length=32)
+    name = models.CharField(max_length=32, unique=True)
 
     class Meta:
         ordering = ["id"]
@@ -63,6 +88,7 @@ class VoltageCategory(ValidationModel):
 
     class Meta:
         ordering = ["id"]
+        unique_together = ("name", "utility")
 
     def __str__(self):
         return self.name
@@ -82,6 +108,7 @@ class Sector(ValidationModel):
 
     class Meta:
         ordering = ["id"]
+        unique_together = ("name", "utility")
 
     def __str__(self):
         return self.name

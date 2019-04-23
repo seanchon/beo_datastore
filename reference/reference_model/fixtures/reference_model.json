@@ -165,6 +165,44 @@
   }
 },
 {
+  "model": "reference_model.dataunit",
+  "pk": 4,
+  "fields": {
+    "name": "$"
+  }
+},
+{
+  "model": "reference_model.dataunit",
+  "pk": 5,
+  "fields": {
+    "name": "tCO2"
+  }
+},
+{
+  "model": "reference_model.rateunit",
+  "pk": 1,
+  "fields": {
+    "numerator": 4,
+    "denominator": 1
+  }
+},
+{
+  "model": "reference_model.rateunit",
+  "pk": 2,
+  "fields": {
+    "numerator": 4,
+    "denominator": 2
+  }
+},
+{
+  "model": "reference_model.rateunit",
+  "pk": 3,
+  "fields": {
+    "numerator": 5,
+    "denominator": 1
+  }
+},
+{
   "model": "reference_model.utility",
   "pk": 1,
   "fields": {
