@@ -1,8 +1,8 @@
 from django.test import TestCase
 
 from beo_datastore.libs.fixtures import (
-    flush_intervalframe_fixtures,
-    load_intervalframe_fixtures,
+    flush_intervalframe_files,
+    load_intervalframe_files,
 )
 
 from load.customer.models import Meter
@@ -15,13 +15,13 @@ class TestDataFrameFile(TestCase):
         """
         Copy parquet (dataframe) files to test MEDIA_ROOT.
         """
-        load_intervalframe_fixtures()
+        load_intervalframe_files()
 
     def tearDown(self):
         """
         Remove test MEDIA_ROOT and contents.
         """
-        flush_intervalframe_fixtures()
+        flush_intervalframe_files()
 
     def test_load_intervalframe(self):
         """

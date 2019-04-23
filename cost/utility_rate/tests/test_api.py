@@ -6,8 +6,8 @@ from django.contrib.auth.models import User
 
 from beo_datastore.libs.api.tests import BasicAuthenticationTestMixin
 from beo_datastore.libs.fixtures import (
-    flush_intervalframe_fixtures,
-    load_intervalframe_fixtures,
+    flush_intervalframe_files,
+    load_intervalframe_files,
 )
 
 
@@ -23,7 +23,7 @@ class TestEndpointsUtilityRate(APITestCase, BasicAuthenticationTestMixin):
         """
         Initialize endpoints to test and loads parquet files.
         """
-        load_intervalframe_fixtures()
+        load_intervalframe_files()
 
         # create fake API user
         faker = Factory.create()
@@ -38,4 +38,4 @@ class TestEndpointsUtilityRate(APITestCase, BasicAuthenticationTestMixin):
         ]
 
     def tearDown(self):
-        flush_intervalframe_fixtures()
+        flush_intervalframe_files()

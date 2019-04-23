@@ -34,6 +34,10 @@ def get_rate_plan(dataframe, said):
 
 
 def run(*args):
+    """
+    Usage:
+        - python manage.py runscript load.customer.scripts.ingest_pge_data --script-args EXCEL_FILE SHEET_NAME
+    """
     if len(args) != 2:
         print(
             "USAGE `python manage.py runscript "

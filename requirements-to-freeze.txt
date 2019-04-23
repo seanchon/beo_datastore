@@ -13,10 +13,12 @@ Faker
 ipdb
 ipython
 jsonfield
+notebook
 pandas
 pre-commit
 pyarrow
 requests
+rise
 us
 Werkzeug
 xlrd

@@ -13,7 +13,7 @@
   "pk": 1,
   "fields": {
     "export": true,
-    "data_unit": 1,
+    "data_unit": 2,
     "service_drop": 1
   }
 },
@@ -22,7 +22,7 @@
   "pk": 2,
   "fields": {
     "export": false,
-    "data_unit": 1,
+    "data_unit": 2,
     "service_drop": 1
   }
 }

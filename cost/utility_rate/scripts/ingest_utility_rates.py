@@ -34,6 +34,10 @@ def convert_epoch_to_datetime(epoch_milliseconds):
 
 
 def run(*args):
+    """
+    Usage:
+        - python manage.py runscript cost.utility_rate.scripts.ingest_utility_rates --script-args UTILITY_NAME
+    """
     if len(args) != 1:
         print(
             "USAGE `python manage.py runscript "
