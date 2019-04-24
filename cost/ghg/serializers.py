@@ -1,9 +1,11 @@
 from rest_framework import serializers
 
-from cost.ghg.models import CleanNetShort
+from cost.ghg.models import GHGRate
 
 
-class CleanNetShortSerializer(serializers.HyperlinkedModelSerializer):
+class GHGRateSerializer(serializers.HyperlinkedModelSerializer):
+    rate_unit = serializers.CharField(source="rate_unit.__str__")
+
     class Meta:
-        model = CleanNetShort
-        fields = ("effective", "lookup_table_dataframe")
+        model = GHGRate
+        fields = ("effective", "rate_unit", "lookup_table_dataframe")

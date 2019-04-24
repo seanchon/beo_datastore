@@ -5,7 +5,7 @@ from django.core.management import call_command
 
 from beo_datastore.settings import MEDIA_ROOT
 
-from cost.ghg.models import CleanNetShort, CleanNetShortLookupTable
+from cost.ghg.models import GHGRate, GHGRateLookupTable
 from load.customer.models import Meter, MeterIntervalFrame
 from load.openei.models import (
     ReferenceBuilding,
@@ -35,7 +35,7 @@ def load_intervalframe_files():
         os.mkdir(MEDIA_ROOT)
 
     for (reference_model, frame_model, fixture_dir) in [
-        (CleanNetShort, CleanNetShortLookupTable, "cost/ghg/fixtures/"),
+        (GHGRate, GHGRateLookupTable, "cost/ghg/fixtures/"),
         (Meter, MeterIntervalFrame, "load/customer/fixtures/"),
         (
             ReferenceBuilding,

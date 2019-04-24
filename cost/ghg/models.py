@@ -5,23 +5,32 @@ from django.db import models
 from beo_datastore.libs.intervalframe import Frame288File
 from beo_datastore.libs.models import ValidationModel
 
+from reference.reference_model.models import RateUnit
 
-class CleanNetShort(ValidationModel):
+
+class GHGRate(ValidationModel):
     """
-    Provides lookup-values for Clean Net Short GHG emissions calculations
-    taken from the "Clean Net Short Calculator Tool" ("Emissions Factors" tab)
-    on the CPUC's website.
-
-    Source: http://www.cpuc.ca.gov/General.aspx?id=6442451195
+    Provides lookup-values for GHG emissions calculations.
     """
 
-    effective = models.DateField(blank=False, null=False)
+    name = models.CharField(max_length=32)
+    effective = models.DateField(blank=True, null=True)
+    source = models.URLField(max_length=128, blank=True, null=True)
+    rate_unit = models.ForeignKey(
+        RateUnit, related_name="ghg_cost", on_delete=models.PROTECT
+    )
 
     class Meta:
         ordering = ["id"]
+        unique_together = ("name", "effective")
 
     def __str__(self):
-        return "Clean Net Short (effective: {})".format(self.effective)
+        if self.effective:
+            return "{} effective: {} ({})".format(
+                self.name, self.effective, self.rate_unit
+            )
+        else:
+            return "{} ({})".format(self.name, self.rate_unit)
 
     def save(self, *args, **kwargs):
         if hasattr(self, "_lookup_table"):
@@ -36,10 +45,10 @@ class CleanNetShort(ValidationModel):
     @property
     def lookup_table(self):
         """
-        Retrieves CleanNetShortLookupTable from parquet file.
+        Retrieves GHGRateLookupTable from parquet file.
         """
         if not hasattr(self, "_lookup_table"):
-            self._lookup_table = CleanNetShortLookupTable.get_frame_from_file(
+            self._lookup_table = GHGRateLookupTable.get_frame_from_file(
                 reference_object=self
             )
         return self._lookup_table
@@ -56,10 +65,10 @@ class CleanNetShort(ValidationModel):
         return self.lookup_table.dataframe
 
 
-class CleanNetShortLookupTable(Frame288File):
+class GHGRateLookupTable(Frame288File):
     """
-    Model for handling CleanNetShortLookupTable Frame288s.
+    Model for handling GHGRateLookupTable Frame288s.
     """
 
-    reference_model = CleanNetShort
+    reference_model = GHGRate
     file_directory = os.path.join("MEDIA_ROOT", "lookup_tables")

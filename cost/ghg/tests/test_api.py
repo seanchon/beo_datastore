@@ -17,7 +17,7 @@ class TestEndpointsGHG(APITestCase, BasicAuthenticationTestMixin):
     without errors.
     """
 
-    fixtures = ["ghg"]
+    fixtures = ["reference_model", "ghg"]
 
     def setUp(self):
         """
@@ -32,7 +32,7 @@ class TestEndpointsGHG(APITestCase, BasicAuthenticationTestMixin):
         )
 
         # test following endpoints
-        self.endpoints = ["/v1/cost/ghg_clean_net_short/"]
+        self.endpoints = ["/v1/cost/ghg_rate/"]
 
     def tearDown(self):
         flush_intervalframe_files()

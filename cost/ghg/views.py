@@ -1,13 +1,13 @@
 from rest_framework import viewsets
 
-from cost.ghg.models import CleanNetShort
-from cost.ghg.serializers import CleanNetShortSerializer
+from cost.ghg.models import GHGRate
+from cost.ghg.serializers import GHGRateSerializer
 
 
-class CleanNetShortViewSet(viewsets.ReadOnlyModelViewSet):
+class GHGRateViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Clean Net Short lookup-table identified by effective date.
     """
 
-    queryset = CleanNetShort.objects.all()
-    serializer_class = CleanNetShortSerializer
+    queryset = GHGRate.objects.all()
+    serializer_class = GHGRateSerializer

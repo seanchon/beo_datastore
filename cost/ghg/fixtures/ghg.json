@@ -1,30 +1,52 @@
 [
 {
-  "model": "ghg.cleannetshort",
+  "model": "ghg.ghgrate",
   "pk": 1,
   "fields": {
-    "effective": "2018-01-01"
+    "name": "Clean Net Short",
+    "effective": "2018-01-01",
+    "source": "http://www.cpuc.ca.gov/General.aspx?id=6442451195",
+    "rate_unit": 3
   }
 },
 {
-  "model": "ghg.cleannetshort",
+  "model": "ghg.ghgrate",
   "pk": 2,
   "fields": {
-    "effective": "2022-01-01"
+    "name": "Clean Net Short",
+    "effective": "2022-01-01",
+    "source": "http://www.cpuc.ca.gov/General.aspx?id=6442451195",
+    "rate_unit": 3
   }
 },
 {
-  "model": "ghg.cleannetshort",
+  "model": "ghg.ghgrate",
   "pk": 3,
   "fields": {
-    "effective": "2026-01-01"
+    "name": "Clean Net Short",
+    "effective": "2026-01-01",
+    "source": "http://www.cpuc.ca.gov/General.aspx?id=6442451195",
+    "rate_unit": 3
   }
 },
 {
-  "model": "ghg.cleannetshort",
+  "model": "ghg.ghgrate",
   "pk": 4,
   "fields": {
-    "effective": "2030-01-01"
+    "name": "Clean Net Short",
+    "effective": "2030-01-01",
+    "source": "http://www.cpuc.ca.gov/General.aspx?id=6442451195",
+    "rate_unit": 3
+  }
+},
+{
+  "model": "ghg.ghgrate",
+  "pk": 5,
+  "fields": {
+    "name": "Natural Gas",
+    "effective": "2015-01-01",
+    "source": "https://www.mcecleanenergy.org/wp-content/uploads/2018/01/Understanding_MCE_GHG_EmissionFactors_2015.pdf",
+    "rate_unit": 3
   }
 }
 ]
