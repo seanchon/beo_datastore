@@ -127,7 +127,7 @@ class Channel(ValidationModel):
         """
         Returns a 12 x 24 dataframe of totals (sums).
         """
-        return self.intervalframe.sum_288_dataframe
+        return self.intervalframe.total_288_dataframe
 
     @property
     def average_288(self):

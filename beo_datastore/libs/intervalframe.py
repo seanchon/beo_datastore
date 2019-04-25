@@ -211,30 +211,30 @@ class ValidationIntervalFrame(ValidationDataFrame):
     @property
     def average_288_dataframe(self):
         """
-        Returns a 12 x 24 dataframe of average values.
+        Returns a 12 x 24 dataframe of hourly average values in kWh.
         """
         return self.compute_288_dataframe(aggfunc=np.mean)
 
     @property
     def minimum_288_dataframe(self):
         """
-        Returns a 12 x 24 dataframe of minimum values.
+        Returns a 12 x 24 dataframe of hourly minimum values in kW.
         """
         return self.compute_288_dataframe(aggfunc=np.min)
 
     @property
     def maximum_288_dataframe(self):
         """
-        Returns a 12 x 24 dataframe of maximum values.
+        Returns a 12 x 24 dataframe of hourly maximum values in kW.
         """
         return self.compute_288_dataframe(aggfunc=np.max)
 
     @property
-    def sum_288_dataframe(self):
+    def total_288_dataframe(self):
         """
-        Returns a 12 x 24 dataframe of sums.
+        Returns a 12 x 24 dataframe of hourly totals in kWh.
         """
-        return self.compute_288_dataframe(aggfunc=sum)
+        return self.compute_288_dataframe(aggfunc=sum, resample=True)
 
     @property
     def count_288_dataframe(self):
@@ -310,11 +310,15 @@ class ValidationIntervalFrame(ValidationDataFrame):
 
         return cls(reference_object, dataframe)
 
-    def compute_288_dataframe(self, aggfunc, default_value=0):
+    def compute_288_dataframe(self, aggfunc, resample=False, default_value=0):
         """
         Calculates a 12-month by 24-hour (12 x 24 = 288) dataframe where each
-        cell represents all values in that particular month and hour passed
-        through the aggfunc.
+        cell represents an aggregate computation on all intervals in that
+        particular month and hour.
+
+        Resampling to one hour (resample=True) may be required for certain
+        calculations. This by nature converts kW values to kWh values prior to
+        running the aggregation function.
 
         Some example aggfunc's are:
             - np.mean for the "average"
@@ -322,6 +326,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
             - len for the "count"
 
         :param aggfunc: aggregation function
+        :param resample: resample dataframe to 1-hour prior to computation
         :param default_value: default value for empty cells
         :return: 12 x 24 pandas DataFrame
         """
@@ -335,6 +340,9 @@ class ValidationIntervalFrame(ValidationDataFrame):
 
         # create summary 288 limited to self.aggregation_column
         dataframe = self.dataframe[[self.aggregation_column]]
+
+        if resample:
+            dataframe = dataframe.resample('1H').mean()
 
         if not dataframe.empty:
             calculated_288 = (
