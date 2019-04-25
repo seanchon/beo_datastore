@@ -13,9 +13,9 @@ from beo_datastore.settings import MEDIA_ROOT
 from reference.reference_model.models import DataUnit
 
 
-class ServiceDrop(ValidationModel):
+class Meter(ValidationModel):
     """
-    A ServiceDrop is a connection point to the Utility's distribution grid
+    A Meter is a connection point to the Utility's distribution grid
     identified by a Service Address Identifier (sa_id).
     """
 
@@ -35,8 +35,22 @@ class ServiceDrop(ValidationModel):
     def timezone(self):
         return us.states.lookup(self.state).capital_tz
 
+    @property
+    def import_channel(self):
+        try:
+            return self.channels.get(export=False)
+        except Channel.DoesNotExist:
+            return None
 
-class MeterQuerySet(models.QuerySet):
+    @property
+    def export_channel(self):
+        try:
+            return self.channels.get(export=True)
+        except Channel.DoesNotExist:
+            return None
+
+
+class ChannelQuerySet(models.QuerySet):
     """
     Overloads QuerySet operations for bulk file-handling.
     """
@@ -48,31 +62,32 @@ class MeterQuerySet(models.QuerySet):
         # TODO: Create a quicker cleanup method.
         for obj in self:
             obj.intervalframe.delete()
-        super(MeterQuerySet, self).delete(*args, **kwargs)
+        super(ChannelQuerySet, self).delete(*args, **kwargs)
 
 
-class Meter(ValidationModel):
+class Channel(ValidationModel):
     """
-    A Meter is a device that tracks energy consumption (export=False) or energy
-    generation (export=True).
+    A Channel is a component of a Meter that tracks energy imported from
+    (export=False) or energy exported to (export=True) the grid.
     """
 
     export = models.BooleanField(default=False)
     data_unit = models.ForeignKey(
-        DataUnit, related_name="meters", on_delete=models.PROTECT
+        DataUnit, related_name="channels", on_delete=models.PROTECT
     )
-    service_drop = models.ForeignKey(
-        ServiceDrop, related_name="meters", on_delete=models.CASCADE
+    meter = models.ForeignKey(
+        Meter, related_name="channels", on_delete=models.CASCADE
     )
 
     # custom QuerySet manager for intervalframe file-handling
-    objects = MeterQuerySet.as_manager()
+    objects = ChannelQuerySet.as_manager()
 
     class Meta:
         ordering = ["id"]
+        unique_together = ("export", "meter")
 
     def __str__(self):
-        return "{} (export: {})".format(self.service_drop, self.export)
+        return "{} (export: {})".format(self.meter, self.export)
 
     def save(self, *args, **kwargs):
         if hasattr(self, "_intervalframe"):
@@ -89,7 +104,7 @@ class Meter(ValidationModel):
         """
         Creates IntervalFrameFile from local parquet copy.
         """
-        return MeterIntervalFrame.get_frame_from_file(reference_object=self)
+        return ChannelIntervalFrame.get_frame_from_file(reference_object=self)
 
     @property
     def intervalframe(self):
@@ -140,11 +155,11 @@ class Meter(ValidationModel):
         return self.intervalframe.count_288_dataframe
 
 
-class MeterIntervalFrame(IntervalFrameFile):
+class ChannelIntervalFrame(IntervalFrameFile):
     """
-    Model for handling Meter IntervalFrameFiles, which have timestamps and
+    Model for handling Channel IntervalFrameFiles, which have timestamps and
     values.
     """
 
-    reference_model = Meter
+    reference_model = Channel
     file_directory = os.path.join(MEDIA_ROOT, "meters")
