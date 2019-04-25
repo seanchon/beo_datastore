@@ -1,7 +1,7 @@
 from datetime import time
 import pandas as pd
 
-from load.customer.models import ServiceDrop, Meter, MeterIntervalFrame
+from load.customer.models import Meter, Channel, ChannelIntervalFrame
 from reference.reference_model.models import DataUnit
 
 
@@ -54,7 +54,7 @@ def run(*args):
     for said in saids:
         rate_plan = get_rate_plan(dataframe, said)
 
-        service_drop, _ = ServiceDrop.objects.get_or_create(
+        meter, _ = Meter.objects.get_or_create(
             sa_id=said, rate_plan=rate_plan, state="CA"
         )
         for export in [True, False]:
@@ -79,10 +79,10 @@ def run(*args):
             if "15-minute" in args[1]:
                 df["kw"] = df["kw"] * 4.0
 
-            meter, _ = Meter.objects.get_or_create(
+            channel, _ = Channel.objects.get_or_create(
                 export=export,
                 data_unit=DataUnit.objects.get(name="kw"),
-                service_drop=service_drop,
+                meter=meter,
             )
-            meter.intervalframe = MeterIntervalFrame(meter, df)
-            meter.save()
+            channel.intervalframe = ChannelIntervalFrame(channel, df)
+            channel.save()

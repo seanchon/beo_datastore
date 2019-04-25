@@ -33,8 +33,8 @@ class TestEndpointsCustomer(APITestCase, BasicAuthenticationTestMixin):
 
         # test following endpoints
         self.endpoints = [
+            "/v1/load/customer_channel/",
             "/v1/load/customer_meter/",
-            "/v1/load/customer_service_drop/",
         ]
 
     def tearDown(self):

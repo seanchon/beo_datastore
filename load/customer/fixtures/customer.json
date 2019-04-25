@@ -1,6 +1,6 @@
 [
 {
-  "model": "customer.servicedrop",
+  "model": "customer.meter",
   "pk": 1,
   "fields": {
     "sa_id": 0,
@@ -9,21 +9,21 @@
   }
 },
 {
-  "model": "customer.meter",
+  "model": "customer.channel",
   "pk": 1,
   "fields": {
     "export": true,
     "data_unit": 2,
-    "service_drop": 1
+    "meter": 1
   }
 },
 {
-  "model": "customer.meter",
+  "model": "customer.channel",
   "pk": 2,
   "fields": {
     "export": false,
     "data_unit": 2,
-    "service_drop": 1
+    "meter": 1
   }
 }
 ]

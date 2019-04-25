@@ -117,7 +117,7 @@ class DataFrameFile(ValidationDataFrame):
         Set as an attribute in child class to a reference model for DataFrames.
 
         Ex.
-            reference_model = Meter
+            reference_model = Channel
         """
         raise NotImplementedError()
 
