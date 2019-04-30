@@ -179,6 +179,20 @@
   }
 },
 {
+  "model": "reference_model.dataunit",
+  "pk": 6,
+  "fields": {
+    "name": "day"
+  }
+},
+{
+  "model": "reference_model.dataunit",
+  "pk": 7,
+  "fields": {
+    "name": "month"
+  }
+},
+{
   "model": "reference_model.rateunit",
   "pk": 1,
   "fields": {
@@ -200,6 +214,22 @@
   "fields": {
     "numerator": 5,
     "denominator": 1
+  }
+},
+{
+  "model": "reference_model.rateunit",
+  "pk": 4,
+  "fields": {
+    "numerator": 4,
+    "denominator": 6
+  }
+},
+{
+  "model": "reference_model.rateunit",
+  "pk": 5,
+  "fields": {
+    "numerator": 4,
+    "denominator": 7
   }
 },
 {

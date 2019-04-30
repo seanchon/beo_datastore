@@ -213,6 +213,33 @@ class ValidationIntervalFrame(ValidationDataFrame):
     # default column used for aggregation calculations, can be overwritten
     aggregation_column = "kw"
 
+    def __add__(self, other):
+        """
+        Returns another interval frame added to self.
+
+        Steps:
+            1. Keep existing intervals from self not found in other.
+            1. Add overlapping intervals from other to self.
+            2. Append new intervals found in other to self.
+
+        :param other: ValidationIntervalFrame
+        :return: ValidationIntervalFrame
+        """
+        df_1 = self.dataframe
+        df_2 = other.dataframe
+
+        existing_indices = df_1.index.difference(df_2.index)
+        overlapping_indices = df_1.index.intersection(df_2.index)
+        new_indices = df_2.index.difference(df_1.index)
+
+        return ValidationIntervalFrame(
+            df_1.loc[existing_indices]
+            .append(
+                df_1.loc[overlapping_indices] + df_2.loc[overlapping_indices]
+            )
+            .append(df_2.loc[new_indices])
+        )
+
     @property
     def days(self):
         """
