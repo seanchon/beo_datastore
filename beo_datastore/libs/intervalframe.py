@@ -5,6 +5,11 @@ import pandas as pd
 from beo_datastore.libs.dataframe import (
     convert_columns_type,
     csv_url_to_dataframe,
+    filter_dataframe_by_datetime,
+    filter_dataframe_by_weekday,
+    filter_dataframe_by_weekend,
+    resample_dataframe,
+    set_dataframe_index,
 )
 
 
@@ -209,56 +214,55 @@ class ValidationIntervalFrame(ValidationDataFrame):
     aggregation_column = "kw"
 
     @property
-    def average_288_dataframe(self):
+    def days(self):
         """
-        Returns a 12 x 24 dataframe of hourly average values in kWh.
+        Returns the number of days in the ValidationIntervalFrame that have
+        interval data.
         """
-        return self.compute_288_dataframe(aggfunc=np.mean)
+        return len(self.distinct_dates)
 
     @property
-    def minimum_288_dataframe(self):
+    def distinct_dates(self):
         """
-        Returns a 12 x 24 dataframe of hourly minimum values in kW.
+        Return a pandas Index of distinct dates within this
+        ValidationIntervalFrame.
         """
-        return self.compute_288_dataframe(aggfunc=np.min)
+        return self.dataframe.index.map(pd.Timestamp.date).unique()
 
     @property
-    def maximum_288_dataframe(self):
+    def average_frame288(self):
         """
-        Returns a 12 x 24 dataframe of hourly maximum values in kW.
+        Returns a ValidationFrame288 of hourly average values in kWh.
         """
-        return self.compute_288_dataframe(aggfunc=np.max)
+        return self.compute_frame288(aggfunc=np.mean, convert_to_kwh=True)
 
     @property
-    def total_288_dataframe(self):
+    def minimum_frame288(self):
         """
-        Returns a 12 x 24 dataframe of hourly totals in kWh.
+        Returns a ValidationFrame288 of hourly minimum values in kW.
         """
-        return self.compute_288_dataframe(aggfunc=sum, resample=True)
+        return self.compute_frame288(aggfunc=np.min)
 
     @property
-    def count_288_dataframe(self):
+    def maximum_frame288(self):
         """
-        Returns a 12 x 24 dataframe of counts.
+        Returns a ValidationFrame288 of hourly maximum values in kW.
         """
-        return self.compute_288_dataframe(aggfunc=len)
+        return self.compute_frame288(aggfunc=np.max)
 
-    @staticmethod
-    def set_index(dataframe, index_column, convert_to_datetime=False):
+    @property
+    def total_frame288(self):
         """
-        Sets index on index_column. If convert_to_datetime is True, attempts
-        to set index as a DatetimeIndex.
-
-        :param dataframe: pandas DataFrame
-        :param index_column: column to use as index
-        :param convert_to_datetime: convert index_column to datetime if True
-        :return: pandas DataFrame
+        Returns a ValidationFrame288 of hourly totals in kWh.
         """
-        if convert_to_datetime:
-            dataframe[index_column] = pd.to_datetime(dataframe[index_column])
-        dataframe.set_index(index_column, inplace=True)
+        return self.compute_frame288(aggfunc=sum, convert_to_kwh=True)
 
-        return dataframe
+    @property
+    def count_frame288(self):
+        """
+        Returns a ValidationFrame288 of counts.
+        """
+        return self.compute_frame288(aggfunc=len)
 
     @classmethod
     def csv_file_to_intervalframe(
@@ -279,7 +283,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         """
         dataframe = pd.read_csv(csv_location)
         if index_column:
-            dataframe = cls.set_index(
+            dataframe = set_dataframe_index(
                 dataframe, index_column, convert_to_datetime
             )
 
@@ -310,15 +314,67 @@ class ValidationIntervalFrame(ValidationDataFrame):
 
         return cls(reference_object, dataframe)
 
-    def compute_288_dataframe(self, aggfunc, resample=False, default_value=0):
+    def filter_by_datetime(
+        self, start=pd.Timestamp.min, end_limit=pd.Timestamp.max
+    ):
         """
-        Calculates a 12-month by 24-hour (12 x 24 = 288) dataframe where each
-        cell represents an aggregate computation on all intervals in that
+        Returns a ValidationIntervalFrame filtered by index beginning on and
+        including start and ending on but excluding end_limit.
+
+        :param start: datetime object
+        :param end_limit: datetime object
+        :return: ValidationIntervalFrame
+        """
+        return ValidationIntervalFrame(
+            filter_dataframe_by_datetime(
+                dataframe=self.dataframe, start=start, end_limit=end_limit
+            )
+        )
+
+    def filter_by_weekday(self):
+        """
+        Returns a ValidationIntervalFrame filtered by weekdays.
+
+        :return: ValidationIntervalFrame
+        """
+        return ValidationIntervalFrame(
+            filter_dataframe_by_weekday(dataframe=self.dataframe)
+        )
+
+    def filter_by_weekend(self):
+        """
+        Returns a ValidationIntervalFrame filtered by weekend days.
+
+        :return: ValidationIntervalFrame
+        """
+        return ValidationIntervalFrame(
+            filter_dataframe_by_weekend(dataframe=self.dataframe)
+        )
+
+    def resample_intervalframe(self, rule, aggfunc):
+        """
+        Resamples ValidationIntervalFrame to a new period based on rule and
+        aggfunc, where rule is an offset alias (ex. "1min") and aggfunc is an
+        aggregation function (ex. np.mean).
+
+        :param rule: timeseries offset alias
+        :param aggfunc: aggregation function
+        :return: ValidationIntervalFrame
+        """
+        return ValidationIntervalFrame(
+            dataframe=resample_dataframe(
+                dataframe=self.dataframe, rule=rule, aggfunc=aggfunc
+            )
+        )
+
+    def compute_frame288(self, aggfunc, convert_to_kwh=False, default_value=0):
+        """
+        Returns a 12-month by 24-hour (12 x 24 = 288) ValidationFrame288 where
+        each cell represents an aggregate computation on all intervals in that
         particular month and hour.
 
-        Resampling to one hour (resample=True) may be required for certain
-        calculations. This by nature converts kW values to kWh values prior to
-        running the aggregation function.
+        Converting to kWh (convert_to_kwh=True) may be required for certain
+        calculations prior to running the aggregation function.
 
         Some example aggfunc's are:
             - np.mean for the "average"
@@ -328,7 +384,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         :param aggfunc: aggregation function
         :param resample: resample dataframe to 1-hour prior to computation
         :param default_value: default value for empty cells
-        :return: 12 x 24 pandas DataFrame
+        :return: ValidationFrame288
         """
 
         # create a default 288
@@ -338,11 +394,13 @@ class ValidationIntervalFrame(ValidationDataFrame):
             index=[x for x in range(0, 24)],
         )
 
-        # create summary 288 limited to self.aggregation_column
+        # filter dataframe to single column of values
         dataframe = self.dataframe[[self.aggregation_column]]
 
-        if resample:
-            dataframe = dataframe.resample('1H').mean()
+        if convert_to_kwh:
+            dataframe = resample_dataframe(
+                dataframe=dataframe, rule="1H", aggfunc=np.mean
+            )
 
         if not dataframe.empty:
             calculated_288 = (
@@ -359,7 +417,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
             # merge summary 288 values into default values
             results_288.update(calculated_288)
 
-        return results_288
+        return ValidationFrame288(results_288)
 
 
 class IntervalFrameFile(ValidationIntervalFrame, DataFrameFile):

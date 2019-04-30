@@ -91,7 +91,7 @@ def run(*args):
 
         effective_date_epoch = rate_data["effectiveDate"]["$date"]
         openei_id = rate_data["_id"]["$oid"]
-        openei_url = "https://openei.org/apps/USURDB/rate_data/view/{}".format(
+        openei_url = "https://openei.org/apps/USURDB/rate/view/{}".format(
             openei_id
         )
 

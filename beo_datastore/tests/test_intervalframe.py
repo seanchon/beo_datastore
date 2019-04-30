@@ -40,7 +40,7 @@ class TestDataFrameFile(TestCase):
         Test the creation of 288 frames.
         """
         channel = Channel.objects.first()
-        self.assertFalse(channel.intervalframe.count_288_dataframe.empty)
+        self.assertFalse(channel.intervalframe.count_frame288.dataframe.empty)
 
     def test_delete_288_frame(self):
         """
@@ -51,7 +51,7 @@ class TestDataFrameFile(TestCase):
         channel.intervalframe.delete()
         channel = Channel.objects.first()
         self.assertTrue(channel.intervalframe.dataframe.empty)
-        self.assertFalse(channel.intervalframe.count_288_dataframe.empty)
+        self.assertFalse(channel.intervalframe.count_frame288.dataframe.empty)
 
 
 class Test288Computation(TestCase):
@@ -83,57 +83,57 @@ class Test288Computation(TestCase):
         )
         self.intervalframe_15 = ValidationIntervalFrame(dataframe_15)
 
-    def test_average_288_dataframe(self):
+    def test_average_frame288(self):
         """
         Test the average value is 1kWh at every hour in January.
         """
         self.assertEqual(
-            {1}, set(self.intervalframe_60.average_288_dataframe[1])
+            {1}, set(self.intervalframe_60.average_frame288.dataframe[1])
         )
         self.assertEqual(
-            {1}, set(self.intervalframe_15.average_288_dataframe[1])
+            {1}, set(self.intervalframe_15.average_frame288.dataframe[1])
         )
 
-    def test_minimum_288_dataframe(self):
+    def test_minimum_frame288(self):
         """
         Test the minimum value is 1kW at every hour in January.
         """
         self.assertEqual(
-            {1}, set(self.intervalframe_60.minimum_288_dataframe[1])
+            {1}, set(self.intervalframe_60.minimum_frame288.dataframe[1])
         )
         self.assertEqual(
-            {1}, set(self.intervalframe_15.minimum_288_dataframe[1])
+            {1}, set(self.intervalframe_15.minimum_frame288.dataframe[1])
         )
 
-    def test_maximum_288_dataframe(self):
+    def test_maximum_frame288(self):
         """
         Test the maximum value is 1kW at every hour in January.
         """
         self.assertEqual(
-            {1}, set(self.intervalframe_60.maximum_288_dataframe[1])
+            {1}, set(self.intervalframe_60.maximum_frame288.dataframe[1])
         )
         self.assertEqual(
-            {1}, set(self.intervalframe_15.maximum_288_dataframe[1])
+            {1}, set(self.intervalframe_15.maximum_frame288.dataframe[1])
         )
 
-    def test_total_288_dataframe(self):
+    def test_total_frame288(self):
         """
         Test the total value is 1kWh at every hour in January.
         """
         self.assertEqual(
-            {1}, set(self.intervalframe_60.total_288_dataframe[1])
+            {1}, set(self.intervalframe_60.total_frame288.dataframe[1])
         )
         self.assertEqual(
-            {1}, set(self.intervalframe_15.total_288_dataframe[1])
+            {1}, set(self.intervalframe_15.total_frame288.dataframe[1])
         )
 
-    def test_count_288_dataframe(self):
+    def test_count_frame288(self):
         """
         Test count at every hour in January is correct.
         """
         self.assertEqual(
-            {1}, set(self.intervalframe_60.count_288_dataframe[1])
+            {1}, set(self.intervalframe_60.count_frame288.dataframe[1])
         )
         self.assertEqual(
-            {4}, set(self.intervalframe_15.count_288_dataframe[1])
+            {4}, set(self.intervalframe_15.count_frame288.dataframe[1])
         )
