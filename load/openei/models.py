@@ -10,7 +10,10 @@ from django.db import models
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.dataframe import csv_url_to_dataframe
-from beo_datastore.libs.intervalframe import IntervalFrameFile
+from beo_datastore.libs.intervalframe import (
+    IntervalFrameFile,
+    ValidationIntervalFrame,
+)
 from beo_datastore.libs.models import ValidationModel
 from beo_datastore.settings import MEDIA_ROOT
 
@@ -113,7 +116,7 @@ class ReferenceBuilding(ValidationModel):
         )
 
     @property
-    def intervalframe(self):
+    def full_intervalframe(self):
         """
         Returns IntervalFrameFile sourced from the source_file_url or cached
         locally. If sourced from source_file_url, performs save() to disk.
@@ -130,6 +133,20 @@ class ReferenceBuilding(ValidationModel):
                 self._intervalframe.save()  # save to disk
 
         return self._intervalframe
+
+    @property
+    def intervalframe(self):
+        """
+        Returns ValidationIntervalFrame using self.full_intervalframe using the
+        column representing building total usage.
+        """
+        return ValidationIntervalFrame(
+            self.full_intervalframe.dataframe[
+                [self.full_intervalframe.aggregation_column]
+            ].rename(
+                columns={self.full_intervalframe.aggregation_column: "kw"}
+            )
+        )
 
     @intervalframe.setter
     def intervalframe(self, intervalframe):

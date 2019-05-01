@@ -2,6 +2,8 @@ import os
 import numpy as np
 import pandas as pd
 
+from django.utils.functional import cached_property
+
 from beo_datastore.libs.dataframe import (
     convert_columns_type,
     csv_url_to_dataframe,
@@ -215,7 +217,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
 
     def __add__(self, other):
         """
-        Returns another interval frame added to self.
+        Returns another ValidationIntervalFrame added to self.
 
         Steps:
             1. Keep existing intervals from self not found in other.
@@ -256,35 +258,35 @@ class ValidationIntervalFrame(ValidationDataFrame):
         """
         return self.dataframe.index.map(pd.Timestamp.date).unique()
 
-    @property
+    @cached_property
     def average_frame288(self):
         """
         Returns a ValidationFrame288 of hourly average values in kWh.
         """
         return self.compute_frame288(aggfunc=np.mean, convert_to_kwh=True)
 
-    @property
+    @cached_property
     def minimum_frame288(self):
         """
         Returns a ValidationFrame288 of hourly minimum values in kW.
         """
         return self.compute_frame288(aggfunc=np.min)
 
-    @property
+    @cached_property
     def maximum_frame288(self):
         """
         Returns a ValidationFrame288 of hourly maximum values in kW.
         """
         return self.compute_frame288(aggfunc=np.max)
 
-    @property
+    @cached_property
     def total_frame288(self):
         """
         Returns a ValidationFrame288 of hourly totals in kWh.
         """
         return self.compute_frame288(aggfunc=sum, convert_to_kwh=True)
 
-    @property
+    @cached_property
     def count_frame288(self):
         """
         Returns a ValidationFrame288 of counts.
