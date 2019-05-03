@@ -32,7 +32,7 @@ class OpenEIRateData(object):
         """
         Return set of fixed-rate keys found in self.rate_data.
         """
-        return {x for x in self.rate_data.keys() if "fixed" in x}
+        return {x for x in self.rate_data.keys() if "fixed" in x.lower()}
 
     @property
     def fixed_rates(self):
@@ -51,12 +51,12 @@ class OpenEIRateData(object):
         # defaults to $/day
         if fixed_charge_units is None:
             return RateUnit.objects.get(
-                numerator__name="$", denominator__name="day"
+                numerator__name__iexact="$", denominator__name__iexact="day"
             )
         else:
             return RateUnit.objects.get(
-                numerator__name=fixed_charge_units.split("/")[0],
-                denominator__name=fixed_charge_units.split("/")[1],
+                numerator__name__iexact=fixed_charge_units.split("/")[0],
+                denominator__name__iexact=fixed_charge_units.split("/")[1],
             )
 
     @property
@@ -71,7 +71,7 @@ class OpenEIRateData(object):
         """
         Return set of energy-rate keys found in self.rate_data.
         """
-        return {x for x in self.rate_data.keys() if "energy" in x}
+        return {x for x in self.rate_data.keys() if "energy" in x.lower()}
 
     @property
     def energy_rates(self):
@@ -79,6 +79,15 @@ class OpenEIRateData(object):
         Return energy rates applied on a per kWh basis.
         """
         return self.rate_data.get("energyRateStrux", [])
+
+    @property
+    def energy_rate_unit(self):
+        """
+        RateUnit for energy rates.
+        """
+        return RateUnit.objects.get(
+            numerator__name__iexact="$", denominator__name__iexact="kwh"
+        )
 
     @property
     def energy_weekday_schedule(self):
@@ -103,7 +112,102 @@ class OpenEIRateData(object):
         """
         Return set of demand-rate keys found in self.rate_data.
         """
-        return {x for x in self.rate_data.keys() if "demand" in x}
+        return {x for x in self.rate_data.keys() if "demand" in x.lower()}
+
+    @property
+    def demand_min(self):
+        """
+        Minimum demand allowable for collection of rates.
+        """
+        return self.rate_data.get("demandMin", 0)
+
+    @property
+    def demand_max(self):
+        """
+        Maximum demand allowable for collection of rates.
+        """
+        return self.rate_data.get("demandMax", float("inf"))
+
+    @property
+    def demand_rates(self):
+        """
+        TOU-based demand rates.
+        """
+        return self.rate_data.get("demandRateStrux", [])
+
+    @property
+    def demand_rate_unit(self):
+        """
+        RateUnit for TOU-based demand rates.
+        """
+        demand_rate_units = self.rate_data.get("demandRateUnits", None)
+
+        # defaults to $/kW
+        if demand_rate_units is None:
+            return RateUnit.objects.get(
+                numerator__name__iexact="$", denominator__name__iexact="kW"
+            )
+        else:
+            return RateUnit.objects.get(
+                numerator__name__iexact="$",
+                denominator__name__iexact=demand_rate_units,
+            )
+
+    @property
+    def demand_weekday_schedule(self):
+        """
+        Returns the weekday schedule for demand charges.
+
+        :return: ValidationFrame288
+        """
+        return self.get_tou_schedule("demandWeekdaySched")
+
+    @property
+    def demand_weekend_schedule(self):
+        """
+        Returns the weekend schedule for demand charges.
+
+        :return: ValidationFrame288
+        """
+        return self.get_tou_schedule("demandWeekendSched")
+
+    @property
+    def flat_demand_rates(self):
+        """
+        Month-based (seasonal) demand rates.
+        """
+        return self.rate_data.get("flatDemandStrux", [])
+
+    @property
+    def flat_demand_rate_unit(self):
+        """
+        RateUnit for month-based (seasonal) demand rates.
+        """
+        flat_demand_units = self.rate_data.get("flatDemandUnits", None)
+
+        # defaults to $/kW
+        if flat_demand_units is None:
+            return RateUnit.objects.get(
+                numerator__name__iexact="$", denominator__name__iexact="kW"
+            )
+        else:
+            return RateUnit.objects.get(
+                numerator__name__iexact="$",
+                denominator__name__iexact=flat_demand_units,
+            )
+
+    @property
+    def flat_demand_schedule(self):
+        """
+        Returns ValidationFrame288 representation of month-based (seasonal)
+        demand schedule.
+        """
+        return self.convert_matrix_to_frame288(
+            [
+                [x] * 23
+                for x in self.rate_data.get("flatDemandMonths", [None] * 12)
+            ]
+        )
 
     @staticmethod
     def convert_matrix_to_frame288(matrix):
@@ -159,7 +263,8 @@ class ValidationBill(ValidationDataFrame):
         5. count_unit
         6. rate
         7. rate_unit
-        8. total
+        8. pro_rata
+        9. total
     """
 
     default_dataframe = pd.DataFrame(
@@ -171,6 +276,7 @@ class ValidationBill(ValidationDataFrame):
             "count_unit",
             "rate",
             "rate_unit",
+            "pro_rata",
             "total",
         ]
     )
@@ -192,6 +298,8 @@ class ValidationBill(ValidationDataFrame):
         self.compute_fixed_meter_charges()
         self.compute_fixed_rate_charges()
         self.compute_energy_rate_charges()
+        self.compute_demand_rate_charges()
+        self.compute_flat_demand_rate_charges()
 
     @staticmethod
     def validate_intervalframe(intervalframe):
@@ -250,6 +358,7 @@ class ValidationBill(ValidationDataFrame):
         rate,
         rate_unit,
         tou_period=None,
+        pro_rata=1,
     ):
         """
         Adds charge to ValidationBill.
@@ -261,6 +370,7 @@ class ValidationBill(ValidationDataFrame):
         :param rate: float
         :param rate_unit: RateUnit
         :param tou_period: string/int
+        :param pro_rata: float proportion to prorate (ex. .80)
         """
         self.validate_units(count_unit, rate_unit)
 
@@ -273,7 +383,8 @@ class ValidationBill(ValidationDataFrame):
                 "count_unit": count_unit,
                 "rate": rate,
                 "rate_unit": rate_unit,
-                "total": count * rate,
+                "pro_rata": pro_rata,
+                "total": count * rate * pro_rata,
             },
             ignore_index=True,
         )
@@ -290,7 +401,8 @@ class ValidationBill(ValidationDataFrame):
                 count_unit=DataUnit.objects.get(name="month"),
                 rate=self.openei_rate_data.fixed_meter_charge,
                 rate_unit=RateUnit.objects.get(
-                    numerator__name="$", denominator__name="month"
+                    numerator__name__iexact="$",
+                    denominator__name__iexact="month",
                 ),
             )
 
@@ -303,7 +415,8 @@ class ValidationBill(ValidationDataFrame):
         for rate in self.openei_rate_data.fixed_rates:
             if "/day" in rate.get("key"):
                 rate_unit = RateUnit.objects.get(
-                    numerator__name="$", denominator__name="day"
+                    numerator__name__iexact="$",
+                    denominator__name__iexact="day",
                 )
             else:
                 rate_unit = self.openei_rate_data.fixed_rate_unit
@@ -332,21 +445,25 @@ class ValidationBill(ValidationDataFrame):
         Return energy counts (kWh) based off of a tou_key.
 
         :param tou_key: int
-        :return: int
+        :return: float
         """
         weekday_totals = self.intervalframe.filter_by_weekday().total_frame288
         weekday_schedule = self.openei_rate_data.energy_weekday_schedule
+        filtered_weekday_totals = weekday_totals * weekday_schedule.get_mask(
+            tou_key
+        )
+
         weekend_totals = self.intervalframe.filter_by_weekend().total_frame288
         weekend_schedule = self.openei_rate_data.energy_weekend_schedule
-
-        filtered_weekday_totals = weekday_totals.dataframe * (
-            weekday_schedule.dataframe == tou_key
-        )
-        filtered_weekend_totals = weekend_totals.dataframe * (
-            weekend_schedule.dataframe == tou_key
+        filtered_weekend_totals = weekend_totals * weekend_schedule.get_mask(
+            tou_key
         )
 
-        return (filtered_weekday_totals + filtered_weekend_totals).sum().sum()
+        return (
+            (filtered_weekday_totals + filtered_weekend_totals)
+            .dataframe.sum()
+            .sum()
+        )
 
     def get_energy_tou_key_value(self, tou_key):
         """
@@ -364,13 +481,8 @@ class ValidationBill(ValidationDataFrame):
     def compute_energy_rate_charges(self):
         """
         Extracts energy rates from self.openei_rate_data and energy counts from
-        self.intervalframe to compute fixed charges.
+        self.intervalframe to compute energy charges.
         """
-        count_unit = DataUnit.objects.get(name="kwh")
-        rate_unit = RateUnit.objects.get(
-            numerator__name="$", denominator=count_unit
-        )
-
         for tou_key, rates in enumerate(self.openei_rate_data.energy_rates):
             # initialize counts
             energy_count = self.get_energy_count(tou_key)
@@ -414,12 +526,154 @@ class ValidationBill(ValidationDataFrame):
                     category="energy",
                     description=description,
                     count=billing_count,
-                    count_unit=count_unit,
+                    count_unit=DataUnit.objects.get(name="kwh"),
                     rate=rate,
-                    rate_unit=rate_unit,
+                    rate_unit=self.openei_rate_data.energy_rate_unit,
                     tou_period=tou_key,
                 )
 
                 # 4. update counts
                 energy_count = energy_count - billing_count
                 billed_so_far = billed_so_far + billing_count
+
+    def get_demand_peak(self, tou_key):
+        """
+        Return TOU-based demand peak power (kW) based off of a tou_key.
+
+        :param tou_key: int
+        :return: float
+        """
+        weekday_peaks = self.intervalframe.filter_by_weekday().maximum_frame288
+        weekday_schedule = self.openei_rate_data.demand_weekday_schedule
+        weekend_peaks = self.intervalframe.filter_by_weekend().maximum_frame288
+        weekend_schedule = self.openei_rate_data.demand_weekend_schedule
+
+        weekday_max = (
+            (weekday_peaks * weekday_schedule.get_mask(tou_key))
+            .dataframe.max()
+            .max()
+        )
+        weekend_max = (
+            (weekend_peaks * weekend_schedule.get_mask(tou_key))
+            .dataframe.max()
+            .max()
+        )
+
+        return max(weekday_max, weekend_max)
+
+    def get_demand_days(self, tou_key):
+        """
+        Return the number of billing days matching tou_key for prorating
+        TOU-based demand charges.
+
+        :param tou_key: int
+        :return: int
+        """
+        weekday_schedule = self.openei_rate_data.demand_weekday_schedule
+        months_1 = weekday_schedule.get_mask(tou_key).dataframe.any()
+        months_1 = months_1.index[months_1 == 1].to_list()
+
+        weekend_schedule = self.openei_rate_data.demand_weekend_schedule
+        months_2 = weekend_schedule.get_mask(tou_key).dataframe.any()
+        months_2 = months_2.index[months_2 == 1].to_list()
+
+        return self.intervalframe.filter_by_months(
+            months=set(months_1 + months_2)
+        ).days
+
+    def compute_demand_rate_charges(self):
+        """
+        Extracts demand rates from self.openei_rate_data and demand peaks from
+        self.intervalframe to compute demand charges.
+        """
+        for tou_key, rates in enumerate(self.openei_rate_data.demand_rates):
+            for tier in rates.get("demandRateTiers", []):
+                # TODO: Are there tiered demand charges?
+                rate = tier.get("rate", 0)
+                max_demand_per_tier = tier.get("max", float("inf"))
+                demand_peak = self.get_demand_peak(tou_key)
+                demand_days = self.get_demand_days(tou_key)
+                if rate and demand_peak and demand_days:
+                    description = "Demand Charge"
+                    if demand_days != self.intervalframe.days:
+                        description += " ({}/{} pro rata)".format(
+                            demand_days, self.intervalframe.days
+                        )
+                    if max_demand_per_tier != float("inf"):
+                        description += " ({} max kW/tier)".format(
+                            max_demand_per_tier
+                        )
+
+                    self.add_charge(
+                        category="demand",
+                        description=description,
+                        count=demand_peak,
+                        count_unit=DataUnit.objects.get(name="kw"),
+                        rate=rate,
+                        rate_unit=self.openei_rate_data.demand_rate_unit,
+                        tou_period=tou_key,
+                        pro_rata=(demand_days / self.intervalframe.days),
+                    )
+
+    def get_flat_demand_peak(self, tou_key):
+        """
+        Return flat-demand peak power (kW) based off of a tou_key.
+
+        :param tou_key: int
+        :return: float
+        """
+        schedule = self.openei_rate_data.flat_demand_schedule
+        peaks = self.intervalframe.maximum_frame288
+
+        return (peaks * schedule.get_mask(tou_key)).dataframe.max().max()
+
+    def get_flat_demand_days(self, tou_key):
+        """
+        Return the number of billing days matching tou_key for prorating flat
+        demand charges.
+
+        :param tou_key: int
+        :return: int
+        """
+        schedule = self.openei_rate_data.flat_demand_schedule
+        months = schedule.get_mask(tou_key).dataframe.any()
+        months = months.index[months == 1].to_list()
+
+        return self.intervalframe.filter_by_months(months=months).days
+
+    def compute_flat_demand_rate_charges(self):
+        """
+        Extracts flat demand rates from self.openei_rate_data and demand peaks
+        from self.intervalframe to compute flat demand charges.
+        """
+        for tou_key, rates in enumerate(
+            self.openei_rate_data.flat_demand_rates
+        ):
+            for tier in rates.get("flatDemandTiers", []):
+                # TODO: Are there tiered demand charges?
+                rate = tier.get("rate", 0)
+                max_demand_per_tier = tier.get("max", float("inf"))
+                demand_peak = self.get_flat_demand_peak(tou_key)
+                demand_days = self.get_flat_demand_days(tou_key)
+                if rate and demand_peak and demand_days:
+                    description = "Flat Demand Charge"
+                    if demand_days != self.intervalframe.days:
+                        description += " ({}/{} pro rata)".format(
+                            demand_days, self.intervalframe.days
+                        )
+                    if max_demand_per_tier != float("inf"):
+                        description += " ({} max kW/tier)".format(
+                            max_demand_per_tier
+                        )
+
+                    rate_unit = self.openei_rate_data.flat_demand_rate_unit
+                    self.add_charge(
+                        category="demand",
+                        description=description,
+                        count=demand_peak,
+                        count_unit=DataUnit.objects.get(name="kw"),
+                        rate=rate,
+                        rate_unit=rate_unit,
+                        tou_period=tou_key,
+                        pro_rata=(demand_days / self.intervalframe.days),
+                    )

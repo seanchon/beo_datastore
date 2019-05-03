@@ -35,8 +35,7 @@ class ValidationDataFrame(object):
 
     @dataframe.setter
     def dataframe(self, dataframe):
-        self.validate_dataframe_index(dataframe)
-        self.validate_dataframe_columns(dataframe)
+        self.validate_dataframe(dataframe)
         self._dataframe = dataframe
 
     @property
@@ -52,6 +51,14 @@ class ValidationDataFrame(object):
             )
         """
         raise NotImplementedError()
+
+    @classmethod
+    def validate_dataframe(cls, dataframe):
+        """
+        Container method to run other validation steps.
+        """
+        cls.validate_dataframe_index(dataframe)
+        cls.validate_dataframe_columns(dataframe)
 
     @classmethod
     def validate_dataframe_index(cls, dataframe):
@@ -227,6 +234,8 @@ class ValidationIntervalFrame(ValidationDataFrame):
         :param other: ValidationIntervalFrame
         :return: ValidationIntervalFrame
         """
+        self.validate_dataframe(other.dataframe)
+
         df_1 = self.dataframe
         df_2 = other.dataframe
 
@@ -380,6 +389,17 @@ class ValidationIntervalFrame(ValidationDataFrame):
             filter_dataframe_by_weekend(dataframe=self.dataframe)
         )
 
+    def filter_by_months(self, months):
+        """
+        Returns a ValidationIntervalFrame filtered by months.
+
+        :param months: set/list of integers (1-12)
+        :return: ValidationIntervalFrame
+        """
+        return ValidationIntervalFrame(
+            dataframe=self.dataframe[self.dataframe.index.month.isin(months)]
+        )
+
     def resample_intervalframe(self, rule, aggfunc):
         """
         Resamples ValidationIntervalFrame to a new period based on rule and
@@ -474,6 +494,56 @@ class ValidationFrame288(ValidationDataFrame):
     default_dataframe = pd.DataFrame(
         columns=np.array(range(1, 13)), index=np.array(range(0, 24))
     )
+
+    def __add__(self, other):
+        """
+        Returns self plus other.
+
+        :param other: ValidationFrame288
+        :return: ValidationFrame288
+        """
+        self.validate_dataframe(other.dataframe)
+        return ValidationFrame288(self.dataframe + other.dataframe)
+
+    def __sub__(self, other):
+        """
+        Returns self minus other.
+
+        :param other: ValidationFrame288
+        :return: ValidationFrame288
+        """
+        self.validate_dataframe(other.dataframe)
+        return ValidationFrame288(self.dataframe + other.dataframe)
+
+    def __mul__(self, other):
+        """
+        Returns self times other.
+
+        :param other: ValidationFrame288
+        :return: ValidationFrame288
+        """
+        self.validate_dataframe(other.dataframe)
+        return ValidationFrame288(self.dataframe * other.dataframe)
+
+    def __truediv__(self, other):
+        """
+        Returns self divided by other.
+
+        :param other: ValidationFrame288
+        :return: ValidationFrame288
+        """
+        self.validate_dataframe(other.dataframe)
+        return ValidationFrame288(self.dataframe / other.dataframe)
+
+    def get_mask(self, key):
+        """
+        Returns ValidationFrame288 of True values when cell value matches key
+        and False values otherwise.
+
+        :param key: key of any type
+        :return: ValidationFrame288
+        """
+        return ValidationFrame288(self.dataframe == key)
 
 
 class Frame288File(ValidationFrame288, DataFrameFile):
