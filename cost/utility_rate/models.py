@@ -47,7 +47,7 @@ class RateCollection(ValidationModel):
     """
 
     rate_data = JSONField()
-    openei_url = models.URLField(max_length=128)
+    openei_url = models.URLField(max_length=128, blank=True, null=True)
     utility_url = models.URLField(max_length=128)
     effective_date = models.DateField()
     rate_plan = models.ForeignKey(
