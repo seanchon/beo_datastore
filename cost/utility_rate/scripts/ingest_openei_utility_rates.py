@@ -26,6 +26,17 @@ def retrieve_full_utility_rates():
         return json.load(f)
 
 
+def load_utility_rates(file_location):
+    """
+    Loads OpenEI formatted rates from file.
+
+    :param file_location: file location
+    :return: list of rates dictionaries
+    """
+    with open(file_location, "rb") as f:
+        return json.load(f)
+
+
 def convert_epoch_to_datetime(epoch_milliseconds):
     """
     Converts epoch time in milliseconds to datetime.
@@ -36,24 +47,37 @@ def convert_epoch_to_datetime(epoch_milliseconds):
 def run(*args):
     """
     Usage:
-        - python manage.py runscript cost.utility_rate.scripts.ingest_utility_rates --script-args UTILITY_NAME
+        - python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args UTILITY_NAME (SOURCE)
     """
-    if len(args) != 1:
+    if len(args) < 1:
         print(
             "USAGE `python manage.py runscript "
-            "cost.utility_rate.scripts.ingest_utility_rates "
-            "--script-args UTILITY_NAME`"
+            "cost.utility_rate.scripts.ingest_openei_utility_rates "
+            "--script-args UTILITY_NAME (SOURCE)`"
         )
         print("Enter 'help' for UTILITY_NAME to get a list of utilities.")
         print("Example UTILITY_NAME: 'Pacific Gas & Electric Co'")
+        print("Specify an optional SOURCE to use a local file.")
         return
 
-    full_utility_rates = retrieve_full_utility_rates()
+    if len(args) == 2:
+        source_file = args[1]
+    else:
+        source_file = None
+
+    if source_file:
+        full_utility_rates = load_utility_rates(args[1])
+    else:
+        full_utility_rates = retrieve_full_utility_rates()
 
     # return all possible utility names
     if args[0] == "help":
         print(
-            sorted(list(set([x["utilityName"] for x in full_utility_rates])))
+            "\n".join(
+                sorted(
+                    list(set([x["utilityName"] for x in full_utility_rates]))
+                )
+            )
         )
         return
 
@@ -90,10 +114,14 @@ def run(*args):
         )
 
         effective_date_epoch = rate_data["effectiveDate"]["$date"]
-        openei_id = rate_data["_id"]["$oid"]
-        openei_url = "https://openei.org/apps/USURDB/rate/view/{}".format(
-            openei_id
-        )
+
+        if source_file:
+            openei_url = None
+        else:
+            openei_id = rate_data["_id"]["$oid"]
+            openei_url = "https://openei.org/apps/USURDB/rate/view/{}".format(
+                openei_id
+            )
 
         RateCollection.objects.get_or_create(
             rate_data=rate_data,

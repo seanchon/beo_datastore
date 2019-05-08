@@ -99,17 +99,29 @@ The following script will ingest GHG lookup tables from the CPUC's Clean Net Sho
 The following script will ingest utility rate data from OpenEI's Utility Rate Database.
 
 ```
-(<env_name>)$ python manage.py runscript cost.utility_rate.scripts.ingest_utility_rates --script-args UTILITY_NAME
+(<env_name>)$ python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args UTILITY_NAME (SOURCE)
 ```
 
 Where UTILITY_NAME is the name of a utility (ex. "Pacific Gas & Electric Co").
+Where SOURCE (optional) is the location of an OpenEI formatted JSON file.
 
 To see all possible utilities, run the following command.
 
 ```
-(<env_name>)$ python manage.py runscript cost.utility_rate.scripts.ingest_utility_rates --script-args help
+(<env_name>)$ python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args help
 ```
 
+Example: Load data from the OpenEI website.
+
+```
+(<env_name>)$ python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args "Pacific Gas & Electric Co"
+```
+
+Example: Load data from a local file.
+
+```
+(<env_name>)$ python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args "MCE Clean Energy" cost/utility_rate/scripts/data/mce_residential_rates_20180501.json
+```
 
 # DEVELOPER NOTES
 
