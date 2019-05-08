@@ -240,6 +240,13 @@
   }
 },
 {
+  "model": "reference_model.utility",
+  "pk": 2,
+  "fields": {
+    "name": "MCE Clean Energy"
+  }
+},
+{
   "model": "reference_model.voltagecategory",
   "pk": 1,
   "fields": {
@@ -285,6 +292,14 @@
   "fields": {
     "name": "Industrial",
     "utility": 1
+  }
+},
+{
+  "model": "reference_model.sector",
+  "pk": 4,
+  "fields": {
+    "name": "Residential",
+    "utility": 2
   }
 }
 ]

@@ -10,6 +10,7 @@ from beo_datastore.libs.dataframe import (
     filter_dataframe_by_datetime,
     filter_dataframe_by_weekday,
     filter_dataframe_by_weekend,
+    merge_dataframe,
     resample_dataframe,
     set_dataframe_index,
 )
@@ -23,7 +24,7 @@ class ValidationDataFrame(object):
     -   default_dataframe
     """
 
-    def __init__(self, dataframe):
+    def __init__(self, dataframe, *args, **kwargs):
         """
         :param dataframe: pandas DataFrame
         """
@@ -100,7 +101,7 @@ class DataFrameFile(ValidationDataFrame):
     -   file_directory
     """
 
-    def __init__(self, reference_object, dataframe):
+    def __init__(self, reference_object, dataframe, *args, **kwargs):
         """
         :param reference_object: reference object DataFrame belongs to
         :param dataframe: pandas DataFrame
@@ -252,6 +253,20 @@ class ValidationIntervalFrame(ValidationDataFrame):
         )
 
     @property
+    def start_datetime(self):
+        """
+        Return earliest timestamp as datetime object.
+        """
+        return self.dataframe.index.min().to_pydatetime()
+
+    @property
+    def end_datetime(self):
+        """
+        Return latest timestamp as datetime object.
+        """
+        return self.dataframe.index.max().to_pydatetime()
+
+    @property
     def days(self):
         """
         Returns the number of days in the ValidationIntervalFrame that have
@@ -305,10 +320,11 @@ class ValidationIntervalFrame(ValidationDataFrame):
     @classmethod
     def csv_file_to_intervalframe(
         cls,
-        reference_object,
         csv_location,
         index_column=None,
         convert_to_datetime=False,
+        *args,
+        **kwargs
     ):
         """
         Reads a csv from file and returns an IntervalFrameFile.
@@ -325,15 +341,16 @@ class ValidationIntervalFrame(ValidationDataFrame):
                 dataframe, index_column, convert_to_datetime
             )
 
-        return cls(reference_object, dataframe)
+        return cls(dataframe, *args, **kwargs)
 
     @classmethod
     def csv_url_to_intervalframe(
         cls,
-        reference_object,
         csv_url,
         index_column=None,
         convert_to_datetime=False,
+        *args,
+        **kwargs
     ):
         """
         Reads a csv from a url and returns an IntervalFrameFile.
@@ -350,7 +367,20 @@ class ValidationIntervalFrame(ValidationDataFrame):
                 dataframe, index_column, convert_to_datetime
             )
 
-        return cls(reference_object, dataframe)
+        return cls(dataframe, *args, **kwargs)
+
+    def merge_intervalframe(self, other, overwrite_rows=False):
+        """
+        Merges other_intervalframe.dataframe into self.dataframe. If
+        overwrite_rows is True, rows in other_dataframe will overwrite any
+        existing rows with colliding indices.
+
+        :param other: IntervalSetFrame object
+        :param overwrite_rows: boolean
+        """
+        return ValidationIntervalFrame(
+            merge_dataframe(self.dataframe, other.dataframe, overwrite_rows)
+        )
 
     def filter_by_datetime(
         self, start=pd.Timestamp.min, end_limit=pd.Timestamp.max

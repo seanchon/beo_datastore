@@ -55,7 +55,7 @@ class RateCollection(ValidationModel):
     )
 
     class Meta:
-        ordering = ["id"]
+        ordering = ["effective_date"]
 
     def __str__(self):
         return "{} effective {}".format(self.rate_plan, self.effective_date)
