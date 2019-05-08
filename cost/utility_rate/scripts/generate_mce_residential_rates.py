@@ -3,8 +3,8 @@ import json
 
 
 SOURCE = (
-    "https://www.mcecleanenergy.org/wp-content/uploads/2018/"
-    "05/MCE_Residential_Rates_May2018.pdf"
+    "https://www.mcecleanenergy.org/wp-content/uploads/2017/03/"
+    "MCE_Residential_Rates_Apr2017.pdf"
 )
 
 BASIC_SCHED = [[0] * 24] * 12
@@ -207,24 +207,13 @@ def run(*args):
         (
             "E-TOUB, Residential Time-of-Use",
             [
-                {"key": "Summer Peak", "val": 0.127},
-                {"key": "Summer Off-Peak", "val": 0.063},
-                {"key": "Winter Peak", "val": 0.070},
-                {"key": "Winter Off-Peak", "val": 0.053},
+                {"key": "Summer Peak", "val": 0.178},
+                {"key": "Summer Off-Peak", "val": 0.072},
+                {"key": "Winter Peak", "val": 0.069},
+                {"key": "Winter Off-Peak", "val": 0.049},
             ],
             TOU_B_WEEKDAY_SCHED,
             TOU_B_WEEKEND_SCHED,
-        ),
-        (
-            "E-TOUC3, Residential Time-of-Use",
-            [
-                {"key": "Summer Peak", "val": 0.127},
-                {"key": "Summer Off-Peak", "val": 0.063},
-                {"key": "Winter Peak", "val": 0.070},
-                {"key": "Winter Off-Peak", "val": 0.053},
-            ],
-            TOU_C_WEEKDAY_SCHED,
-            TOU_C_WEEKEND_SCHED,
         ),
         (
             "E6, EM-TOU, Residential Time-of-Use",
@@ -241,12 +230,12 @@ def run(*args):
         (
             "EV, Residential Rates for Electric Vehicle Owners",
             [
-                {"key": "Summer Peak", "val": 0.212},
-                {"key": "Summer Part-Peak", "val": 0.070},
-                {"key": "Summer Off-Peak", "val": 0.022},
-                {"key": "Winter Peak", "val": 0.057},
-                {"key": "Winter Part-Peak", "val": 0.023},
-                {"key": "Winter Off-Peak", "val": 0.023},
+                {"key": "Summer Peak", "val": 0.200},
+                {"key": "Summer Part-Peak", "val": 0.075},
+                {"key": "Summer Off-Peak", "val": 0.030},
+                {"key": "Winter Peak", "val": 0.055},
+                {"key": "Winter Part-Peak", "val": 0.030},
+                {"key": "Winter Off-Peak", "val": 0.030},
             ],
             EV_WEEKDAY_SCHED,
             EV_WEEKEND_SCHED,
@@ -276,48 +265,6 @@ def run(*args):
 
         rate_data.append(energy_dict)
 
-    # Create PCIA and Franchise Fee Rates
-    for vintage, pcia, franchise_fee in [
-        (2009, 0.02785, 0.00060),
-        (2010, 0.03167, 0.00057),
-        (2011, 0.03286, 0.00056),
-        (2012, 0.03379, 0.00055),
-        (2013, 0.03388, 0.00055),
-        (2014, 0.03354, 0.00055),
-        (2015, 0.03338, 0.00055),
-        (2016, 0.03345, 0.00055),
-        (2017, 0.03346, 0.00055),
-        (2018, 0.03346, 0.00055),
-    ]:
-        energy_key_vals = [
-            {
-                "key": "PCIA - ${}/kWh, Franchise Fee - ${}/kWh".format(
-                    pcia, franchise_fee
-                ),
-                "val": 1,
-            }
-        ]
-        energy_rate_strux = [
-            {
-                "energyRateTiers": [
-                    {"unit": "kWh", "rate": pcia + franchise_fee}
-                ]
-            }
-        ]
-        energy_dict = create_energy_dict(
-            energy_key_vals=energy_key_vals,
-            energy_rate_strux=energy_rate_strux,
-            energy_weekday_schedule=BASIC_SCHED,
-            energy_weekend_schedule=BASIC_SCHED,
-        )
-
-        energy_dict["rateName"] = "{} Vintage PCIA & Franchise Fee".format(
-            vintage
-        )
-        energy_dict["sourceReference"] = SOURCE
-
-        rate_data.append(energy_dict)
-
     # Create Deep Green Rates
     energy_key_vals = [{"key": "Deep Green $0.01/kWh", "val": 1}]
     energy_rate_strux = [{"energyRateTiers": [{"unit": "kWh", "rate": 0.01}]}]
@@ -339,7 +286,7 @@ def run(*args):
         rate_data[i]["sourceReference"] = SOURCE
         rate_data[i]["sector"] = "Residential"
         rate_data[i]["effectiveDate"] = {
-            "$date": int(datetime(2018, 5, 1, 0, 0).timestamp() * 1000)
+            "$date": int(datetime(2017, 4, 1, 0, 0).timestamp() * 1000)
         }
 
     with open(destination, 'w') as fp:
