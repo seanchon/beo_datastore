@@ -64,6 +64,26 @@ def filter_dataframe_by_weekend(dataframe):
     return dataframe[5 <= dataframe.index.dayofweek]
 
 
+def merge_dataframe(dataframe, other_dataframe, overwrite_rows=False):
+    """
+    Merges other_dataframe rows into dataframe. If overwrite_rows is True, rows
+    in other_dataframe will overwrite any existing rows with colliding indices.
+
+    :param other_dataframe: pandas DataFrame
+    :param overwrite_rows: boolean
+    :return: pandas DataFrame
+    """
+    if dataframe.empty:
+        return other_dataframe
+
+    if overwrite_rows:
+        dataframe = other_dataframe.combine_first(dataframe)
+    else:
+        dataframe = dataframe.combine_first(other_dataframe)
+
+    return dataframe
+
+
 def resample_dataframe(dataframe, rule, aggfunc):
     """
     Resamples dataframe to a new period based on rule and aggfunc, where

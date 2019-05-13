@@ -117,7 +117,7 @@ EV_WEEKEND_SCHED = [
     [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 5, 5, 5, 5, 5],
     [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 5, 5, 5, 5, 5],
     [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 5, 5, 5, 5, 5],
-    [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 5, 5, 5, 5, 5],
+    [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 2, 2, 2, 2, 2],
     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 2, 2, 2, 2, 2],
     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 2, 2, 2, 2, 2],
     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 2, 2, 2, 2, 2],
@@ -265,6 +265,49 @@ def run(*args):
 
         rate_data.append(energy_dict)
 
+    # Create PCIA and Franchise Fee Rates
+    for vintage, pcia, franchise_fee in [
+        (2009, 0.02469, 0.00054),
+        (2010, 0.02803, 0.00052),
+        (2011, 0.02921, 0.00051),
+        (2012, 0.03014, 0.00050),
+        (2013, 0.03000, 0.00050),
+        (2014, 0.02948, 0.00051),
+        (2015, 0.02908, 0.00051),
+        (2016, 0.02919, 0.00051),
+        (2017, 0.02919, 0.00051),
+    ]:
+        energy_key_vals = [
+            {
+                "key": "PCIA - ${}/kWh, Franchise Fee - ${}/kWh".format(
+                    pcia, franchise_fee
+                ),
+                "val": 1,
+            }
+        ]
+        energy_rate_strux = [
+            {
+                "energyRateTiers": [
+                    {"unit": "kWh", "rate": pcia + franchise_fee}
+                ]
+            }
+        ]
+        energy_dict = create_energy_dict(
+            energy_key_vals=energy_key_vals,
+            energy_rate_strux=energy_rate_strux,
+            energy_weekday_schedule=BASIC_SCHED,
+            energy_weekend_schedule=BASIC_SCHED,
+        )
+
+        energy_dict["rateName"] = "{} Vintage PCIA & Franchise Fee".format(
+            vintage
+        )
+        energy_dict[
+            "sourceReference"
+        ] = "https://www.pge.com/tariffs/assets/pdf/adviceletter/ELEC_5088-E.pdf"
+
+        rate_data.append(energy_dict)
+
     # Create Deep Green Rates
     energy_key_vals = [{"key": "Deep Green $0.01/kWh", "val": 1}]
     energy_rate_strux = [{"energyRateTiers": [{"unit": "kWh", "rate": 0.01}]}]
@@ -283,11 +326,12 @@ def run(*args):
     for i, _ in enumerate(rate_data):
         rate_data[i]["approved"] = True
         rate_data[i]["utilityName"] = "MCE Clean Energy"
-        rate_data[i]["sourceReference"] = SOURCE
+        if not rate_data[i].get("sourceReference", None):
+            rate_data[i]["sourceReference"] = SOURCE
         rate_data[i]["sector"] = "Residential"
         rate_data[i]["effectiveDate"] = {
             "$date": int(datetime(2017, 4, 1, 0, 0).timestamp() * 1000)
         }
 
-    with open(destination, 'w') as fp:
-        json.dump(rate_data, fp, sort_keys=True)
+    with open(destination, "w") as fp:
+        json.dump(rate_data, fp, indent=4, sort_keys=True)

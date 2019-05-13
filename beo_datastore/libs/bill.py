@@ -1,3 +1,4 @@
+from functools import reduce
 import pandas as pd
 import re
 import warnings
@@ -92,7 +93,7 @@ class OpenEIRateData(object):
     @property
     def energy_weekday_schedule(self):
         """
-        Returns the weekday schedule for energy charges.
+        Return the weekday schedule for energy charges.
 
         :return: ValidationFrame288
         """
@@ -101,7 +102,7 @@ class OpenEIRateData(object):
     @property
     def energy_weekend_schedule(self):
         """
-        Returns the weekend schedule for energy charges.
+        Return the weekend schedule for energy charges.
 
         :return: ValidationFrame288
         """
@@ -156,7 +157,7 @@ class OpenEIRateData(object):
     @property
     def demand_weekday_schedule(self):
         """
-        Returns the weekday schedule for demand charges.
+        Return the weekday schedule for demand charges.
 
         :return: ValidationFrame288
         """
@@ -165,7 +166,7 @@ class OpenEIRateData(object):
     @property
     def demand_weekend_schedule(self):
         """
-        Returns the weekend schedule for demand charges.
+        Return the weekend schedule for demand charges.
 
         :return: ValidationFrame288
         """
@@ -199,7 +200,7 @@ class OpenEIRateData(object):
     @property
     def flat_demand_schedule(self):
         """
-        Returns ValidationFrame288 representation of month-based (seasonal)
+        Return ValidationFrame288 representation of month-based (seasonal)
         demand schedule.
         """
         return self.convert_matrix_to_frame288(
@@ -212,7 +213,7 @@ class OpenEIRateData(object):
     @staticmethod
     def convert_matrix_to_frame288(matrix):
         """
-        Converts a 12 x 24 matrix commonly found in OpenEI data to a
+        Convert a 12 x 24 matrix commonly found in OpenEI data to a
         ValidationFrame288 object.
 
         :param matrix: 12 x 24 matrix (array of arrays)
@@ -230,7 +231,7 @@ class OpenEIRateData(object):
 
     def get_tou_schedule(self, lookup_key):
         """
-        Returns a 12 x 24 lookup table of TOU demand or energy schedules.
+        Return a 12 x 24 lookup table of TOU demand or energy schedules.
 
         :param lookup_key: choice of "demandWeekdaySched",
             "demandWeekendSched", "energyWeekdaySched", "energyWeekendSched"
@@ -294,17 +295,34 @@ class ValidationBill(ValidationDataFrame):
         self.openei_rate_data = openei_rate_data
         self.dataframe = self.default_dataframe
 
-        # compute bill
-        self.compute_fixed_meter_charges()
-        self.compute_fixed_rate_charges()
-        self.compute_energy_rate_charges()
-        self.compute_demand_rate_charges()
-        self.compute_flat_demand_rate_charges()
+        # compute bill only if self.dataframe is empty
+        self.compute_bill()
+
+    @property
+    def start_datetime(self):
+        """
+        Return earliest timestamp as datetime object.
+        """
+        return self.intervalframe.start_datetime
+
+    @property
+    def end_datetime(self):
+        """
+        Return latest timestamp as datetime object.
+        """
+        return self.intervalframe.end_datetime
+
+    @property
+    def total(self):
+        """
+        Return total of all charges.
+        """
+        return self.dataframe["total"].sum()
 
     @staticmethod
     def validate_intervalframe(intervalframe):
         """
-        Validates intervalframe does not contain too many days.
+        Validate intervalframe does not contain too many days.
         """
         if intervalframe.days > 35:
             warning_message = (
@@ -317,7 +335,7 @@ class ValidationBill(ValidationDataFrame):
     @staticmethod
     def validate_units(count_unit, rate_unit):
         """
-        Validates that count_unit is a DataUnit and rate_unit is a RateUnit
+        Validate that count_unit is a DataUnit and rate_unit is a RateUnit
         and that multiplying them yields a dollar amount.
 
         :param count_unit: DataUnit
@@ -342,12 +360,23 @@ class ValidationBill(ValidationDataFrame):
     @staticmethod
     def extract_rate(rate_string):
         """
-        Returns first found decimal in rate_string.
+        Return first found decimal in rate_string.
 
         :param rate_string: string
         :return: float
         """
         return float(re.findall(r"[-+]?\d*\.\d+|\d+", rate_string)[0])
+
+    def compute_bill(self):
+        """
+        Compute bill only if self.dataframe is empty.
+        """
+        if self.dataframe.empty:
+            self.compute_fixed_meter_charges()
+            self.compute_fixed_rate_charges()
+            self.compute_energy_rate_charges()
+            self.compute_demand_rate_charges()
+            self.compute_flat_demand_rate_charges()
 
     def add_charge(
         self,
@@ -361,7 +390,7 @@ class ValidationBill(ValidationDataFrame):
         pro_rata=1,
     ):
         """
-        Adds charge to ValidationBill.
+        Add charge to ValidationBill.
 
         :param category: string
         :param description: string
@@ -408,7 +437,7 @@ class ValidationBill(ValidationDataFrame):
 
     def compute_fixed_rate_charges(self):
         """
-        Extracts fixed rates from self.openei_rate_data and fixed counts from
+        Extract fixed rates from self.openei_rate_data and fixed counts from
         self.intervalframe to compute fixed charges.
         """
         # TODO: Remove optional fixed charges/credits
@@ -467,7 +496,7 @@ class ValidationBill(ValidationDataFrame):
 
     def get_energy_tou_key_value(self, tou_key):
         """
-        Returns TOU description if it exists. (ex. 'TOU-winter:Off-Peak')
+        Return TOU description if it exists. (ex. 'TOU-winter:Off-Peak')
         """
         tou_key_values = self.openei_rate_data.rate_data.get(
             "energyKeyVals", []
@@ -480,7 +509,7 @@ class ValidationBill(ValidationDataFrame):
 
     def compute_energy_rate_charges(self):
         """
-        Extracts energy rates from self.openei_rate_data and energy counts from
+        Extract energy rates from self.openei_rate_data and energy counts from
         self.intervalframe to compute energy charges.
         """
         for tou_key, rates in enumerate(self.openei_rate_data.energy_rates):
@@ -583,7 +612,7 @@ class ValidationBill(ValidationDataFrame):
 
     def compute_demand_rate_charges(self):
         """
-        Extracts demand rates from self.openei_rate_data and demand peaks from
+        Extract demand rates from self.openei_rate_data and demand peaks from
         self.intervalframe to compute demand charges.
         """
         for tou_key, rates in enumerate(self.openei_rate_data.demand_rates):
@@ -643,7 +672,7 @@ class ValidationBill(ValidationDataFrame):
 
     def compute_flat_demand_rate_charges(self):
         """
-        Extracts flat demand rates from self.openei_rate_data and demand peaks
+        Extract flat demand rates from self.openei_rate_data and demand peaks
         from self.intervalframe to compute flat demand charges.
         """
         for tou_key, rates in enumerate(
@@ -677,3 +706,74 @@ class ValidationBill(ValidationDataFrame):
                         tou_period=tou_key,
                         pro_rata=(demand_days / self.intervalframe.days),
                     )
+
+
+class BillingCollection(object):
+    """
+    Container class for a collection of one or more ValidationBills.
+    """
+
+    def __init__(self, bills):
+        """
+        Initialize with a collection of ValidationBills.
+
+        :param bills: list of ValidationBills
+        """
+        self.validate_bills(bills)
+        self.bills = bills
+
+    @property
+    def start_datetime(self):
+        """
+        Return earliest timestamp as datetime object.
+        """
+        return self.intervalframe.start_datetime
+
+    @property
+    def end_datetime(self):
+        """
+        Return latest timestamp as datetime object.
+        """
+        return self.intervalframe.end_datetime
+
+    @property
+    def total(self):
+        """
+        Return total of all bill totals.
+        """
+        return reduce(lambda x, y: x + y, [x.total for x in self.bills])
+
+    @property
+    def dataframe(self):
+        """
+        Return billing dataframe representing all bills.
+        """
+        return reduce(
+            lambda x, y: x.append(y), [x.dataframe for x in self.bills]
+        )
+
+    @property
+    def intervalframe(self):
+        """
+        Return ValidationIntervalFrame representing all bills.
+        """
+        return reduce(
+            lambda x, y: x.merge_intervalframe(y),
+            [x.intervalframe for x in self.bills],
+        )
+
+    @property
+    def openei_rate_dict(self):
+        """
+        Return list of OpenEIRateData dicts representing all bills.
+        """
+        return [x.openei_rate_data.rate_data for x in self.bills]
+
+    @staticmethod
+    def validate_bills(bills):
+        """
+        Validates all bills are ValidationBills.
+        """
+        for bill in bills:
+            if not isinstance(bill, ValidationBill):
+                raise TypeError("{} must be a ValidationBill".format(bill))
