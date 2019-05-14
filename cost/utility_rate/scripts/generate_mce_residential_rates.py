@@ -145,29 +145,6 @@ def create_energy_dict(
     return {x: y for x, y in energy_dict.items() if y is not None}
 
 
-def create_demand_dict(
-    demand_key_vals=None,
-    demand_max=None,
-    demand_min=None,
-    demand_rate_strux=None,
-    demand_rate_units=None,
-    demand_units=None,
-    demand_weekday_schedule=None,
-    demand_weekend_schedule=None,
-):
-    demand_dict = {
-        "demandKeyVals": demand_key_vals,
-        "demandMax": demand_max,
-        "demandMin": demand_min,
-        "demandRateStrux": demand_rate_strux,
-        "demandRateUnits": demand_rate_units,
-        "demandUnits": demand_units,
-        "demandWeekdaySched": demand_weekday_schedule,
-        "demandWeekendSched": demand_weekend_schedule,
-    }
-    return {x: y for x, y in demand_dict.items() if y is not None}
-
-
 def run(*args):
     """
     Usage:

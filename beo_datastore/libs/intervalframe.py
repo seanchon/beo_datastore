@@ -565,6 +565,25 @@ class ValidationFrame288(ValidationDataFrame):
         self.validate_dataframe(other.dataframe)
         return ValidationFrame288(self.dataframe / other.dataframe)
 
+    @classmethod
+    def convert_matrix_to_frame288(cls, matrix):
+        """
+        Convert a 12 x 24 matrix commonly found in OpenEI data to a
+        ValidationFrame288 object.
+
+        :param matrix: 12 x 24 matrix (array of arrays)
+        :return: ValidationFrame288
+        """
+        dataframe = pd.DataFrame(matrix)
+        dataframe.index = dataframe.index + 1
+        dataframe.index = pd.to_numeric(dataframe.index)
+        dataframe.columns = pd.to_numeric(dataframe.columns)
+
+        if not dataframe.empty:
+            return cls(dataframe.transpose())
+        else:
+            return cls(ValidationFrame288.default_dataframe)
+
     def get_mask(self, key):
         """
         Returns ValidationFrame288 of True values when cell value matches key

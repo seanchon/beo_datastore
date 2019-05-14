@@ -203,31 +203,12 @@ class OpenEIRateData(object):
         Return ValidationFrame288 representation of month-based (seasonal)
         demand schedule.
         """
-        return self.convert_matrix_to_frame288(
+        return ValidationFrame288.convert_matrix_to_frame288(
             [
                 [x] * 23
                 for x in self.rate_data.get("flatDemandMonths", [None] * 12)
             ]
         )
-
-    @staticmethod
-    def convert_matrix_to_frame288(matrix):
-        """
-        Convert a 12 x 24 matrix commonly found in OpenEI data to a
-        ValidationFrame288 object.
-
-        :param matrix: 12 x 24 matrix (array of arrays)
-        :return: ValidationFrame288
-        """
-        dataframe = pd.DataFrame(matrix)
-        dataframe.index = dataframe.index + 1
-        dataframe.index = pd.to_numeric(dataframe.index)
-        dataframe.columns = pd.to_numeric(dataframe.columns)
-
-        if not dataframe.empty:
-            return ValidationFrame288(dataframe.transpose())
-        else:
-            return ValidationFrame288(ValidationFrame288.default_dataframe)
 
     def get_tou_schedule(self, lookup_key):
         """
@@ -250,7 +231,7 @@ class OpenEIRateData(object):
 
         tou_matrix = self.rate_data.get(lookup_key, None)
 
-        return self.convert_matrix_to_frame288(tou_matrix)
+        return ValidationFrame288.convert_matrix_to_frame288(tou_matrix)
 
 
 class ValidationBill(ValidationDataFrame):
