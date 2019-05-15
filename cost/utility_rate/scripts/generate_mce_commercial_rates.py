@@ -185,19 +185,13 @@ def run(*args):
         ),
         (
             "A10, Medium General Service",
-            [
-                {"key": "Summer", "val": 0.081},
-                {"key": "Winter", "val": 0.058},
-            ],
+            [{"key": "Summer", "val": 0.081}, {"key": "Winter", "val": 0.058}],
             A1_A10_SCHED,
             A1_A10_SCHED,
             [],
             None,
             None,
-            [
-                {"key": "Summer", "val": 4.85},
-                {"key": "Winter", "val": 0}
-            ],
+            [{"key": "Summer", "val": 4.85}, {"key": "Winter", "val": 0}],
             A1_10_FLAT_DEMAND_SCHED,
         ),
         (
@@ -214,10 +208,7 @@ def run(*args):
             [],
             None,
             None,
-            [
-                {"key": "Summer", "val": 4.85},
-                {"key": "Winter", "val": 0}
-            ],
+            [{"key": "Summer", "val": 4.85}, {"key": "Winter", "val": 0}],
             A1_10_FLAT_DEMAND_SCHED,
         ),
         (
@@ -501,11 +492,7 @@ def run(*args):
         if demand_rates:
             for i, rate in enumerate(demand_rates):
                 demand_rate_strux.append(
-                    {
-                        "demandRateTiers": [
-                            {"rate": demand_rates[i]["val"]}
-                        ]
-                    }
+                    {"demandRateTiers": [{"rate": demand_rates[i]["val"]}]}
                 )
             demand_dict = create_demand_dict(
                 demand_weekday_schedule=demand_weekday_schedule,

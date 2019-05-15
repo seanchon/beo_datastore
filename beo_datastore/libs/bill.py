@@ -450,21 +450,25 @@ class ValidationBill(ValidationDataFrame):
                 rate_unit=rate_unit,
             )
 
-    def get_energy_count(self, tou_key):
+    @staticmethod
+    def get_energy_count(
+        intervalframe, weekday_schedule, weekend_schedule, tou_key
+    ):
         """
         Return energy counts (kWh) based off of a tou_key.
 
+        :param intervalframe: ValidationIntervalFrame
+        :param weekday_schedule: ValidationFrame288
+        :param weekend_schedule: ValidationFrame288
         :param tou_key: int
         :return: float
         """
-        weekday_totals = self.intervalframe.filter_by_weekday().total_frame288
-        weekday_schedule = self.openei_rate_data.energy_weekday_schedule
+        weekday_totals = intervalframe.filter_by_weekday().total_frame288
         filtered_weekday_totals = weekday_totals * weekday_schedule.get_mask(
             tou_key
         )
 
-        weekend_totals = self.intervalframe.filter_by_weekend().total_frame288
-        weekend_schedule = self.openei_rate_data.energy_weekend_schedule
+        weekend_totals = intervalframe.filter_by_weekend().total_frame288
         filtered_weekend_totals = weekend_totals * weekend_schedule.get_mask(
             tou_key
         )
@@ -473,6 +477,20 @@ class ValidationBill(ValidationDataFrame):
             (filtered_weekday_totals + filtered_weekend_totals)
             .dataframe.sum()
             .sum()
+        )
+
+    def get_billing_energy_count(self, tou_key):
+        """
+        Return billing energy counts (kWh) based off of a tou_key.
+
+        :param tou_key: int
+        :return: float
+        """
+        return self.get_energy_count(
+            self.intervalframe,
+            self.openei_rate_data.energy_weekday_schedule,
+            self.openei_rate_data.energy_weekend_schedule,
+            tou_key,
         )
 
     def get_energy_tou_key_value(self, tou_key):
@@ -495,7 +513,7 @@ class ValidationBill(ValidationDataFrame):
         """
         for tou_key, rates in enumerate(self.openei_rate_data.energy_rates):
             # initialize counts
-            energy_count = self.get_energy_count(tou_key)
+            energy_count = self.get_billing_energy_count(tou_key)
             billed_so_far = 0
 
             for tier in rates.get("energyRateTiers", []):
@@ -546,17 +564,18 @@ class ValidationBill(ValidationDataFrame):
                 energy_count = energy_count - billing_count
                 billed_so_far = billed_so_far + billing_count
 
-    def get_demand_peak(self, tou_key):
+    @staticmethod
+    def get_demand_peak(
+        intervalframe, weekday_schedule, weekend_schedule, tou_key
+    ):
         """
         Return TOU-based demand peak power (kW) based off of a tou_key.
 
         :param tou_key: int
         :return: float
         """
-        weekday_peaks = self.intervalframe.filter_by_weekday().maximum_frame288
-        weekday_schedule = self.openei_rate_data.demand_weekday_schedule
-        weekend_peaks = self.intervalframe.filter_by_weekend().maximum_frame288
-        weekend_schedule = self.openei_rate_data.demand_weekend_schedule
+        weekday_peaks = intervalframe.filter_by_weekday().maximum_frame288
+        weekend_peaks = intervalframe.filter_by_weekend().maximum_frame288
 
         weekday_max = (
             (weekday_peaks * weekday_schedule.get_mask(tou_key))
@@ -570,6 +589,20 @@ class ValidationBill(ValidationDataFrame):
         )
 
         return max(weekday_max, weekend_max)
+
+    def get_billing_demand_peak(self, tou_key):
+        """
+        Return billing TOU-based demand peak power (kW) based off of a tou_key.
+
+        :param tou_key: int
+        :return: float
+        """
+        return self.get_demand_peak(
+            self.intervalframe,
+            self.openei_rate_data.demand_weekday_schedule,
+            self.openei_rate_data.demand_weekend_schedule,
+            tou_key,
+        )
 
     def get_demand_days(self, tou_key):
         """
@@ -601,7 +634,7 @@ class ValidationBill(ValidationDataFrame):
                 # TODO: Are there tiered demand charges?
                 rate = tier.get("rate", 0)
                 max_demand_per_tier = tier.get("max", float("inf"))
-                demand_peak = self.get_demand_peak(tou_key)
+                demand_peak = self.get_billing_demand_peak(tou_key)
                 demand_days = self.get_demand_days(tou_key)
                 if rate and demand_peak and demand_days:
                     description = "Demand Charge"
@@ -625,17 +658,31 @@ class ValidationBill(ValidationDataFrame):
                         pro_rata=(demand_days / self.intervalframe.days),
                     )
 
-    def get_flat_demand_peak(self, tou_key):
+    @staticmethod
+    def get_flat_demand_peak(intervalframe, schedule, tou_key):
         """
         Return flat-demand peak power (kW) based off of a tou_key.
+
+        :param intervalframe: ValidationIntervalFrame
+        :param schedule: array of ints
+        :param tou_key: int
+        :return: float
+        """
+        peaks = intervalframe.maximum_frame288
+        return (peaks * schedule.get_mask(tou_key)).dataframe.max().max()
+
+    def get_billing_flat_demand_peak(self, tou_key):
+        """
+        Return billing flat-demand peak power (kW) based off of a tou_key.
 
         :param tou_key: int
         :return: float
         """
-        schedule = self.openei_rate_data.flat_demand_schedule
-        peaks = self.intervalframe.maximum_frame288
-
-        return (peaks * schedule.get_mask(tou_key)).dataframe.max().max()
+        return self.get_flat_demand_peak(
+            self.intervalframe,
+            self.openei_rate_data.flat_demand_schedule,
+            tou_key,
+        )
 
     def get_flat_demand_days(self, tou_key):
         """
@@ -663,7 +710,7 @@ class ValidationBill(ValidationDataFrame):
                 # TODO: Are there tiered demand charges?
                 rate = tier.get("rate", 0)
                 max_demand_per_tier = tier.get("max", float("inf"))
-                demand_peak = self.get_flat_demand_peak(tou_key)
+                demand_peak = self.get_billing_flat_demand_peak(tou_key)
                 demand_days = self.get_flat_demand_days(tou_key)
                 if rate and demand_peak and demand_days:
                     description = "Flat Demand Charge"

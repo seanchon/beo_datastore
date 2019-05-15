@@ -70,6 +70,8 @@ class ValidationDataFrame(object):
         index_type = type(cls.default_dataframe.index)
         if not isinstance(dataframe.index, index_type):
             raise TypeError("dataframe index must be {}.".format(index_type))
+        if not dataframe.index.is_monotonic:
+            raise IndexError("dataframe index must be in ascending order.")
 
     @classmethod
     def validate_dataframe_columns(cls, dataframe):
@@ -341,7 +343,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
                 dataframe, index_column, convert_to_datetime
             )
 
-        return cls(dataframe, *args, **kwargs)
+        return cls(dataframe=dataframe.sort_index(), *args, **kwargs)
 
     @classmethod
     def csv_url_to_intervalframe(
@@ -367,7 +369,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
                 dataframe, index_column, convert_to_datetime
             )
 
-        return cls(dataframe, *args, **kwargs)
+        return cls(dataframe=dataframe.sort_index(), *args, **kwargs)
 
     def merge_intervalframe(self, other, overwrite_rows=False):
         """
