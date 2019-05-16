@@ -7,7 +7,10 @@ import us
 from django.db import models
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.intervalframe import IntervalFrameFile
+from beo_datastore.libs.intervalframe import (
+    IntervalFrameFile,
+    ValidationIntervalFrame,
+)
 from beo_datastore.libs.models import ValidationModel
 from beo_datastore.settings import MEDIA_ROOT
 
@@ -20,9 +23,9 @@ class Meter(ValidationModel):
     identified by a Service Address Identifier (sa_id).
     """
 
-    sa_id = models.IntegerField(db_index=True)
+    sa_id = models.IntegerField(db_index=True, unique=True)
     rate_plan = models.CharField(
-        max_length=16, db_index=True, blank=True, null=True
+        max_length=64, db_index=True, blank=True, null=True
     )
     state = USStateField(choices=STATE_CHOICES)
 
@@ -44,7 +47,9 @@ class Meter(ValidationModel):
         :return: ValidationIntervalFrame
         """
         return reduce(
-            lambda a, b: a.intervalframe + b.intervalframe, self.channels.all()
+            lambda a, b: a + b,
+            [x.intervalframe for x in self.channels.all()],
+            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
         )
 
     @property

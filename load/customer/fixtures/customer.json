@@ -9,6 +9,24 @@
   }
 },
 {
+  "model": "customer.meter",
+  "pk": 2,
+  "fields": {
+    "sa_id": 8943913372,
+    "rate_plan": "EV, Residential Rates for Electric Vehicle Owners",
+    "state": "CA"
+  }
+},
+{
+  "model": "customer.meter",
+  "pk": 3,
+  "fields": {
+    "sa_id": 7720534682,
+    "rate_plan": "E19, Medium General Service, Primary",
+    "state": "CA"
+  }
+},
+{
   "model": "customer.channel",
   "pk": 1,
   "fields": {
@@ -24,6 +42,24 @@
     "export": false,
     "data_unit": 2,
     "meter": 1
+  }
+},
+{
+  "model": "customer.channel",
+  "pk": 3,
+  "fields": {
+    "export": false,
+    "data_unit": 2,
+    "meter": 2
+  }
+},
+{
+  "model": "customer.channel",
+  "pk": 4,
+  "fields": {
+    "export": false,
+    "data_unit": 2,
+    "meter": 3
   }
 }
 ]

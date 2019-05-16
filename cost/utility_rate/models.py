@@ -37,6 +37,16 @@ class RatePlan(ValidationModel):
     def __str__(self):
         return self.name
 
+    def get_latest_rate_collection(self, start):
+        """
+        Return latest RateCollection object with effective date less than or
+        equal to start.
+
+        :param start: datetime
+        :return: RateCollection
+        """
+        return self.rate_collections.filter(effective_date__lte=start).last()
+
 
 class RateCollection(ValidationModel):
     """

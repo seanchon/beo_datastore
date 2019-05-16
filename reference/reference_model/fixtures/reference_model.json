@@ -301,5 +301,13 @@
     "name": "Residential",
     "utility": 2
   }
+},
+{
+  "model": "reference_model.sector",
+  "pk": 5,
+  "fields": {
+    "name": "Commercial",
+    "utility": 2
+  }
 }
 ]
