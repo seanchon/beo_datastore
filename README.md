@@ -33,9 +33,9 @@ The application can be accessed at http://localhost:8000/ and the administration
 
 # DEMO NOTEBOOK
 
-To get a feel for the underlying data, the following Jupyter Notebook can be launched. (Note: To expand upon the demo and load additional data, see the next section on [LOADING DATA](#loading-data).)
+To get a feel for the underlying data, a Jupyter Notebook can be launched which contains demo scripts. (Note: Base fixtures are needed for the demo scripts to run. See [LOADING DATA](#loading-data).)
 
-Enable [RISE](https://github.com/damianavila/RISE) for presentation views.
+Configuration note: enable [RISE](https://github.com/damianavila/RISE) for presentation views.
 
 ```
 (<env_name>)$ jupyter-nbextension install rise --py --sys-prefix
