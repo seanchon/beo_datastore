@@ -32,7 +32,7 @@ class ReferenceBuildingQuerySet(models.QuerySet):
         # TODO: Create a quicker cleanup method.
         for obj in self:
             obj.intervalframe.delete()
-        super(ReferenceBuildingQuerySet, self).delete(*args, **kwargs)
+        super().delete(*args, **kwargs)
 
 
 class ReferenceBuilding(ValidationModel):
@@ -193,12 +193,20 @@ class ReferenceBuildingIntervalFrame(IntervalFrameFile):
 
     reference_model = ReferenceBuilding
     file_directory = os.path.join(MEDIA_ROOT, "reference_buildings")
-    aggregation_column = "Electricity:Facility [kW](Hourly)"
-
-    @classmethod
-    def validate_dataframe_columns(cls, dataframe):
-        """
-        Multiple columns exist in OpenEI for a variety of use cases
-        (ex. heating), so columns are not validated.
-        """
-        pass
+    default_aggregation_column = "Electricity:Facility [kW](Hourly)"
+    default_dataframe = pd.DataFrame(
+        columns=[
+            "Date/Time",
+            "Electricity:Facility [kW](Hourly)",
+            "Fans:Electricity [kW](Hourly)",
+            "Cooling:Electricity [kW](Hourly)",
+            "Heating:Electricity [kW](Hourly)",
+            "InteriorLights:Electricity [kW](Hourly)",
+            "InteriorEquipment:Electricity [kW](Hourly)",
+            "Gas:Facility [kW](Hourly)",
+            "Heating:Gas [kW](Hourly)",
+            "InteriorEquipment:Gas [kW](Hourly)",
+            "Water Heater:WaterSystems:Gas [kW](Hourly)",
+        ],
+        index=pd.to_datetime([]),
+    )

@@ -107,7 +107,7 @@ class ChannelQuerySet(models.QuerySet):
         # TODO: Create a quicker cleanup method.
         for obj in self:
             obj.intervalframe.delete()
-        super(ChannelQuerySet, self).delete(*args, **kwargs)
+        super().delete(*args, **kwargs)
 
 
 class Channel(ValidationModel):
