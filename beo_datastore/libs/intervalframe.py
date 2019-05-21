@@ -223,7 +223,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
     default_dataframe = pd.DataFrame(columns=["kw"], index=pd.to_datetime([]))
 
     # default column used for aggregation calculations, can be overwritten
-    aggregation_column = "kw"
+    default_aggregation_column = "kw"
 
     def __add__(self, other):
         """
@@ -253,6 +253,30 @@ class ValidationIntervalFrame(ValidationDataFrame):
             )
             .append(df_2.loc[new_indices])
         )
+
+    @property
+    def aggregation_column(self):
+        """
+        Column used for aggregation calculations, can be overwritten.
+        """
+        if not hasattr(self, "_aggregation_column"):
+            return self.default_aggregation_column
+        else:
+            return self._aggregation_column
+
+    @aggregation_column.setter
+    def aggregation_column(self, aggregation_column):
+        """
+        Reset cached_property values when aggregation_column is overwritten.
+        """
+        if aggregation_column is not self.aggregation_column:
+            for key in [
+                k
+                for k, v in self.__dict__.items()
+                if isinstance(v, ValidationFrame288)
+            ]:
+                self.__dict__.pop(key, None)
+        self._aggregation_column = aggregation_column
 
     @property
     def start_datetime(self):
