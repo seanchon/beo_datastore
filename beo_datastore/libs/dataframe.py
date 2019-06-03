@@ -1,11 +1,14 @@
+from datetime import timedelta
 import io
+import numpy as np
 import pandas as pd
 import requests
+from scipy import stats
 
 
 def convert_columns_type(dataframe, type_):
     """
-    Converts columns type to another type_.
+    Convert columns type to another type_.
 
     :param dataframe: pandas DataFrame
     :param type_: Python type
@@ -17,7 +20,7 @@ def convert_columns_type(dataframe, type_):
 
 def csv_url_to_dataframe(url):
     """
-    Reads a csv from a url and returns a pandas Dataframe.
+    Read a csv from a url and return a pandas Dataframe.
 
     :param url: url of csv
     :return: pandas DataFrame
@@ -26,11 +29,34 @@ def csv_url_to_dataframe(url):
     return pd.read_csv(io.StringIO(csv.decode("utf-8")))
 
 
+def get_dataframe_period(dataframe):
+    """
+    Return dataframe period as a timedelta object.
+
+    :param dataframe: pandas DataFrame with DatetimeIndex
+    :return: timedelta
+    """
+    # get most common (mode) delta in seconds
+    results = stats.mode(np.diff(dataframe.index.values)).mode.tolist()
+    results = [x / 1000000000 for x in results]
+
+    if not results:
+        return timedelta(seconds=0)
+    elif len(results) == 1:
+        return timedelta(seconds=results[0])
+    else:
+        raise IndexError(
+            "Multiple DataFrame periods detected - {}.".format(
+                ", ".join([str(x) for x in results])
+            )
+        )
+
+
 def filter_dataframe_by_datetime(
     dataframe, start=pd.Timestamp.min, end_limit=pd.Timestamp.max
 ):
     """
-    Returns dataframe filtered by index beginning on and including start and
+    Return dataframe filtered by index beginning on and including start and
     ending on but excluding end_limit.
 
     :param dataframe: pandas DataFrame
@@ -46,7 +72,7 @@ def filter_dataframe_by_datetime(
 
 def filter_dataframe_by_weekday(dataframe):
     """
-    Returns dataframe including only weekdays.
+    Return dataframe including only weekdays.
 
     :param dataframe: pandas DataFrame
     :return: pandas DataFrame
@@ -56,7 +82,7 @@ def filter_dataframe_by_weekday(dataframe):
 
 def filter_dataframe_by_weekend(dataframe):
     """
-    Returns dataframe including only weekends.
+    Return dataframe including only weekends.
 
     :param dataframe: pandas DataFrame
     :return: pandas DataFrame
@@ -66,7 +92,7 @@ def filter_dataframe_by_weekend(dataframe):
 
 def merge_dataframe(dataframe, other_dataframe, overwrite_rows=False):
     """
-    Merges other_dataframe rows into dataframe. If overwrite_rows is True, rows
+    Merge other_dataframe rows into dataframe. If overwrite_rows is True, rows
     in other_dataframe will overwrite any existing rows with colliding indices.
 
     :param other_dataframe: pandas DataFrame
@@ -86,7 +112,7 @@ def merge_dataframe(dataframe, other_dataframe, overwrite_rows=False):
 
 def resample_dataframe(dataframe, rule, aggfunc):
     """
-    Resamples dataframe to a new period based on rule and aggfunc, where
+    Resample dataframe to a new period based on rule and aggfunc, where
     rule is an offset alias (ex. "1min") and aggfunc is an aggregation
     function (ex. np.mean).
 
@@ -99,12 +125,12 @@ def resample_dataframe(dataframe, rule, aggfunc):
     :param aggfunc: aggregation function
     :return: pandas DataFrame
     """
-    return dataframe.resample(rule=rule).apply(func=aggfunc)
+    return dataframe.astype(float).resample(rule=rule).apply(func=aggfunc)
 
 
 def set_dataframe_index(dataframe, index_column, convert_to_datetime=False):
     """
-    Sets index on index_column. If convert_to_datetime is True, attempts
+    Set index on index_column. If convert_to_datetime is True, attempt
     to set index as a DatetimeIndex.
 
     :param dataframe: pandas DataFrame

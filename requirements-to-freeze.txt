@@ -1,6 +1,7 @@
 # see https://www.kennethreitz.org/essays/a-better-pip-workflow
 black
 bs4
+cached-property
 Django
 django-allauth
 django-extensions
@@ -19,6 +20,7 @@ pre-commit
 pyarrow
 requests
 rise
+scipy
 us
 Werkzeug
 xlrd

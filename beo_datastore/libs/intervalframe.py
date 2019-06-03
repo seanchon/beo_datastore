@@ -1,8 +1,7 @@
+from cached_property import cached_property
 import os
 import numpy as np
 import pandas as pd
-
-from django.utils.functional import cached_property
 
 from beo_datastore.libs.dataframe import (
     convert_columns_type,
@@ -10,6 +9,7 @@ from beo_datastore.libs.dataframe import (
     filter_dataframe_by_datetime,
     filter_dataframe_by_weekday,
     filter_dataframe_by_weekend,
+    get_dataframe_period,
     merge_dataframe,
     resample_dataframe,
     set_dataframe_index,
@@ -237,7 +237,18 @@ class ValidationIntervalFrame(ValidationDataFrame):
         :param other: ValidationIntervalFrame
         :return: ValidationIntervalFrame
         """
-        self.validate_dataframe(other.dataframe)
+        # filter other dataframe so columns match
+        other = ValidationIntervalFrame(
+            other.dataframe[list(self.default_dataframe.columns)]
+        )
+
+        if other.dataframe.empty:
+            return self
+        elif self.dataframe.empty:
+            return other
+
+        if self.period != other.period:
+            raise IndexError("Periods must match.")
 
         df_1 = self.dataframe
         df_2 = other.dataframe
@@ -252,6 +263,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
                 df_1.loc[overlapping_indices] + df_2.loc[overlapping_indices]
             )
             .append(df_2.loc[new_indices])
+            .sort_index()
         )
 
     @property
@@ -279,18 +291,39 @@ class ValidationIntervalFrame(ValidationDataFrame):
         self._aggregation_column = aggregation_column
 
     @property
+    def start_timestamp(self):
+        """
+        Return earliest index value as pandas Timestamp.
+        """
+        return self.dataframe.index.min()
+
+    @property
     def start_datetime(self):
         """
-        Return earliest timestamp as datetime object.
+        Return earliest index value as datetime object.
         """
-        return self.dataframe.index.min().to_pydatetime()
+        return self.start_timestamp.to_pydatetime()
+
+    @property
+    def end_timestamp(self):
+        """
+        Return latest index value as pandas Timestamp.
+        """
+        return self.dataframe.index.max()
 
     @property
     def end_datetime(self):
         """
         Return latest timestamp as datetime object.
         """
-        return self.dataframe.index.max().to_pydatetime()
+        return self.end_timestamp.to_pydatetime()
+
+    @cached_property
+    def period(self):
+        """
+        Return the dataframe period as a datetime.timedelta object.
+        """
+        return get_dataframe_period(self.dataframe)
 
     @property
     def days(self):
@@ -590,6 +623,23 @@ class ValidationFrame288(ValidationDataFrame):
         """
         self.validate_dataframe(other.dataframe)
         return ValidationFrame288(self.dataframe / other.dataframe)
+
+    @classmethod
+    def validate_dataframe_columns(cls, dataframe):
+        """
+        Performs validation checks that dataframe and cls.default_dataframe:
+            - indices are same type.
+            - have the same indices.
+        """
+        index_type = type(cls.default_dataframe.index)
+        if not isinstance(dataframe.index, index_type):
+            raise TypeError("dataframe index must be {}.".format(index_type))
+
+        if not cls.default_dataframe.index.equals(dataframe.index):
+            raise LookupError(
+                "dataframe index must have same index as {}'s "
+                "default_dataframe.".format(cls.__name__)
+            )
 
     @classmethod
     def convert_matrix_to_frame288(cls, matrix):
