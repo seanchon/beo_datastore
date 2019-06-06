@@ -210,3 +210,20 @@ class ReferenceBuildingIntervalFrame(IntervalFrameFile):
         ],
         index=pd.to_datetime([]),
     )
+
+    @classmethod
+    def validate_dataframe_columns(cls, dataframe):
+        """
+        Performs validation checks that dataframe and cls.default_dataframe:
+            - columns are same type.
+            - have the same columns.
+        """
+        columns_type = type(cls.default_dataframe.columns)
+        if not isinstance(dataframe.columns, columns_type):
+            raise TypeError(
+                "dataframe columns must be {}.".format(columns_type)
+            )
+
+        if not cls.default_dataframe.columns.equals(dataframe.columns):
+            # TODO: Investigate why some OpenEI .csv's have different columns
+            pass

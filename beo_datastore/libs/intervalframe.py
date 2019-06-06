@@ -1,4 +1,5 @@
 from cached_property import cached_property
+from functools import reduce
 import os
 import numpy as np
 import pandas as pd
@@ -624,8 +625,36 @@ class ValidationFrame288(ValidationDataFrame):
         self.validate_dataframe(other.dataframe)
         return ValidationFrame288(self.dataframe / other.dataframe)
 
+    @cached_property
+    def normalized_frame288(self):
+        """
+        Return ValidationFrame288 where values are between -1 and 1.
+        """
+        abs_max = max(
+            abs(self.dataframe.min().min()), abs(self.dataframe.max().max())
+        )
+
+        if abs_max == 0:
+            # empty ValidationFrame288
+            return self
+        else:
+            return ValidationFrame288(self.dataframe / abs_max)
+
+    @cached_property
+    def flattened_array(self):
+        """
+        Return all 288 values as a single array ordered from left to right by
+        month-hour.
+
+        Ex. [Jan hour 1, Jan hour 1, ..., Dec hour 22, Dec hour 23]
+        """
+        return reduce(
+            lambda x, y: x + y,
+            [list(self.dataframe[x]) for x in self.dataframe],
+        )
+
     @classmethod
-    def validate_dataframe_columns(cls, dataframe):
+    def validate_dataframe_index(cls, dataframe):
         """
         Performs validation checks that dataframe and cls.default_dataframe:
             - indices are same type.
@@ -659,6 +688,20 @@ class ValidationFrame288(ValidationDataFrame):
             return cls(dataframe.transpose())
         else:
             return cls(ValidationFrame288.default_dataframe)
+
+    @classmethod
+    def convert_flattened_array_to_frame288(cls, flattened_array):
+        """
+        Convert an array of 288 values ordered by month-hour to a
+        ValidationFrame288 object.
+
+        :param flattened_array: array of floats (288 length)
+        :return: ValidationFrame288
+        """
+        matrix = [
+            flattened_array[(x - 1) * 24 : (x * 24)] for x in range(1, 13)
+        ]
+        return cls.convert_matrix_to_frame288(matrix)
 
     def get_mask(self, key):
         """
