@@ -1,6 +1,8 @@
 from datetime import time
 import pandas as pd
 
+from django.db import transaction
+
 from load.customer.models import Meter, Channel, ChannelIntervalFrame
 from reference.reference_model.models import DataUnit
 
@@ -57,32 +59,37 @@ def run(*args):
         meter, _ = Meter.objects.get_or_create(
             sa_id=said, rate_plan=rate_plan, state="CA"
         )
-        for export in [True, False]:
-            df = filter_dataframe(dataframe, said, export, columns)
-            df.set_index("DATE", inplace=True)
-            df.sort_index(inplace=True)
+        try:
+            with transaction.atomic():
+                for export in [True, False]:
+                    df = filter_dataframe(dataframe, said, export, columns)
+                    df.set_index("DATE", inplace=True)
+                    df.sort_index(inplace=True)
 
-            # transform to single column of values
-            df = df.stack().reset_index()
-            df["DATE"] = df["DATE"].astype(str)
-            df["level_1"] = df["level_1"].astype(str)
-            df["index"] = df["DATE"] + " " + df["level_1"]
-            df.drop(["DATE", "level_1"], axis=1, inplace=True)
-            df.rename(index=str, columns={0: "kw"}, inplace=True)
-            df.set_index("index", inplace=True)
-            df.index = pd.to_datetime(df.index)
+                    # transform to single column of values
+                    df = df.stack().reset_index()
+                    df["DATE"] = df["DATE"].astype(str)
+                    df["level_1"] = df["level_1"].astype(str)
+                    df["index"] = df["DATE"] + " " + df["level_1"]
+                    df.drop(["DATE", "level_1"], axis=1, inplace=True)
+                    df.rename(index=str, columns={0: "kw"}, inplace=True)
+                    df.set_index("index", inplace=True)
+                    df.index = pd.to_datetime(df.index)
 
-            if export:
-                df["kw"] = df["kw"] * -1.0
+                    if export:
+                        df["kw"] = df["kw"] * -1.0
 
-            # convert 15-minute kwh to kw
-            if "15-minute" in args[1]:
-                df["kw"] = df["kw"] * 4.0
+                    # convert 15-minute kwh to kw
+                    if "15-minute" in args[1]:
+                        df["kw"] = df["kw"] * 4.0
 
-            channel, _ = Channel.objects.get_or_create(
-                export=export,
-                data_unit=DataUnit.objects.get(name="kw"),
-                meter=meter,
-            )
-            channel.intervalframe = ChannelIntervalFrame(channel, df)
-            channel.save()
+                    channel, _ = Channel.objects.get_or_create(
+                        export=export,
+                        data_unit=DataUnit.objects.get(name="kw"),
+                        meter=meter,
+                    )
+                    channel.intervalframe = ChannelIntervalFrame(channel, df)
+                    channel.save()
+        except Exception as e:
+            print(e)
+            print("Skipping Import: {}".format(said))
