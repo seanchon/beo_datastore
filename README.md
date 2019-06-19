@@ -76,13 +76,13 @@ Where STATE is the two-letter abbreviation of a state (ex. CA).
 
 ### PG&E
 
-The following script will load PG&E Item 17 data (the Excel file will need to be downloaded locally).
+The following script will load PG&E Item 17 data (the CSV file will need to be downloaded locally).
 
 ```
-(<env_name>)$ python manage.py runscript load.customer.scripts.ingest_pge_data --script-args EXCEL_FILE SHEET_NAME
+(<env_name>)$ python manage.py runscript load.customer.scripts.ingest_pge_data --script-args CSV_FILE
 ```
 
-Where EXCEL_FILE is the location of an Item 17 file and SHEET_NAME is the name of the sheet to be used for ingestion.
+Where CSV_FILE is the location of an Item 17 file to be used for ingestion.
 
 ## Cost Data
 
