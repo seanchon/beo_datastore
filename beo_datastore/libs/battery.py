@@ -49,13 +49,6 @@ class Battery(object):
         self._charge = charge
 
     @property
-    def max_capacity(self):
-        """
-        Maximum capacity a battery has available for discharge.
-        """
-        return self.rating * self.discharge_duration_hours
-
-    @property
     def state_of_charge(self):
         """
         Charge available divided by the maximum capacity.
@@ -72,6 +65,13 @@ class Battery(object):
         Discharge duration converted to hours.
         """
         return timedelta_to_hours(self.discharge_duration)
+
+    @property
+    def max_capacity(self):
+        """
+        Maximum capacity a battery has available for discharge.
+        """
+        return self.rating * self.discharge_duration_hours
 
     @staticmethod
     def validate_charge(charge, max_capacity):
@@ -265,6 +265,14 @@ class BatteryIntervalFrame(ValidationIntervalFrame):
         else:
             return self.dataframe.iloc[-1].name + self.load_period
 
+    @property
+    def energy_loss(self):
+        """
+        Energy lost to charge/discharge cycles in kWh.
+        """
+        self.reset_cached_properties()
+        return self.total_frame288.dataframe.sum().sum() - self.battery.charge
+
     def operate_battery(self):
         """
         Logic for operating batteries.
@@ -444,6 +452,81 @@ class FixedScheduleBatteryIntervalFrame(BatteryIntervalFrame):
 
         return operations
 
+    @classmethod
+    def create_fixed_schedule(
+        cls, start_hour, end_limit_hour, power_limit_1, power_limit_2
+    ):
+        """
+        Return ValidationFrame288 where:
+            - inside of start_hour and end_limit_hour (not including
+            end_limit_hour) power_limit_1 is used.
+            - outside of start_hour and end_hour, power_limit_2 is used.
+
+        :param start_hour: value from 0 to 23
+        :param end_hour: value from 0 to 23
+        :param power_limit_1: kw (float)
+        :param power_limit_2: kw (float)
+        :return: ValidationFrame288
+        """
+        if end_limit_hour < start_hour:
+            end_limit_hour, start_hour = start_hour, end_limit_hour
+            power_limit_1, power_limit_2 = power_limit_2, power_limit_1
+
+        return ValidationFrame288.convert_matrix_to_frame288(
+            [
+                [power_limit_2] * (start_hour - 0)
+                + [power_limit_1] * (end_limit_hour - start_hour)
+                + [power_limit_2] * (24 - end_limit_hour)
+            ]
+            * 12
+        )
+
+    @classmethod
+    def create_optimized_cns_schedule(
+        cls, cns_frame288, number_of_hours, charge=True, threshold=None
+    ):
+        """
+        Create a ValidationFrame288 schedule that would charge/discharge
+        battery at 100% at best hours based on Clean Net Short
+        ValidationFrame288.
+
+        :param cns_frame288: ValidationFrame288
+        :param number_of_hours: number of best hours to charge
+        :param charge: True to create charge schedule, False to create
+            discharge schedule
+        :param threshold: set to charge/discharge threshold
+        :return: ValidationFrame288
+        """
+        dataframe = cns_frame288.dataframe
+
+        matrix = []
+        for month in dataframe.columns:
+            month_df = dataframe[month]
+            if charge:
+                if threshold is None:
+                    threshold = float("inf")
+                best_values = sorted(month_df)[:number_of_hours]
+                matrix.append(
+                    [
+                        threshold if x in best_values else -float("inf")
+                        for x in month_df
+                    ]
+                )
+            else:  # discharge
+                if threshold is None:
+                    threshold = -float("inf")
+                best_values = list(reversed(sorted(month_df)))[
+                    :number_of_hours
+                ]
+                matrix.append(
+                    [
+                        threshold if x in best_values else float("inf")
+                        for x in month_df
+                    ]
+                )
+
+        return ValidationFrame288.convert_matrix_to_frame288(matrix)
+
     def _commit_battery_operations(self):
         """
         After performing self.operate_battery() many times, this method can be
@@ -509,13 +592,17 @@ class FixedScheduleBatteryIntervalFrame(BatteryIntervalFrame):
                 index.month
             ][index.hour]
             if row.kw < charge_threshold:  # charge battery
-                self.operate_battery(
-                    floor(charge_threshold - row.kw), self.load_period
-                )
+                try:
+                    power_level = floor(charge_threshold - row.kw)
+                except OverflowError:
+                    power_level = charge_threshold - row.kw
+                self.operate_battery(power_level, self.load_period)
             elif row.kw > discharge_threshold:  # discharge battery
-                self.operate_battery(
-                    floor(discharge_threshold - row.kw), self.load_period
-                )
+                try:
+                    power_level = floor(discharge_threshold - row.kw)
+                except OverflowError:
+                    power_level = discharge_threshold - row.kw
+                self.operate_battery(power_level, self.load_period)
             else:  # no operation
                 self.operate_battery(0, self.load_period)
 
