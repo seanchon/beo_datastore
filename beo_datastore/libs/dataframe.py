@@ -113,19 +113,24 @@ def merge_dataframe(dataframe, other_dataframe, overwrite_rows=False):
 def resample_dataframe(dataframe, rule, aggfunc):
     """
     Resample dataframe to a new period based on rule and aggfunc, where
-    rule is an offset alias (ex. "1min") and aggfunc is an aggregation
-    function (ex. np.mean).
-
-    See the following link for offset aliases:
-        http://pandas.pydata.org/pandas-docs/stable/user_guide/
-        timeseries.html#timeseries-offset-aliases
+    rule is an offset alias (ex. timedelta(minutes=1)) and aggfunc is an
+    aggregation function (ex. np.mean).
 
     :param dataframe: pandas DataFrame
-    :param rule: timeseries offset alias
+    :param rule: timedelta object
     :param aggfunc: aggregation function
     :return: pandas DataFrame
     """
-    return dataframe.astype(float).resample(rule=rule).apply(func=aggfunc)
+    if get_dataframe_period(dataframe) > rule:  # upsample
+        # TODO: Don't ffill any interval gaps
+        return (
+            dataframe.astype(float)
+            .resample(rule=rule)
+            .apply(func=aggfunc)
+            .fillna(method="ffill")
+        )
+    else:  # downsample
+        return dataframe.astype(float).resample(rule=rule).apply(func=aggfunc)
 
 
 def set_dataframe_index(dataframe, index_column, convert_to_datetime=False):

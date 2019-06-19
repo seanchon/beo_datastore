@@ -18,11 +18,11 @@ class KMeansLoadClustering(object):
         :param normalize: True to normalize all ValidationFrame288s to create
             values ranging between -1 and 1
         """
-        self.source_dataframe = self.create_source_dataframe(
+        self.basis_dataframe = self.create_basis_dataframe(
             objects, frame288_type, normalize
         )
         self.cluster = self.create_cluster(
-            self.source_dataframe, number_of_clusters
+            self.basis_dataframe, number_of_clusters
         )
 
         self.objects = objects
@@ -45,9 +45,9 @@ class KMeansLoadClustering(object):
         return set(self.cluster.labels_)
 
     @staticmethod
-    def create_source_dataframe(objects, frame288_type, normalize):
+    def create_basis_dataframe(objects, frame288_type, normalize):
         """
-        Create source dataframe to be used in clustering algorithm. Source
+        Create basis dataframe to be used in clustering algorithm. Basis
         dataframe consists of rows of data where each row contains 288
         datapoint representing each month-hour of a ValidationFrame288.
 
@@ -76,17 +76,17 @@ class KMeansLoadClustering(object):
             )
 
     @staticmethod
-    def create_cluster(source_dataframe, number_of_clusters):
+    def create_cluster(basis_dataframe, number_of_clusters):
         """
         Create KMeans cluster and run algorithm.
 
-        :param source_dataframe: pandas DataFrame where each row is a flattened
+        :param basis_dataframe: pandas DataFrame where each row is a flattened
             288
         :param number_of_clusters: int
         :return: KMeans cluster
         """
         cluster = KMeans(n_clusters=number_of_clusters)
-        cluster.fit(source_dataframe)
+        cluster.fit(basis_dataframe)
 
         return cluster
 

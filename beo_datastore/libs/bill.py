@@ -300,6 +300,29 @@ class ValidationBill(ValidationDataFrame):
         """
         return self.dataframe["total"].sum()
 
+    @property
+    def total_dataframe(self):
+        """
+        Return self.dataframe with additional total line.
+        """
+        count_df = pd.DataFrame(
+            self.dataframe["count"].sum(), index=["Total"], columns=["count"]
+        )
+        total_df = pd.DataFrame(
+            self.dataframe["total"].sum(), index=["Total"], columns=["total"]
+        )
+
+        return self.dataframe.append(
+            pd.merge(
+                count_df,
+                total_df,
+                how="inner",
+                left_index=True,
+                right_index=True,
+            ),
+            sort=False,
+        ).fillna("")
+
     @staticmethod
     def validate_intervalframe(intervalframe):
         """
@@ -779,6 +802,29 @@ class BillingCollection(object):
         return reduce(
             lambda x, y: x.append(y), [x.dataframe for x in self.bills]
         )
+
+    @property
+    def total_dataframe(self):
+        """
+        Return self.dataframe with additional total line.
+        """
+        count_df = pd.DataFrame(
+            self.dataframe["count"].sum(), index=["Total"], columns=["count"]
+        )
+        total_df = pd.DataFrame(
+            self.dataframe["total"].sum(), index=["Total"], columns=["total"]
+        )
+
+        return self.dataframe.append(
+            pd.merge(
+                count_df,
+                total_df,
+                how="inner",
+                left_index=True,
+                right_index=True,
+            ),
+            sort=False,
+        ).fillna("")
 
     @property
     def intervalframe(self):
