@@ -1,4 +1,5 @@
 from cached_property import cached_property
+from datetime import timedelta
 from functools import reduce
 import os
 import numpy as np
@@ -73,6 +74,8 @@ class ValidationDataFrame(object):
             raise TypeError("dataframe index must be {}.".format(index_type))
         if not dataframe.index.is_monotonic:
             raise IndexError("dataframe index must be in ascending order.")
+        if any(dataframe.index.duplicated()):
+            raise LookupError("dataframe has duplicate index values.")
 
     @classmethod
     def validate_dataframe_columns(cls, dataframe):
@@ -248,8 +251,14 @@ class ValidationIntervalFrame(ValidationDataFrame):
         elif self.dataframe.empty:
             return other
 
-        if self.period != other.period:
-            raise IndexError("Periods must match.")
+        if self.period < other.period:
+            other = other.resample_intervalframe(
+                rule=self.period, aggfunc=np.mean
+            )
+        elif other.period < self.period:
+            self = self.resample_intervalframe(
+                rule=other.period, aggfunc=np.mean
+            )
 
         df_1 = self.dataframe
         df_2 = other.dataframe
@@ -283,12 +292,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         Reset cached_property values when aggregation_column is overwritten.
         """
         if aggregation_column is not self.aggregation_column:
-            for key in [
-                k
-                for k, v in self.__dict__.items()
-                if isinstance(v, ValidationFrame288)
-            ]:
-                self.__dict__.pop(key, None)
+            self.reset_cached_properties()
         self._aggregation_column = aggregation_column
 
     @property
@@ -538,7 +542,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
 
         if convert_to_kwh:
             dataframe = resample_dataframe(
-                dataframe=dataframe, rule="1H", aggfunc=np.mean
+                dataframe=dataframe, rule=timedelta(hours=1), aggfunc=np.mean
             )
 
         if not dataframe.empty:
@@ -557,6 +561,18 @@ class ValidationIntervalFrame(ValidationDataFrame):
             results_288.update(calculated_288)
 
         return ValidationFrame288(results_288)
+
+    def reset_cached_properties(self):
+        """
+        Resets values of cached properties such as ValidationFrame288
+        calculations.
+        """
+        for key in [
+            k
+            for k, v in self.__dict__.items()
+            if isinstance(v, ValidationFrame288)
+        ]:
+            self.__dict__.pop(key, None)
 
 
 class IntervalFrameFile(ValidationIntervalFrame, DataFrameFile):

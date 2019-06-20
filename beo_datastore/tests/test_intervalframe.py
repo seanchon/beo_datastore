@@ -27,20 +27,39 @@ class TestDataFrameFile(TestCase):
         """
         flush_intervalframe_files()
 
-    def test_load_intervalframe(self):
-        """
-        Test load IntervalFrameFile from file.
-        """
-        channel = Channel.objects.first()
-        self.assertTrue(channel.intervalframe)
-        self.assertFalse(channel.intervalframe.dataframe.empty)
-
     def test_create_288_intervalframe(self):
         """
         Test the creation of 288 frames.
         """
         channel = Channel.objects.first()
         self.assertFalse(channel.intervalframe.count_frame288.dataframe.empty)
+
+    def test_read_intervalframe(self):
+        """
+        Test read IntervalFrameFile from file.
+        """
+        channel = Channel.objects.first()
+        self.assertTrue(channel.intervalframe)
+        self.assertFalse(channel.intervalframe.dataframe.empty)
+
+    def test_udpate_intervalframe(self):
+        """
+        Test read IntervalFrameFile from file.
+        """
+        channel_1 = Channel.objects.get(id=1)
+        channel_2 = Channel.objects.get(id=2)
+        self.assertFalse(
+            channel_1.intervalframe.dataframe.equals(
+                channel_2.intervalframe.dataframe
+            )
+        )
+        channel_1.intervalframe.dataframe = channel_2.intervalframe.dataframe
+        channel_1.intervalframe.save()
+        self.assertTrue(
+            channel_1.intervalframe.dataframe.equals(
+                channel_2.intervalframe.dataframe
+            )
+        )
 
     def test_delete_288_frame(self):
         """
