@@ -2,6 +2,7 @@
 black
 bs4
 cached-property
+coverage
 Django
 django-allauth
 django-extensions

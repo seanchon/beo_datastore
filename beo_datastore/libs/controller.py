@@ -1,8 +1,11 @@
 import attr
+from attr.validators import instance_of
 from cached_property import cached_property
 import copy
 from datetime import datetime
 from functools import reduce
+from itertools import repeat
+from multiprocessing import Pool
 import pandas as pd
 
 from beo_datastore.libs.battery import (
@@ -28,11 +31,12 @@ class AggregateBatterySimulator(DERSimulator):
     """
 
     simulation_objects = attr.ib()
-    battery = attr.ib(type=Battery)
-    start = attr.ib(type=datetime)
-    end_limit = attr.ib(type=datetime)
-    charge_schedule = attr.ib(type=ValidationFrame288)
-    discharge_schedule = attr.ib(type=ValidationFrame288)
+    battery = attr.ib(validator=instance_of(Battery))
+    start = attr.ib(validator=instance_of(datetime))
+    end_limit = attr.ib(validator=instance_of(datetime))
+    charge_schedule = attr.ib(validator=instance_of(ValidationFrame288))
+    discharge_schedule = attr.ib(validator=instance_of(ValidationFrame288))
+    multiprocess = attr.ib(validator=instance_of(bool))
 
     def __attrs_post_init__(self):
         object.__setattr__(
@@ -75,22 +79,55 @@ class AggregateBatterySimulator(DERSimulator):
     def aggregate_energy_loss(self):
         return sum([x.energy_loss for x in self.battery_intervalframes])
 
+    @staticmethod
+    def _generate_battery_sequence(
+        battery, load_intervalframe, charge_schedule, discharge_schedule
+    ):
+        """
+        Instantiate a FixedScheduleBatteryIntervalFrame and generate full
+        sequence of battery operations.
+        """
+        battery_intervalframe = FixedScheduleBatteryIntervalFrame(
+            battery=battery,
+            load_intervalframe=load_intervalframe,
+            charge_schedule=charge_schedule,
+            discharge_schedule=discharge_schedule,
+        )
+        battery_intervalframe.generate_full_sequence()
+
+        return battery_intervalframe
+
     def generate_battery_sequences(self):
         """
         Run battery simulation against all simulation objects. Copy battery
         instance for each simulation to begin simulation from the same initial
         battery charge each time.
         """
-        battery_intervalframes = []
-        for intervalframe in self.load_intervalframes:
-            battery_intervalframe = FixedScheduleBatteryIntervalFrame(
-                battery=copy.copy(self.battery),
-                load_intervalframe=intervalframe,
-                charge_schedule=self.charge_schedule,
-                discharge_schedule=self.discharge_schedule,
-            )
-            battery_intervalframe.generate_full_sequence()
-            battery_intervalframes.append(battery_intervalframe)
+        if self.multiprocess:
+            with Pool() as pool:
+                battery_copies = [
+                    copy.copy(self.battery) for _ in self.load_intervalframes
+                ]
+                battery_intervalframes = pool.starmap(
+                    self._generate_battery_sequence,
+                    zip(
+                        battery_copies,
+                        self.load_intervalframes,
+                        repeat(self.charge_schedule),
+                        repeat(self.discharge_schedule),
+                    ),
+                )
+        else:
+            battery_intervalframes = []
+            for intervalframe in self.load_intervalframes:
+                battery_intervalframes.append(
+                    self._generate_battery_sequence(
+                        copy.copy(self.battery),
+                        intervalframe,
+                        self.charge_schedule,
+                        self.discharge_schedule,
+                    )
+                )
 
         return battery_intervalframes
 
@@ -108,9 +145,9 @@ class AggregateBillCalculator(object):
     profiles.
     """
 
-    simulation = attr.ib(type=DERSimulator)
+    simulation = attr.ib(validator=instance_of(DERSimulator))
     date_ranges = attr.ib()
-    openei_rate_data = attr.ib(type=OpenEIRateData)
+    openei_rate_data = attr.ib(validator=instance_of(OpenEIRateData))
 
     def __attrs_post_init__(self):
         object.__setattr__(
@@ -179,8 +216,8 @@ class AggregateGHGCalculator(object):
     profiles.
     """
 
-    simulation = attr.ib(type=DERSimulator)
-    ghg_frame288 = attr.ib(type=ValidationFrame288)
+    simulation = attr.ib(validator=instance_of(DERSimulator))
+    ghg_frame288 = attr.ib(validator=instance_of(ValidationFrame288))
 
     @cached_property
     def ghg_before_frame288(self):
