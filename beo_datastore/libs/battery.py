@@ -1,8 +1,8 @@
 from cached_property import cached_property
 from collections import OrderedDict
 from datetime import timedelta
-from itertools import repeat
 from functools import lru_cache
+from itertools import repeat
 from math import ceil, floor
 from multiprocessing import Pool
 import numpy as np
@@ -79,13 +79,9 @@ class Battery(object):
         Ensures that battery charge state is neither less than zero or greater
         that its max capacity.
         """
-        if charge < 0:
-            raise AttributeError("Charge cannot drop below 0.")
-        elif charge > max_capacity:
-            raise AttributeError(
-                "Charge cannot exceed max capacity - {} kwh.".format(
-                    max_capacity
-                )
+        if not (0 <= charge <= max_capacity):
+            raise ValueError(
+                "Charge must be between 0 and {}".format(max_capacity)
             )
 
     @staticmethod
@@ -95,7 +91,7 @@ class Battery(object):
         battery's rating.
         """
         if not (-rating <= power <= rating):
-            raise AttributeError(
+            raise ValueError(
                 "Power must be between {} and {} kw".format(-rating, rating)
             )
 
