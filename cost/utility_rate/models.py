@@ -1,8 +1,9 @@
 from jsonfield import JSONField
+from multiprocessing import Pool
 
 from django.db import models
 
-from beo_datastore.libs.bill import OpenEIRateData
+from beo_datastore.libs.bill import OpenEIRateData, ValidationBill
 from beo_datastore.libs.models import ValidationModel
 
 from reference.reference_model.models import Sector, Utility, VoltageCategory
@@ -46,6 +47,51 @@ class RatePlan(ValidationModel):
         :return: RateCollection
         """
         return self.rate_collections.filter(effective_date__lte=start).last()
+
+    def generate_many_bills(
+        self, intervalframe, date_ranges, multiprocess=False
+    ):
+        """
+        Generate many ValidationBills based on list of (start, end_limit)
+        date range tuples.
+
+        :param intervalframe: ValidationIntervalFrame
+        :param date_ranges: list of (start, end_limit) tuples
+        :param multiprocess: True to run as a multiprocess job
+        """
+        if multiprocess:
+            with Pool() as pool:
+                bills = pool.starmap(
+                    ValidationBill,
+                    zip(
+                        [
+                            intervalframe.filter_by_datetime(start, end_limit)
+                            for start, end_limit in date_ranges
+                        ],
+                        [
+                            self.get_latest_rate_collection(
+                                start
+                            ).openei_rate_data
+                            for start, _ in date_ranges
+                        ],
+                    ),
+                )
+        else:
+            bills = []
+            for start, end_limit in date_ranges:
+                bills.append(
+                    ValidationBill(
+                        intervalframe=intervalframe.filter_by_datetime(
+                            start, end_limit
+                        ),
+                        openei_rate_data=self.get_latest_rate_collection(
+                            start
+                        ).openei_rate_data,
+                    )
+                )
+
+        # return bills in dict with start dates as indices
+        return {x[0][0]: x[1] for x in zip(date_ranges, bills)}
 
 
 class RateCollection(ValidationModel):

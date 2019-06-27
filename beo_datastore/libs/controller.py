@@ -12,7 +12,6 @@ from beo_datastore.libs.battery import (
     Battery,
     FixedScheduleBatteryIntervalFrame,
 )
-from beo_datastore.libs.bill import OpenEIRateData, ValidationBill
 from beo_datastore.libs.intervalframe import ValidationFrame288
 
 
@@ -145,9 +144,13 @@ class AggregateBillCalculator(object):
     profiles.
     """
 
+    # TODO: Break RatePlan dependency. A lib should not import from a Django
+    # model and each simulation may be under a different RatePlan.
+
     simulation = attr.ib(validator=instance_of(DERSimulator))
     date_ranges = attr.ib()
-    openei_rate_data = attr.ib(validator=instance_of(OpenEIRateData))
+    rate_plan = attr.ib()
+    multiprocess = attr.ib(validator=instance_of(bool))
 
     def __attrs_post_init__(self):
         object.__setattr__(
@@ -162,48 +165,61 @@ class AggregateBillCalculator(object):
         )
 
     @cached_property
-    def before_bill_totals(self):
-        return [[x.total for x in y.values()] for y in self.before_bills]
+    def pre_DER_bill_totals(self):
+        """
+        Return Pandas DataFrame containing bill totals for pre-DER scenario.
+        """
+        df = pd.DataFrame(
+            [[x.total for x in y.values()] for y in self.before_bills]
+        ).T
+        df.columns = self.simulation.simulation_objects
+        df.index = [x[0] for x in self.date_ranges]
+
+        return df
 
     @cached_property
-    def before_bill_grand_total(self):
-        return sum([sum(x) for x in self.before_bill_totals])
+    def pre_DER_bill_grand_total(self):
+        """
+        Return sum of all bills for pre-DER scenario.
+        """
+        return self.pre_DER_bill_totals.sum().sum()
 
     @cached_property
-    def after_bill_totals(self):
-        return [[x.total for x in y.values()] for y in self.after_bills]
+    def post_DER_bill_totals(self):
+        """
+        Return Pandas DataFrame containing bill totals for post-DER scenario.
+        """
+        df = pd.DataFrame(
+            [[x.total for x in y.values()] for y in self.after_bills]
+        ).T
+        df.columns = self.simulation.simulation_objects
+        df.index = [x[0] for x in self.date_ranges]
+
+        return df
 
     @cached_property
-    def after_bill_grand_total(self):
-        return sum([sum(x) for x in self.after_bill_totals])
+    def post_DER_bill_grand_total(self):
+        """
+        Return sum of all bills for post-DER scenario.
+        """
+        return self.post_DER_bill_totals.sum().sum()
 
     @cached_property
-    def before_bills_dict(self):
-        return {
-            obj: intervalframe
-            for obj, intervalframe in zip(
-                self.simulation.simulation_objects, self.before_bills
-            )
-        }
-
-    @cached_property
-    def after_bills_dict(self):
-        return {
-            obj: intervalframe
-            for obj, intervalframe in zip(
-                self.simulation.simulation_objects, self.after_bills
-            )
-        }
+    def net_DER_bill_totals(self):
+        """
+        Return Pandas DataFrame containing net difference of pre-DER bills
+        minus post-DER bills.
+        """
+        return self.pre_DER_bill_totals - self.post_DER_bill_totals
 
     def generate_bills(self, intervalframes):
         simulation_bills = []
         for intervalframe in intervalframes:
-            results = {}
-            for start, end_limit in self.date_ranges:
-                results[start.month] = ValidationBill(
-                    intervalframe.filter_by_datetime(start, end_limit),
-                    self.openei_rate_data,
-                )
+            results = self.rate_plan.generate_many_bills(
+                intervalframe=intervalframe,
+                date_ranges=self.date_ranges,
+                multiprocess=self.multiprocess,
+            )
             simulation_bills.append(results)
 
         return simulation_bills
