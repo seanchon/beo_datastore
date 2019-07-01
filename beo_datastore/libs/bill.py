@@ -1,3 +1,5 @@
+import attr
+from attr.validators import instance_of
 from functools import reduce
 import pandas as pd
 import re
@@ -6,11 +8,12 @@ import warnings
 from beo_datastore.libs.intervalframe import (
     ValidationDataFrame,
     ValidationFrame288,
+    ValidationIntervalFrame,
 )
+from beo_datastore.libs.units import DataUnitEnum, RateUnitEnum
 
-from reference.reference_model.models import DataUnit, RateUnit
 
-
+@attr.s(frozen=True)
 class OpenEIRateData(object):
     """
     Container class for extracting fixed, energy, and demand charges from
@@ -20,13 +23,7 @@ class OpenEIRateData(object):
     JSON data: https://openei.org/apps/USURDB/download/usurdb.json.gz
     """
 
-    def __init__(self, rate_data):
-        """
-        Load a single OpenEI Utility Rate Object.
-
-        :param rate_data: dict
-        """
-        self.rate_data = rate_data
+    rate_data = attr.ib(validator=instance_of(dict), repr=False)
 
     @property
     def fixed_rate_keys(self):
@@ -51,13 +48,16 @@ class OpenEIRateData(object):
 
         # defaults to $/day
         if fixed_charge_units is None:
-            return RateUnit.objects.get(
-                numerator__name__iexact="$", denominator__name__iexact="day"
+            return RateUnitEnum(
+                numerator=DataUnitEnum.get_enum(alias="$"),
+                denominator=DataUnitEnum.get_enum(alias="day"),
             )
         else:
-            return RateUnit.objects.get(
-                numerator__name__iexact=fixed_charge_units.split("/")[0],
-                denominator__name__iexact=fixed_charge_units.split("/")[1],
+            numerator_alias = fixed_charge_units.split("/")[0]
+            denominator_alias = fixed_charge_units.split("/")[1]
+            return RateUnitEnum(
+                numerator=DataUnitEnum.get_enum(alias=numerator_alias),
+                denominator=DataUnitEnum.get_enum(alias=denominator_alias),
             )
 
     @property
@@ -84,10 +84,11 @@ class OpenEIRateData(object):
     @property
     def energy_rate_unit(self):
         """
-        RateUnit for energy rates.
+        RateUnitEnum for energy rates.
         """
-        return RateUnit.objects.get(
-            numerator__name__iexact="$", denominator__name__iexact="kwh"
+        return RateUnitEnum(
+            numerator=DataUnitEnum.get_enum(alias="$"),
+            denominator=DataUnitEnum.get_enum(alias="kwh"),
         )
 
     @property
@@ -139,19 +140,20 @@ class OpenEIRateData(object):
     @property
     def demand_rate_unit(self):
         """
-        RateUnit for TOU-based demand rates.
+        RateUnitEnum for TOU-based demand rates.
         """
         demand_rate_units = self.rate_data.get("demandRateUnits", None)
 
         # defaults to $/kW
         if demand_rate_units is None:
-            return RateUnit.objects.get(
-                numerator__name__iexact="$", denominator__name__iexact="kW"
+            return RateUnitEnum(
+                numerator=DataUnitEnum.get_enum(alias="$"),
+                denominator=DataUnitEnum.get_enum(alias="kW"),
             )
         else:
-            return RateUnit.objects.get(
-                numerator__name__iexact="$",
-                denominator__name__iexact=demand_rate_units,
+            return RateUnitEnum(
+                numerator=DataUnitEnum.get_enum(alias="$"),
+                denominator=DataUnitEnum.get_enum(alias=demand_rate_units),
             )
 
     @property
@@ -182,19 +184,20 @@ class OpenEIRateData(object):
     @property
     def flat_demand_rate_unit(self):
         """
-        RateUnit for month-based (seasonal) demand rates.
+        RateUnitEnum for month-based (seasonal) demand rates.
         """
         flat_demand_units = self.rate_data.get("flatDemandUnits", None)
 
         # defaults to $/kW
         if flat_demand_units is None:
-            return RateUnit.objects.get(
-                numerator__name__iexact="$", denominator__name__iexact="kW"
+            return RateUnitEnum(
+                numerator=DataUnitEnum.get_enum(alias="$"),
+                denominator=DataUnitEnum.get_enum(alias="kW"),
             )
         else:
-            return RateUnit.objects.get(
-                numerator__name__iexact="$",
-                denominator__name__iexact=flat_demand_units,
+            return RateUnitEnum(
+                numerator=DataUnitEnum.get_enum(alias="$"),
+                denominator=DataUnitEnum.get_enum(alias=flat_demand_units),
             )
 
     @property
@@ -234,6 +237,7 @@ class OpenEIRateData(object):
         return ValidationFrame288.convert_matrix_to_frame288(tou_matrix)
 
 
+@attr.s()
 class ValidationBill(ValidationDataFrame):
     """
     Container class for pandas DataFrames with the following columns:
@@ -263,20 +267,25 @@ class ValidationBill(ValidationDataFrame):
         ]
     )
 
-    def __init__(self, intervalframe, openei_rate_data):
-        """
-        Creates a ValidationBill with a ValidationIntervalFrame object and
-        RateCollection object.
+    intervalframe = attr.ib(validator=instance_of(ValidationIntervalFrame))
+    openei_rate_data = attr.ib(validator=instance_of(OpenEIRateData))
 
-        :param intervalframe: ValidationIntervalFrame
-        :param openei_rate_data: OpenEIRateData
+    @intervalframe.validator
+    def validate_intervalframe(self, attribute, value):
         """
-        self.validate_intervalframe(intervalframe)
-        self.intervalframe = intervalframe
-        self.openei_rate_data = openei_rate_data
-        self.dataframe = self.default_dataframe
+        Validate intervalframe does not contain too many days.
+        """
+        if value.days > 35:
+            warning_message = (
+                "intervalframe contains more than a month's worth of data "
+                "({} days), which can create erroneous "
+                "bills.".format(value.days)
+            )
+            warnings.warn(warning_message)
 
-        # compute bill only if self.dataframe is empty
+    def __attrs_post_init__(self):
+        # TODO: change this so class can be frozen (immutable)
+        self.dataframe = self.default_dataframe.copy()
         self.compute_bill()
 
     @property
@@ -324,44 +333,6 @@ class ValidationBill(ValidationDataFrame):
         ).fillna("")
 
     @staticmethod
-    def validate_intervalframe(intervalframe):
-        """
-        Validate intervalframe does not contain too many days.
-        """
-        if intervalframe.days > 35:
-            warning_message = (
-                "intervalframe contains more than a month's worth of data "
-                "({} days), which can create erroneous "
-                "bills.".format(intervalframe.days)
-            )
-            warnings.warn(warning_message)
-
-    @staticmethod
-    def validate_units(count_unit, rate_unit):
-        """
-        Validate that count_unit is a DataUnit and rate_unit is a RateUnit
-        and that multiplying them yields a dollar amount.
-
-        :param count_unit: DataUnit
-        :param rate_unit: RateUnit
-        """
-        if not isinstance(count_unit, DataUnit) or not isinstance(
-            rate_unit, RateUnit
-        ):
-            raise TypeError(
-                "count_unit must be a DataUnit and rate_unit must be a "
-                "RateUnit."
-            )
-        if (
-            count_unit != rate_unit.denominator
-            or rate_unit.numerator.name != "$"
-        ):
-            raise TypeError(
-                "Multiplying count_unit by rate_unit must yield a dollar "
-                "amount."
-            )
-
-    @staticmethod
     def extract_rate(rate_string):
         """
         Return first found decimal in rate_string.
@@ -399,13 +370,17 @@ class ValidationBill(ValidationDataFrame):
         :param category: string
         :param description: string
         :param count: float
-        :param count_unit: DataUnit
+        :param count_unit: DataUnitEnum
         :param rate: float
-        :param rate_unit: RateUnit
+        :param rate_unit: RateUnitEnum
         :param tou_period: string/int
         :param pro_rata: float proportion to prorate (ex. .80)
         """
-        self.validate_units(count_unit, rate_unit)
+        if (count_unit * rate_unit) != DataUnitEnum.DOLLAR:
+            raise TypeError(
+                "The DataUnitEnum multiplied by RateUnitEnum should yield a "
+                "dollar amount."
+            )
 
         self.dataframe = self.dataframe.append(
             {
@@ -413,9 +388,9 @@ class ValidationBill(ValidationDataFrame):
                 "description": description,
                 "tou_period": tou_period,
                 "count": count,
-                "count_unit": count_unit,
+                "count_unit": count_unit.print_alias,
                 "rate": rate,
-                "rate_unit": rate_unit,
+                "rate_unit": rate_unit.print_alias,
                 "pro_rata": pro_rata,
                 "total": count * rate * pro_rata,
             },
@@ -431,11 +406,11 @@ class ValidationBill(ValidationDataFrame):
                 category="fixed",
                 description="Fixed Charge First Meter",
                 count=1,
-                count_unit=DataUnit.objects.get(name="month"),
+                count_unit=DataUnitEnum.get_enum(alias="month"),
                 rate=self.openei_rate_data.fixed_meter_charge,
-                rate_unit=RateUnit.objects.get(
-                    numerator__name__iexact="$",
-                    denominator__name__iexact="month",
+                rate_unit=RateUnitEnum(
+                    numerator=DataUnitEnum.get_enum(alias="$"),
+                    denominator=DataUnitEnum.get_enum(alias="month"),
                 ),
             )
 
@@ -447,9 +422,9 @@ class ValidationBill(ValidationDataFrame):
         # TODO: Remove optional fixed charges/credits
         for rate in self.openei_rate_data.fixed_rates:
             if "/day" in rate.get("key"):
-                rate_unit = RateUnit.objects.get(
-                    numerator__name__iexact="$",
-                    denominator__name__iexact="day",
+                rate_unit = RateUnitEnum(
+                    numerator=DataUnitEnum.get_enum(alias="$"),
+                    denominator=DataUnitEnum.get_enum(alias="day"),
                 )
             else:
                 rate_unit = self.openei_rate_data.fixed_rate_unit
@@ -577,7 +552,7 @@ class ValidationBill(ValidationDataFrame):
                     category="energy",
                     description=description,
                     count=billing_count,
-                    count_unit=DataUnit.objects.get(name="kwh"),
+                    count_unit=DataUnitEnum.get_enum(alias="kwh"),
                     rate=rate,
                     rate_unit=self.openei_rate_data.energy_rate_unit,
                     tou_period=tou_key,
@@ -674,7 +649,7 @@ class ValidationBill(ValidationDataFrame):
                         category="demand",
                         description=description,
                         count=demand_peak,
-                        count_unit=DataUnit.objects.get(name="kw"),
+                        count_unit=DataUnitEnum.get_enum(alias="kw"),
                         rate=rate,
                         rate_unit=self.openei_rate_data.demand_rate_unit,
                         tou_period=tou_key,
@@ -751,7 +726,7 @@ class ValidationBill(ValidationDataFrame):
                         category="demand",
                         description=description,
                         count=demand_peak,
-                        count_unit=DataUnit.objects.get(name="kw"),
+                        count_unit=DataUnitEnum.get_enum(alias="kw"),
                         rate=rate,
                         rate_unit=rate_unit,
                         tou_period=tou_key,
