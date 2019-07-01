@@ -242,7 +242,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         :return: ValidationIntervalFrame
         """
         # filter other dataframe so columns match
-        other = ValidationIntervalFrame(
+        other = self.__class__(
             other.dataframe[list(self.default_dataframe.columns)]
         )
 
@@ -267,7 +267,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         overlapping_indices = df_1.index.intersection(df_2.index)
         new_indices = df_2.index.difference(df_1.index)
 
-        return ValidationIntervalFrame(
+        return self.__class__(
             df_1.loc[existing_indices]
             .append(
                 df_1.loc[overlapping_indices] + df_2.loc[overlapping_indices]
