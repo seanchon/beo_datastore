@@ -1,17 +1,13 @@
 import attr
 from attr.validators import instance_of
 from cached_property import cached_property
-import copy
 from datetime import datetime
 from functools import reduce
 from itertools import repeat
 from multiprocessing import Pool
 import pandas as pd
 
-from beo_datastore.libs.battery import (
-    Battery,
-    FixedScheduleBatteryIntervalFrame,
-)
+from beo_datastore.libs.battery import Battery, FixedScheduleBatterySimulation
 from beo_datastore.libs.intervalframe import ValidationFrame288
 
 
@@ -59,7 +55,7 @@ class AggregateBatterySimulator(DERSimulator):
 
     @cached_property
     def after_intervalframes(self):
-        return [x.combined_intervalframe for x in self.battery_intervalframes]
+        return [x.post_intervalframe for x in self.battery_intervalframes]
 
     @cached_property
     def aggregate_after_intervalframe(self):
@@ -83,10 +79,10 @@ class AggregateBatterySimulator(DERSimulator):
         battery, load_intervalframe, charge_schedule, discharge_schedule
     ):
         """
-        Instantiate a FixedScheduleBatteryIntervalFrame and generate full
+        Instantiate a FixedScheduleBatterySimulation and generate full
         sequence of battery operations.
         """
-        battery_intervalframe = FixedScheduleBatteryIntervalFrame(
+        battery_intervalframe = FixedScheduleBatterySimulation(
             battery=battery,
             load_intervalframe=load_intervalframe,
             charge_schedule=charge_schedule,
@@ -98,19 +94,14 @@ class AggregateBatterySimulator(DERSimulator):
 
     def generate_battery_sequences(self):
         """
-        Run battery simulation against all simulation objects. Copy battery
-        instance for each simulation to begin simulation from the same initial
-        battery charge each time.
+        Run battery simulation against all simulation objects.
         """
         if self.multiprocess:
             with Pool() as pool:
-                battery_copies = [
-                    copy.copy(self.battery) for _ in self.load_intervalframes
-                ]
                 battery_intervalframes = pool.starmap(
                     self._generate_battery_sequence,
                     zip(
-                        battery_copies,
+                        repeat(self.battery),
                         self.load_intervalframes,
                         repeat(self.charge_schedule),
                         repeat(self.discharge_schedule),
@@ -121,7 +112,7 @@ class AggregateBatterySimulator(DERSimulator):
             for intervalframe in self.load_intervalframes:
                 battery_intervalframes.append(
                     self._generate_battery_sequence(
-                        copy.copy(self.battery),
+                        repeat(self.battery),
                         intervalframe,
                         self.charge_schedule,
                         self.discharge_schedule,
@@ -132,7 +123,7 @@ class AggregateBatterySimulator(DERSimulator):
 
     def get_battery_intervalframe(self, simulation_object):
         """
-        Return BatteryIntervalFrame relating to simulation_object.
+        Return BatterySimulation relating to simulation_object.
         """
         return self.battery_intervalframe_dict[simulation_object]
 
