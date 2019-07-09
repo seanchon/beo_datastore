@@ -167,8 +167,8 @@ class BatteryIntervalFrame(ValidationIntervalFrame):
         """
         self.reset_cached_properties()
         return (
-            self.battery_intervalframe.total_frame288.dataframe.sum().sum()
-            - self.battery.charge
+            self.total_frame288.dataframe.sum().sum()
+            - self.dataframe.iloc[-1].charge
         )
 
 

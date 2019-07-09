@@ -118,16 +118,16 @@ class PeakShavingScheduleOptimizer(object):
             [[discharge_threshold] * 24] * 12
         )
 
-        battery_intervalframe = FixedScheduleBatterySimulation(
+        battery_simulation = FixedScheduleBatterySimulation(
             battery=battery,
             load_intervalframe=load_intervalframe,
             charge_schedule=charge_schedule,
             discharge_schedule=discharge_schedule,
         )
-        battery_intervalframe.generate_full_sequence()
+        battery_simulation.generate_full_sequence()
 
         combined_maximum_frame288 = (
-            battery_intervalframe.post_intervalframe.maximum_frame288
+            battery_simulation.post_intervalframe.maximum_frame288
         )
         return (
             discharge_threshold,

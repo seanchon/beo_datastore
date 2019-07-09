@@ -8,4 +8,4 @@ class GHGRateSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = GHGRate
-        fields = ("effective", "rate_unit", "lookup_table_dataframe")
+        fields = ("effective", "rate_unit", "dataframe")

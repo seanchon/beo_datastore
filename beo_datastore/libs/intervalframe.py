@@ -1,12 +1,11 @@
 from cached_property import cached_property
 from datetime import timedelta
 from functools import reduce
-import os
+import hashlib
 import numpy as np
 import pandas as pd
 
 from beo_datastore.libs.dataframe import (
-    convert_columns_type,
     csv_url_to_dataframe,
     filter_dataframe_by_datetime,
     filter_dataframe_by_weekday,
@@ -31,6 +30,20 @@ class ValidationDataFrame(object):
         :param dataframe: pandas DataFrame
         """
         self.dataframe = dataframe
+
+    def __hash__(self):
+        """
+        Return hash of dataframe elements.
+        """
+        return hashlib.sha256(
+            pd.util.hash_pandas_object(self.dataframe, index=True).values
+        ).hexdigest()
+
+    def __eq__(self, other):
+        """
+        Compare dataframes on __hash__.
+        """
+        return self.__hash__() == other.__hash__()
 
     @property
     def dataframe(self):
@@ -94,118 +107,6 @@ class ValidationDataFrame(object):
             raise LookupError(
                 "dataframe columns must have same columns as {}'s "
                 "default_dataframe.".format(cls.__name__)
-            )
-
-
-class DataFrameFile(ValidationDataFrame):
-    """
-    Base class that offers file-handling methods for saving/retrieving pandas
-    DataFrames to/from disk.
-
-    The following attributes must be set in a child class:
-    -   reference_model
-    -   file_directory
-    """
-
-    def __init__(self, reference_object, dataframe, *args, **kwargs):
-        """
-        :param reference_object: reference object DataFrame belongs to
-        :param dataframe: pandas DataFrame
-        """
-        self.validate_model(reference_object)
-        self.reference_object = reference_object
-        self.dataframe = dataframe
-
-    def save(self):
-        """
-        Saves dataframe to disk.
-        """
-        if not os.path.exists(self.file_directory):
-            os.mkdir(self.file_directory)
-        if self.reference_object.id is not None:
-            self.dataframe.to_parquet(self.file_path)
-
-    def delete(self):
-        """
-        Deletes dataframe from disk.
-        """
-        if os.path.exists(self.file_path):
-            os.remove(self.file_path)
-
-    @property
-    def reference_model(self):
-        """
-        Set as an attribute in child class to a reference model for DataFrames.
-
-        Ex.
-            reference_model = Channel
-        """
-        raise NotImplementedError()
-
-    @property
-    def file_directory(self):
-        """
-        Set as an attribute in child class to directory where files should be
-        stored.
-
-        Ex.
-            file_directory = "project_root/directory_xyz/"
-        """
-        raise NotImplementedError()
-
-    @property
-    def filename(self):
-        return self.get_filename(self.reference_object)
-
-    @property
-    def file_path(self):
-        """
-        Full file path of parquet file.
-        """
-        return self.get_file_path(self.reference_object)
-
-    @classmethod
-    def get_filename(cls, reference_object):
-        """
-        Generate filename of parquet file in format
-        <class name>_<reference_object.id>.parquet.
-        """
-        return "{}_{}.parquet".format(cls.__name__, reference_object.id)
-
-    @classmethod
-    def get_file_path(cls, reference_object):
-        """
-        Generate file_path of parquet file.
-        """
-        return os.path.join(
-            cls.file_directory, cls.get_filename(reference_object)
-        )
-
-    @classmethod
-    def get_frame_from_file(cls, reference_object):
-        """
-        Returns DataFrameFile based on reference_object.id if it exists.
-
-        :param reference_object: reference object IntervalFrameFile belongs to
-        :return: cls instance
-        """
-        file_path = cls.get_file_path(reference_object)
-
-        if os.path.exists(file_path):
-            return cls(reference_object, pd.read_parquet(file_path))
-        else:
-            return cls(reference_object, cls.default_dataframe)
-
-    def validate_model(self, reference_object):
-        """
-        Raises an Exception if reference_object is not an instance of
-        self.reference_model.
-        """
-        if not isinstance(reference_object, self.reference_model):
-            raise TypeError(
-                "reference_object should be of type {}.".format(
-                    self.reference_model
-                )
             )
 
 
@@ -575,15 +476,6 @@ class ValidationIntervalFrame(ValidationDataFrame):
             self.__dict__.pop(key, None)
 
 
-class IntervalFrameFile(ValidationIntervalFrame, DataFrameFile):
-    """
-    Combines a ValidationIntervalFrame with file-handling capabilities of a
-    DataFrameFile.
-    """
-
-    pass
-
-
 class ValidationFrame288(ValidationDataFrame):
     """
     Container class for 12 x 24 pandas DataFrames with the following format:
@@ -728,38 +620,3 @@ class ValidationFrame288(ValidationDataFrame):
         :return: ValidationFrame288
         """
         return ValidationFrame288(self.dataframe == key)
-
-
-class Frame288File(ValidationFrame288, DataFrameFile):
-    """
-    Combines a ValidationIntervalFrame with file-handling capabilities of a
-    DataFrameFile.
-    """
-
-    def save(self, *args, **kwargs):
-        """
-        Convert columns to string on save().
-        """
-        if not os.path.exists(self.file_directory):
-            os.mkdir(self.file_directory)
-        if self.reference_object.id is not None:
-            dataframe = convert_columns_type(self.dataframe, str)
-            dataframe.to_parquet(self.file_path)
-
-    @classmethod
-    def get_frame_from_file(cls, reference_object, *args, **kwargs):
-        """
-        Returns Frame288File based on reference_object.id if it exists. Convert
-        columns to Int64 on get_frame_from_file().
-
-        :param reference_object: reference object IntervalFrameFile belongs to
-        :return: pandas Frame288File
-        """
-        file_path = cls.get_file_path(reference_object)
-
-        if os.path.exists(file_path):
-            dataframe = pd.read_parquet(file_path)
-            dataframe = convert_columns_type(dataframe, np.int64)
-            return cls(reference_object, dataframe)
-        else:
-            return cls(reference_object, cls.default_dataframe)
