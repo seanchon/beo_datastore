@@ -10,11 +10,9 @@ from django.db import models
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.dataframe import csv_url_to_dataframe
-from beo_datastore.libs.intervalframe import (
-    IntervalFrameFile,
-    ValidationIntervalFrame,
-)
-from beo_datastore.libs.models import ValidationModel
+from beo_datastore.libs.intervalframe import ValidationIntervalFrame
+from beo_datastore.libs.intervalframe_file import IntervalFrameFile
+from beo_datastore.libs.models import ValidationModel, IntervalFrameFileMixin
 from beo_datastore.settings import MEDIA_ROOT
 
 from reference.reference_model.models import BuildingType, DataUnit
@@ -35,7 +33,54 @@ class ReferenceBuildingQuerySet(models.QuerySet):
         super().delete(*args, **kwargs)
 
 
-class ReferenceBuilding(ValidationModel):
+class ReferenceBuildingIntervalFrame(IntervalFrameFile):
+    """
+    Model for handling ReferenceBuilding IntervalFrameFiles, which have
+    timestamps with ambiguous year as well as multiple columns representing
+    energy usage in various categories (ex. facility, lights, HVAC, etc.).
+    """
+
+    # directory for parquet file storage
+    file_directory = os.path.join(MEDIA_ROOT, "reference_buildings")
+
+    # dataframe configuration
+    default_aggregation_column = "Electricity:Facility [kW](Hourly)"
+    default_dataframe = pd.DataFrame(
+        columns=[
+            "Date/Time",
+            "Electricity:Facility [kW](Hourly)",
+            "Fans:Electricity [kW](Hourly)",
+            "Cooling:Electricity [kW](Hourly)",
+            "Heating:Electricity [kW](Hourly)",
+            "InteriorLights:Electricity [kW](Hourly)",
+            "InteriorEquipment:Electricity [kW](Hourly)",
+            "Gas:Facility [kW](Hourly)",
+            "Heating:Gas [kW](Hourly)",
+            "InteriorEquipment:Gas [kW](Hourly)",
+            "Water Heater:WaterSystems:Gas [kW](Hourly)",
+        ],
+        index=pd.to_datetime([]),
+    )
+
+    @classmethod
+    def validate_dataframe_columns(cls, dataframe):
+        """
+        Performs validation checks that dataframe and cls.default_dataframe:
+            - columns are same type.
+            - have the same columns.
+        """
+        columns_type = type(cls.default_dataframe.columns)
+        if not isinstance(dataframe.columns, columns_type):
+            raise TypeError(
+                "dataframe columns must be {}.".format(columns_type)
+            )
+
+        if not cls.default_dataframe.columns.equals(dataframe.columns):
+            # TODO: Investigate why some OpenEI .csv's have different columns
+            pass
+
+
+class ReferenceBuilding(IntervalFrameFileMixin, ValidationModel):
     """
     OpenEI: Commercial and Residential Hourly Load Profiles for all TMY3
     Locations in the United States.
@@ -64,6 +109,9 @@ class ReferenceBuilding(ValidationModel):
         DataUnit, related_name="reference_buildings", on_delete=models.PROTECT
     )
 
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = ReferenceBuildingIntervalFrame
+
     # custom QuerySet manager for intervalframe file-handling
     objects = ReferenceBuildingQuerySet.as_manager()
 
@@ -72,16 +120,6 @@ class ReferenceBuilding(ValidationModel):
 
     class Meta:
         ordering = ["id"]
-
-    def save(self, *args, **kwargs):
-        if hasattr(self, "_intervalframe"):
-            self._intervalframe.save()
-        super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        if hasattr(self, "_lookup_table"):
-            self._intervalframe.delete()
-        super().delete(*args, **kwargs)
 
     @property
     def timezone(self):
@@ -128,7 +166,7 @@ class ReferenceBuilding(ValidationModel):
             if self._intervalframe.dataframe.equals(
                 ReferenceBuildingIntervalFrame.default_dataframe
             ):
-                # file does not exist
+                # file does not exist, fetch from csv_url
                 self._intervalframe = self.source_file_intervalframe
                 self._intervalframe.save()  # save to disk
 
@@ -147,13 +185,6 @@ class ReferenceBuilding(ValidationModel):
                 columns={self.full_intervalframe.aggregation_column: "kw"}
             )
         )
-
-    @intervalframe.setter
-    def intervalframe(self, intervalframe):
-        """
-        Assigns intervalframe to self._intervalframe. Writes to disk on save().
-        """
-        self._intervalframe = intervalframe
 
     @property
     def total_288(self):
@@ -182,48 +213,3 @@ class ReferenceBuilding(ValidationModel):
         Returns a 12 x 24 dataframe of counts.
         """
         return self.intervalframe.count_frame288.dataframe
-
-
-class ReferenceBuildingIntervalFrame(IntervalFrameFile):
-    """
-    Model for handling ReferenceBuilding IntervalFrameFiles, which have
-    timestamps with ambiguous year as well as multiple columns representing
-    energy usage in various categories (ex. facility, lights, HVAC, etc.).
-    """
-
-    reference_model = ReferenceBuilding
-    file_directory = os.path.join(MEDIA_ROOT, "reference_buildings")
-    default_aggregation_column = "Electricity:Facility [kW](Hourly)"
-    default_dataframe = pd.DataFrame(
-        columns=[
-            "Date/Time",
-            "Electricity:Facility [kW](Hourly)",
-            "Fans:Electricity [kW](Hourly)",
-            "Cooling:Electricity [kW](Hourly)",
-            "Heating:Electricity [kW](Hourly)",
-            "InteriorLights:Electricity [kW](Hourly)",
-            "InteriorEquipment:Electricity [kW](Hourly)",
-            "Gas:Facility [kW](Hourly)",
-            "Heating:Gas [kW](Hourly)",
-            "InteriorEquipment:Gas [kW](Hourly)",
-            "Water Heater:WaterSystems:Gas [kW](Hourly)",
-        ],
-        index=pd.to_datetime([]),
-    )
-
-    @classmethod
-    def validate_dataframe_columns(cls, dataframe):
-        """
-        Performs validation checks that dataframe and cls.default_dataframe:
-            - columns are same type.
-            - have the same columns.
-        """
-        columns_type = type(cls.default_dataframe.columns)
-        if not isinstance(dataframe.columns, columns_type):
-            raise TypeError(
-                "dataframe columns must be {}.".format(columns_type)
-            )
-
-        if not cls.default_dataframe.columns.equals(dataframe.columns):
-            # TODO: Investigate why some OpenEI .csv's have different columns
-            pass

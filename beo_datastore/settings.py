@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     # apps
     "cost.ghg.apps.GhgConfig",
     "cost.utility_rate.apps.UtilityRateConfig",
+    "der.simulation.apps.SimulationConfig",
     "load.customer.apps.CustomerConfig",
     "load.openei.apps.OpenEIConfig",
     "reference.reference_model.apps.ReferenceModelConfig",

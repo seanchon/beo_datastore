@@ -2,13 +2,23 @@ import os
 
 from django.db import models
 
-from beo_datastore.libs.intervalframe import Frame288File
-from beo_datastore.libs.models import ValidationModel
+from beo_datastore.libs.intervalframe_file import Frame288File
+from beo_datastore.libs.models import ValidationModel, Frame288FileMixin
+from beo_datastore.settings import MEDIA_ROOT
 
 from reference.reference_model.models import RateUnit
 
 
-class GHGRate(ValidationModel):
+class GHGRateFrame288(Frame288File):
+    """
+    Model for handling GHGRate Frame288Files.
+    """
+
+    # directory for parquet file storage
+    file_directory = os.path.join(MEDIA_ROOT, "ghg_rates")
+
+
+class GHGRate(Frame288FileMixin, ValidationModel):
     """
     Provides lookup-values for GHG emissions calculations.
     """
@@ -17,8 +27,11 @@ class GHGRate(ValidationModel):
     effective = models.DateField(blank=True, null=True)
     source = models.URLField(max_length=128, blank=True, null=True)
     rate_unit = models.ForeignKey(
-        RateUnit, related_name="ghg_cost", on_delete=models.PROTECT
+        RateUnit, related_name="ghg_rates", on_delete=models.PROTECT
     )
+
+    # Required by Frame288FileMixin.
+    frame_file_class = GHGRateFrame288
 
     class Meta:
         ordering = ["id"]
@@ -32,43 +45,6 @@ class GHGRate(ValidationModel):
         else:
             return "{} ({})".format(self.name, self.rate_unit)
 
-    def save(self, *args, **kwargs):
-        if hasattr(self, "_lookup_table"):
-            self._lookup_table.save()
-        super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        if hasattr(self, "_lookup_table"):
-            self._lookup_table.delete()
-        super().delete(*args, **kwargs)
-
     @property
-    def lookup_table(self):
-        """
-        Retrieves GHGRateLookupTable from parquet file.
-        """
-        if not hasattr(self, "_lookup_table"):
-            self._lookup_table = GHGRateLookupTable.get_frame_from_file(
-                reference_object=self
-            )
-        return self._lookup_table
-
-    @lookup_table.setter
-    def lookup_table(self, lookup_table):
-        """
-        Sets lookup_table property. Writes to disk on save().
-        """
-        self._lookup_table = lookup_table
-
-    @property
-    def lookup_table_dataframe(self):
-        return self.lookup_table.dataframe
-
-
-class GHGRateLookupTable(Frame288File):
-    """
-    Model for handling GHGRateLookupTable Frame288s.
-    """
-
-    reference_model = GHGRate
-    file_directory = os.path.join("MEDIA_ROOT", "lookup_tables")
+    def dataframe(self):
+        return self.frame288.dataframe

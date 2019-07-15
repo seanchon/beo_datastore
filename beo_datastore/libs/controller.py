@@ -35,7 +35,7 @@ class AggregateBatterySimulator(DERSimulator):
 
     def __attrs_post_init__(self):
         object.__setattr__(
-            self, "battery_intervalframes", self.generate_battery_sequences()
+            self, "battery_simulations", self.generate_battery_sequences()
         )
 
     @property
@@ -47,7 +47,7 @@ class AggregateBatterySimulator(DERSimulator):
 
     @cached_property
     def before_intervalframes(self):
-        return [x.load_intervalframe for x in self.battery_intervalframes]
+        return [x.load_intervalframe for x in self.battery_simulations]
 
     @cached_property
     def aggregate_before_intervalframe(self):
@@ -55,24 +55,24 @@ class AggregateBatterySimulator(DERSimulator):
 
     @cached_property
     def after_intervalframes(self):
-        return [x.post_intervalframe for x in self.battery_intervalframes]
+        return [x.post_intervalframe for x in self.battery_simulations]
 
     @cached_property
     def aggregate_after_intervalframe(self):
         return reduce(lambda x, y: x + y, self.after_intervalframes)
 
     @cached_property
-    def battery_intervalframe_dict(self):
+    def battery_simulation_dict(self):
         return {
             obj: intervalframe
             for obj, intervalframe in zip(
-                self.simulation_objects, self.battery_intervalframes
+                self.simulation_objects, self.battery_simulations
             )
         }
 
     @cached_property
     def aggregate_energy_loss(self):
-        return sum([x.energy_loss for x in self.battery_intervalframes])
+        return sum([x.energy_loss for x in self.battery_simulations])
 
     @staticmethod
     def _generate_battery_sequence(
@@ -82,15 +82,15 @@ class AggregateBatterySimulator(DERSimulator):
         Instantiate a FixedScheduleBatterySimulation and generate full
         sequence of battery operations.
         """
-        battery_intervalframe = FixedScheduleBatterySimulation(
+        battery_simulation = FixedScheduleBatterySimulation(
             battery=battery,
             load_intervalframe=load_intervalframe,
             charge_schedule=charge_schedule,
             discharge_schedule=discharge_schedule,
         )
-        battery_intervalframe.generate_full_sequence()
+        battery_simulation.generate_full_sequence()
 
-        return battery_intervalframe
+        return battery_simulation
 
     def generate_battery_sequences(self):
         """
@@ -98,7 +98,7 @@ class AggregateBatterySimulator(DERSimulator):
         """
         if self.multiprocess:
             with Pool() as pool:
-                battery_intervalframes = pool.starmap(
+                battery_simulations = pool.starmap(
                     self._generate_battery_sequence,
                     zip(
                         repeat(self.battery),
@@ -108,24 +108,24 @@ class AggregateBatterySimulator(DERSimulator):
                     ),
                 )
         else:
-            battery_intervalframes = []
+            battery_simulations = []
             for intervalframe in self.load_intervalframes:
-                battery_intervalframes.append(
+                battery_simulations.append(
                     self._generate_battery_sequence(
-                        repeat(self.battery),
+                        self.battery,
                         intervalframe,
                         self.charge_schedule,
                         self.discharge_schedule,
                     )
                 )
 
-        return battery_intervalframes
+        return battery_simulations
 
-    def get_battery_intervalframe(self, simulation_object):
+    def get_battery_simulation(self, simulation_object):
         """
         Return BatterySimulation relating to simulation_object.
         """
-        return self.battery_intervalframe_dict[simulation_object]
+        return self.battery_simulation_dict[simulation_object]
 
 
 @attr.s(frozen=True)

@@ -1,13 +1,27 @@
 from datetime import datetime, timedelta
 import pandas as pd
-from unittest import TestCase
+
+from django.test import TestCase
 
 from beo_datastore.libs.battery import Battery, FixedScheduleBatterySimulation
 from beo_datastore.libs.battery_schedule import create_fixed_schedule
+from beo_datastore.libs.fixtures import (
+    flush_intervalframe_files,
+    load_intervalframe_files,
+)
 from beo_datastore.libs.intervalframe import ValidationIntervalFrame
+
+from der.simulation.models import DERBatterySimulation
+from load.customer.models import Meter
 
 
 class TestBattery(TestCase):
+    """
+    Tests battery simulation and storage.
+    """
+
+    fixtures = ["reference_model", "customer"]
+
     def setUp(self):
         """
         Test battery operations under:
@@ -24,6 +38,8 @@ class TestBattery(TestCase):
             - always attempt to charge on negative kW readings
             - always attempt to discharge when load is above 5 kW
         """
+        load_intervalframe_files()
+
         intervalframe = ValidationIntervalFrame(
             pd.DataFrame(
                 zip(
@@ -47,6 +63,7 @@ class TestBattery(TestCase):
             start_hour=0, end_limit_hour=0, power_limit_1=5, power_limit_2=5
         )
 
+        # run battery simulation
         self.simulation = FixedScheduleBatterySimulation(
             battery=self.battery,
             load_intervalframe=intervalframe,
@@ -54,6 +71,9 @@ class TestBattery(TestCase):
             discharge_schedule=self.discharge_schedule,
         )
         self.simulation.generate_full_sequence()
+
+    def tearDown(self):
+        flush_intervalframe_files()
 
     def test_battery_operations(self):
         """
@@ -141,4 +161,30 @@ class TestBattery(TestCase):
                 20.0,
                 20.0,
             ],
+        )
+
+    def test_stored_simulation(self):
+        """
+        Test the retrieval of simulation elements from disk/database.
+        """
+        DERBatterySimulation.create_from_meter_simulation(
+            meter=Meter.objects.first(), simulation=self.simulation
+        )
+
+        # retrieve simulation from disk
+        stored_simulation = DERBatterySimulation.objects.last()
+        self.assertEqual(
+            stored_simulation.simulation.charge_schedule,
+            self.simulation.charge_schedule,
+        )
+        self.assertEqual(
+            stored_simulation.simulation.discharge_schedule,
+            self.simulation.discharge_schedule,
+        )
+        self.assertEqual(
+            stored_simulation.simulation.battery, self.simulation.battery
+        )
+        self.assertEqual(
+            stored_simulation.simulation.battery_intervalframe,
+            self.simulation.battery_intervalframe,
         )

@@ -5,13 +5,10 @@ import os
 import us
 
 from django.db import models
-from django.utils.functional import cached_property
 
-from beo_datastore.libs.intervalframe import (
-    IntervalFrameFile,
-    ValidationIntervalFrame,
-)
-from beo_datastore.libs.models import ValidationModel
+from beo_datastore.libs.intervalframe import ValidationIntervalFrame
+from beo_datastore.libs.intervalframe_file import IntervalFrameFile
+from beo_datastore.libs.models import ValidationModel, IntervalFrameFileMixin
 from beo_datastore.settings import MEDIA_ROOT
 
 from reference.reference_model.models import DataUnit
@@ -110,7 +107,17 @@ class ChannelQuerySet(models.QuerySet):
         super().delete(*args, **kwargs)
 
 
-class Channel(ValidationModel):
+class ChannelIntervalFrame(IntervalFrameFile):
+    """
+    Model for handling Channel IntervalFrameFiles, which have timestamps and
+    values.
+    """
+
+    # directory for parquet file storage
+    file_directory = os.path.join(MEDIA_ROOT, "meters")
+
+
+class Channel(IntervalFrameFileMixin, ValidationModel):
     """
     A Channel is a component of a Meter that tracks energy imported from
     (export=False) or energy exported to (export=True) the grid.
@@ -124,7 +131,10 @@ class Channel(ValidationModel):
         Meter, related_name="channels", on_delete=models.CASCADE
     )
 
-    # custom QuerySet manager for intervalframe file-handling
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = ChannelIntervalFrame
+
+    # custom QuerySet manager for frame file-handling
     objects = ChannelQuerySet.as_manager()
 
     class Meta:
@@ -133,39 +143,6 @@ class Channel(ValidationModel):
 
     def __str__(self):
         return "{} (export: {})".format(self.meter, self.export)
-
-    def save(self, *args, **kwargs):
-        if hasattr(self, "_intervalframe"):
-            self._intervalframe.save()
-        super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        if hasattr(self, "_intervalframe"):
-            self._intervalframe.delete()
-        super().delete(*args, **kwargs)
-
-    @cached_property
-    def intervalframe_from_file(self):
-        """
-        Creates IntervalFrameFile from local parquet copy.
-        """
-        return ChannelIntervalFrame.get_frame_from_file(reference_object=self)
-
-    @property
-    def intervalframe(self):
-        """
-        Retrieves IntervalFrameFile from parquet file.
-        """
-        if not hasattr(self, "_intervalframe"):
-            self._intervalframe = self.intervalframe_from_file
-        return self._intervalframe
-
-    @intervalframe.setter
-    def intervalframe(self, intervalframe):
-        """
-        Sets intervalframe property. Writes to disk on save().
-        """
-        self._intervalframe = intervalframe
 
     @property
     def total_288(self):
@@ -198,13 +175,3 @@ class Channel(ValidationModel):
         Returns a 12 x 24 dataframe of counts.
         """
         return self.intervalframe.count_frame288.dataframe
-
-
-class ChannelIntervalFrame(IntervalFrameFile):
-    """
-    Model for handling Channel IntervalFrameFiles, which have timestamps and
-    values.
-    """
-
-    reference_model = Channel
-    file_directory = os.path.join(MEDIA_ROOT, "meters")

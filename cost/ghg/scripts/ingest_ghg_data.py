@@ -6,7 +6,7 @@ import re
 
 from beo_datastore.settings import BASE_DIR
 
-from cost.ghg.models import GHGRate, GHGRateLookupTable
+from cost.ghg.models import GHGRate
 from reference.reference_model.models import RateUnit
 
 
@@ -25,18 +25,18 @@ def create_cns_object(csv_path, year):
     # convert from tCO2/MWh to tCO2/kWh
     dataframe = dataframe / 1000
 
-    cns, _ = GHGRate.objects.get_or_create(
-        name="Clean Net Short",
-        effective=date(year, 1, 1),
-        source="http://www.cpuc.ca.gov/General.aspx?id=6442451195",
-        rate_unit=RateUnit.objects.get(
-            numerator__name="tCO2", denominator__name="kwh"
-        ),
-    )
-    cns.lookup_table = GHGRateLookupTable(
-        reference_object=cns, dataframe=dataframe
-    )
-    cns.save()
+    name = "Clean Net Short"
+    effective = date(year, 1, 1)
+    if not GHGRate.objects.filter(name=name, effective=effective):
+        GHGRate.create(
+            name=name,
+            effective=effective,
+            source="http://www.cpuc.ca.gov/General.aspx?id=6442451195",
+            rate_unit=RateUnit.objects.get(
+                numerator__name="tCO2", denominator__name="kwh"
+            ),
+            dataframe=dataframe,
+        )
 
 
 def run():
@@ -61,18 +61,18 @@ def run():
     dataframe = pd.DataFrame(
         0.000380, columns=np.array(range(1, 13)), index=np.array(range(0, 24))
     )
-    ng, _ = GHGRate.objects.get_or_create(
-        name="Natural Gas",
-        effective=date(2015, 1, 1),
-        source=(
-            "https://www.mcecleanenergy.org/wp-content/uploads/2018/01/"
-            "Understanding_MCE_GHG_EmissionFactors_2015.pdf"
-        ),
-        rate_unit=RateUnit.objects.get(
-            numerator__name="tCO2", denominator__name="kwh"
-        ),
-    )
-    ng.lookup_table = GHGRateLookupTable(
-        reference_object=ng, dataframe=dataframe
-    )
-    ng.save()
+    name = "Natural Gas"
+    effective = date(2015, 1, 1)
+    if not GHGRate.objects.filter(name=name, effective=effective):
+        GHGRate.create(
+            name=name,
+            effective=effective,
+            source=(
+                "https://www.mcecleanenergy.org/wp-content/uploads/2018/01/"
+                "Understanding_MCE_GHG_EmissionFactors_2015.pdf"
+            ),
+            rate_unit=RateUnit.objects.get(
+                numerator__name="tCO2", denominator__name="kwh"
+            ),
+            dataframe=dataframe,
+        )

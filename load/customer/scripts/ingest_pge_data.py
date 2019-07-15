@@ -123,14 +123,12 @@ def run(*args):
                     if get_dataframe_period(df) == timedelta(0, 900):
                         df["kw"] = df["kw"] * 4.0
 
-                    channel, _ = Channel.objects.get_or_create(
+                    Channel.create(
                         export=export,
                         data_unit=DataUnit.objects.get(name="kw"),
                         meter=meter,
+                        dataframe=df,
                     )
-
-                    channel.intervalframe = ChannelIntervalFrame(channel, df)
-                    channel.save()
                 print("meter: {}".format(said))
             except Exception as e:
                 print(e)

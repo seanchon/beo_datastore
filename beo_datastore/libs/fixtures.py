@@ -4,8 +4,9 @@ from shutil import copyfile, rmtree
 from django.core.management import call_command
 
 from beo_datastore.settings import MEDIA_ROOT
+from beo_datastore.libs.utils import mkdir_p
 
-from cost.ghg.models import GHGRate, GHGRateLookupTable
+from cost.ghg.models import GHGRate, GHGRateFrame288
 from load.customer.models import Channel, ChannelIntervalFrame
 from load.openei.models import (
     ReferenceBuilding,
@@ -31,11 +32,8 @@ def load_intervalframe_files():
     """
     Loads parquet fixtures to MEDIA_ROOT.
     """
-    if not os.path.exists(MEDIA_ROOT):
-        os.mkdir(MEDIA_ROOT)
-
     for (reference_model, frame_model, fixture_dir) in [
-        (GHGRate, GHGRateLookupTable, "cost/ghg/fixtures/"),
+        (GHGRate, GHGRateFrame288, "cost/ghg/fixtures/"),
         (Channel, ChannelIntervalFrame, "load/customer/fixtures/"),
         (
             ReferenceBuilding,
@@ -44,8 +42,7 @@ def load_intervalframe_files():
         ),
     ]:
         for object in reference_model.objects.all():
-            if not os.path.exists(frame_model.file_directory):
-                os.mkdir(frame_model.file_directory)
+            mkdir_p(frame_model.file_directory)
             intervalframe_file = os.path.join(
                 fixture_dir, frame_model.get_filename(object)
             )

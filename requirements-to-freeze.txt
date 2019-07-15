@@ -5,6 +5,7 @@ cached-property
 coverage
 Django
 django-allauth
+django-auto-repr
 django-extensions
 django-localflavor
 django-polymorphic
