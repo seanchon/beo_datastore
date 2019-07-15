@@ -142,6 +142,7 @@ class PeakShavingScheduleOptimizer(object):
         month,
         charge_threshold,
         number_of_checks=None,
+        multiprocess=False,
     ):
         """
         Based on a given month and given charge threshold, find best discharge
@@ -152,6 +153,7 @@ class PeakShavingScheduleOptimizer(object):
         :param month: integer
         :param charge_threshold: fixed level to charge below (int)
         :param number_of_checks: number of discharge thresholds to try (int)
+        :param multiprocess: True to multiprocess
         :return: (discharge threshold, peak load)
         """
         intervalframe = load_intervalframe.filter_by_months({month})
@@ -165,18 +167,31 @@ class PeakShavingScheduleOptimizer(object):
             [int(max_load - x) for x in range(1, number_of_checks + 1)]
         )
 
-        # get resulting peak powers (multiprocess)
-        with Pool() as pool:
-            results = pool.starmap(
-                cls._get_peak_power,
-                zip(
-                    repeat(battery),
-                    repeat(intervalframe),
-                    repeat(month),
-                    repeat(charge_threshold),
-                    discharge_thresholds,
-                ),
-            )
+        # get resulting peak powers
+        if multiprocess:
+            with Pool() as pool:
+                results = pool.starmap(
+                    cls._get_peak_power,
+                    zip(
+                        repeat(battery),
+                        repeat(intervalframe),
+                        repeat(month),
+                        repeat(charge_threshold),
+                        discharge_thresholds,
+                    ),
+                )
+        else:
+            results = []
+            for discharge_threshold in discharge_thresholds:
+                results.append(
+                    cls._get_peak_power(
+                        battery,
+                        intervalframe,
+                        month,
+                        charge_threshold,
+                        discharge_threshold,
+                    )
+                )
 
         # return highest threshold with lowest resulting peak
         ranked_results = {}
@@ -190,13 +205,16 @@ class PeakShavingScheduleOptimizer(object):
         )
 
     @classmethod
-    def optimize_schedules_with_exports(cls, battery, load_intervalframe):
+    def optimize_schedules_with_exports(
+        cls, battery, load_intervalframe, multiprocess=False
+    ):
         """
         Creates optimal monthly charge and discharge schedules to shave peak
         loads based on charging using meter energy exports only.
 
         :param battery: Battery
         :param load_intervalframe: ValidationIntervalFrame
+        :param multiprocess: True to multiprocess
         :return: (charge schedule, discharge schedule)
             (ValidationFrame288, ValidationFrame288)
         """
@@ -211,7 +229,11 @@ class PeakShavingScheduleOptimizer(object):
             results["discharge_threshold"][
                 month
             ], _ = cls._optimize_discharge_threshold(
-                battery, load_intervalframe, month, 0
+                battery=battery,
+                load_intervalframe=load_intervalframe,
+                month=month,
+                charge_threshold=0,
+                multiprocess=multiprocess,
             )
 
         return (
@@ -231,7 +253,7 @@ class PeakShavingScheduleOptimizer(object):
 
     @classmethod
     def optimize_schedules_with_grid(
-        cls, battery, load_intervalframe, verbose=False
+        cls, battery, load_intervalframe, multiprocess=False, verbose=False
     ):
         """
         Creates optimal monthly charge and discharge schedules to shave peak
@@ -239,6 +261,7 @@ class PeakShavingScheduleOptimizer(object):
 
         :param battery: Battery
         :param load_intervalframe: ValidationIntervalFrame
+        :param multiprocess: True to multiprocess
         :param verbose: if True, print optimization steps
         :return: (charge schedule, discharge schedule)
             (ValidationFrame288, ValidationFrame288)
@@ -270,7 +293,11 @@ class PeakShavingScheduleOptimizer(object):
             lowest_peak = float("inf")
             for charge_threshold in charge_thresholds:
                 discharge_threshold, peak = cls._optimize_discharge_threshold(
-                    battery, load_intervalframe, month, charge_threshold
+                    battery=battery,
+                    load_intervalframe=load_intervalframe,
+                    month=month,
+                    charge_threshold=charge_threshold,
+                    multiprocess=multiprocess,
                 )
                 if verbose:
                     print(

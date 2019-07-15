@@ -5,14 +5,12 @@ from django.test import TestCase
 
 from beo_datastore.libs.battery import Battery, FixedScheduleBatterySimulation
 from beo_datastore.libs.battery_schedule import create_fixed_schedule
-from beo_datastore.libs.fixtures import (
-    flush_intervalframe_files,
-    load_intervalframe_files,
-)
+from beo_datastore.libs.fixtures import flush_intervalframe_files
 from beo_datastore.libs.intervalframe import ValidationIntervalFrame
 
 from der.simulation.models import DERBatterySimulation
-from load.customer.models import Meter
+from load.customer.models import Meter, Channel
+from reference.reference_model.models import DataUnit
 
 
 class TestBattery(TestCase):
@@ -20,7 +18,7 @@ class TestBattery(TestCase):
     Tests battery simulation and storage.
     """
 
-    fixtures = ["reference_model", "customer"]
+    fixtures = ["reference_model"]
 
     def setUp(self):
         """
@@ -38,17 +36,26 @@ class TestBattery(TestCase):
             - always attempt to charge on negative kW readings
             - always attempt to discharge when load is above 5 kW
         """
-        load_intervalframe_files()
-
-        intervalframe = ValidationIntervalFrame(
+        self.intervalframe = ValidationIntervalFrame(
             pd.DataFrame(
                 zip(
                     [datetime(2018, 1, 1, x) for x in range(0, 12)],
                     [-5 for x in range(0, 6)] + [10 for x in range(0, 6)],
                 )
             )
-            .set_index(0)
-            .rename(columns={1: "kw"})
+            .rename(columns={0: "index", 1: "kw"})
+            .set_index("index")
+        )
+
+        # create test meter
+        self.meter = Meter.objects.create(
+            sa_id="123", rate_plan=None, state="CA"
+        )
+        Channel.create(
+            export=False,
+            data_unit=DataUnit.objects.get(name="kw"),
+            meter=self.meter,
+            dataframe=self.intervalframe.dataframe,
         )
 
         self.battery = Battery(
@@ -66,7 +73,7 @@ class TestBattery(TestCase):
         # run battery simulation
         self.simulation = FixedScheduleBatterySimulation(
             battery=self.battery,
-            load_intervalframe=intervalframe,
+            load_intervalframe=self.intervalframe,
             charge_schedule=self.charge_schedule,
             discharge_schedule=self.discharge_schedule,
         )
@@ -165,10 +172,10 @@ class TestBattery(TestCase):
 
     def test_stored_simulation(self):
         """
-        Test the retrieval of simulation elements from disk/database.
+        Test the retrieval of battery simulation elements from disk/database.
         """
         DERBatterySimulation.create_from_meter_simulation(
-            meter=Meter.objects.first(), simulation=self.simulation
+            meter=self.meter, simulation=self.simulation
         )
 
         # retrieve simulation from disk
@@ -187,4 +194,36 @@ class TestBattery(TestCase):
         self.assertEqual(
             stored_simulation.simulation.battery_intervalframe,
             self.simulation.battery_intervalframe,
+        )
+
+    def test_stored_aggregate_simulation(self):
+        """
+        Test the retreival of aggregate battery simulations from disk/database.
+        """
+        DERBatterySimulation.get_or_create_aggregate_simulation(
+            battery=self.battery,
+            start=self.intervalframe.start_datetime,
+            end_limit=self.intervalframe.end_limit_datetime,
+            meter_set={self.meter},
+            charge_schedule=self.charge_schedule,
+            discharge_schedule=self.discharge_schedule,
+            multiprocess=False,
+        )
+
+        # retrieve aggregate simulation from disk
+        stored_simulation = DERBatterySimulation.get_aggregate_simulation(
+            battery=self.battery,
+            start=self.intervalframe.start_datetime,
+            end_limit=self.intervalframe.end_limit_datetime,
+            meter_set={self.meter},
+            charge_schedule=self.charge_schedule,
+            discharge_schedule=self.discharge_schedule,
+        )
+        self.assertEqual(
+            stored_simulation.aggregate_pre_intervalframe,
+            self.simulation.pre_intervalframe,
+        )
+        self.assertEqual(
+            stored_simulation.aggregate_post_intervalframe,
+            self.simulation.post_intervalframe,
         )

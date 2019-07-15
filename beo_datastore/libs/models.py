@@ -84,7 +84,11 @@ class FrameFileMixin(object):
     @classmethod
     def create(cls, dataframe, *args, **kwargs):
         """
-        Create instance of cls with an attached dataframe.
+        Custom model.objects.create() method with additional dataframe
+        parameter which creates object and associated DataFrameFile.
+
+        :param dataframe: valid pandas DataFrame of self.frame_file_class
+        :return: object
         """
         with transaction.atomic():
             reference_object = cls.objects.create(*args, **kwargs)
@@ -98,7 +102,11 @@ class FrameFileMixin(object):
     @classmethod
     def get_or_create(cls, dataframe, *args, **kwargs):
         """
-        Fetch existing or create instance of cls with an attached dataframe.
+        Custom model.objects.get_or_create() method with additional dataframe
+        parameter which gets or creates object and associated DataFrameFile.
+
+        :param dataframe: valid pandas DataFrame of self.frame_file_class
+        :return: (object, object created (True/False))
         """
         objects = cls.objects.filter(*args, **kwargs)
         if objects:
