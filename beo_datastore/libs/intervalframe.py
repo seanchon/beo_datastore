@@ -224,6 +224,20 @@ class ValidationIntervalFrame(ValidationDataFrame):
         """
         return self.end_timestamp.to_pydatetime()
 
+    @property
+    def end_limit_timestamp(self):
+        """
+        Return latest index value plus period as pandas Timestamp.
+        """
+        return self.end_timestamp + self.period
+
+    @property
+    def end_limit_datetime(self):
+        """
+        Return latest index value plus period as datetime object.
+        """
+        return self.end_datetime + self.period
+
     @cached_property
     def period(self):
         """
