@@ -101,12 +101,14 @@ class ReferenceBuilding(IntervalFrameFileMixin, ValidationModel):
     )
     source_file_url = models.URLField(max_length=254)
     building_type = models.ForeignKey(
-        BuildingType,
+        to=BuildingType,
         related_name="reference_buildings",
         on_delete=models.PROTECT,
     )
     data_unit = models.ForeignKey(
-        DataUnit, related_name="reference_buildings", on_delete=models.PROTECT
+        to=DataUnit,
+        related_name="reference_buildings",
+        on_delete=models.PROTECT,
     )
 
     # Required by IntervalFrameFileMixin.

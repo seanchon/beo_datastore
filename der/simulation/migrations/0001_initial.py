@@ -72,7 +72,7 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.CreateModel(
-            name="DERBatterySimulation",
+            name="StoredBatterySimulation",
             fields=[
                 (
                     "id",
@@ -89,7 +89,7 @@ class Migration(migrations.Migration):
                     "battery_configuration",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
-                        related_name="der_battery_simulations",
+                        related_name="battery_simulations",
                         to="simulation.BatteryConfiguration",
                     ),
                 ),
@@ -97,7 +97,7 @@ class Migration(migrations.Migration):
                     "charge_schedule",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
-                        related_name="charge_schedule_der_battery_simulations",
+                        related_name="charge_schedule_battery_simulations",
                         to="simulation.BatterySchedule",
                     ),
                 ),
@@ -105,7 +105,7 @@ class Migration(migrations.Migration):
                     "discharge_schedule",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
-                        related_name="discharge_schedule_der_battery_simulations",
+                        related_name="discharge_schedule_battery_simulations",
                         to="simulation.BatterySchedule",
                     ),
                 ),
@@ -113,7 +113,7 @@ class Migration(migrations.Migration):
                     "meter",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
-                        related_name="der_battery_simulations",
+                        related_name="battery_simulations",
                         to="customer.Meter",
                     ),
                 ),

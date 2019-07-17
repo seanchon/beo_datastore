@@ -261,6 +261,17 @@ class ValidationIntervalFrame(ValidationDataFrame):
         """
         return self.dataframe.index.map(pd.Timestamp.date).unique()
 
+    @property
+    def distinct_month_years(self):
+        """
+        Return a list of distinct (month, year) tuples within this
+        ValidationIntervalFrame.
+        """
+        return [
+            (int(x.split("/")[0]), int(x.split("/")[1]))
+            for x in np.unique(self.dataframe.index.strftime("%m/%Y")).tolist()
+        ]
+
     @cached_property
     def average_frame288(self):
         """
@@ -440,7 +451,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
             - len for the "count"
 
         :param aggfunc: aggregation function
-        :param resample: resample dataframe to 1-hour prior to computation
+        :param convert_to_kwh: resample dataframe to 1-hour prior to aggfunc
         :param default_value: default value for empty cells
         :return: ValidationFrame288
         """
