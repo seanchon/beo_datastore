@@ -775,7 +775,9 @@ class BillingCollection(object):
         Return billing dataframe representing all bills.
         """
         return reduce(
-            lambda x, y: x.append(y), [x.dataframe for x in self.bills]
+            lambda x, y: x.append(y),
+            [x.dataframe for x in self.bills],
+            pd.DataFrame(),
         )
 
     @property
@@ -809,6 +811,7 @@ class BillingCollection(object):
         return reduce(
             lambda x, y: x.merge_intervalframe(y),
             [x.intervalframe for x in self.bills],
+            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
         )
 
     @property

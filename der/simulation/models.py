@@ -94,6 +94,21 @@ class BatteryConfiguration(ValidationModel):
         ordering = ["id"]
         unique_together = ("rating", "discharge_duration_hours", "efficiency")
 
+    def __repr__(self):
+        return self.detailed_name
+
+    @property
+    def detailed_name(self):
+        """
+        Return battery's detailed name as a string.
+
+        Example:
+        100kW @ 2 hours (90% efficiency)
+        """
+        return "{}kW @ {} hours ({}% efficiency)".format(
+            self.rating, self.discharge_duration_hours, self.efficiency * 100
+        )
+
     @property
     def battery(self):
         """
