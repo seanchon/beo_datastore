@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "polymorphic",
     # apps
     "cost.ghg.apps.GhgConfig",
+    "cost.optimization.apps.OptimizationConfig",
     "cost.utility_rate.apps.UtilityRateConfig",
     "der.simulation.apps.SimulationConfig",
     "load.customer.apps.CustomerConfig",

@@ -8,7 +8,7 @@ from beo_datastore.libs.battery_schedule import create_fixed_schedule
 from beo_datastore.libs.fixtures import flush_intervalframe_files
 from beo_datastore.libs.intervalframe import ValidationIntervalFrame
 
-from der.simulation.models import DERBatterySimulation
+from der.simulation.models import StoredBatterySimulation
 from load.customer.models import Meter, Channel
 from reference.reference_model.models import DataUnit
 
@@ -174,12 +174,12 @@ class TestBattery(TestCase):
         """
         Test the retrieval of battery simulation elements from disk/database.
         """
-        DERBatterySimulation.create_from_meter_simulation(
+        StoredBatterySimulation.get_or_create_from_objects(
             meter=self.meter, simulation=self.simulation
         )
 
         # retrieve simulation from disk
-        stored_simulation = DERBatterySimulation.objects.last()
+        stored_simulation = StoredBatterySimulation.objects.last()
         self.assertEqual(
             stored_simulation.simulation.charge_schedule,
             self.simulation.charge_schedule,
@@ -200,7 +200,7 @@ class TestBattery(TestCase):
         """
         Test the retreival of aggregate battery simulations from disk/database.
         """
-        DERBatterySimulation.get_or_create_aggregate_simulation(
+        StoredBatterySimulation.generate(
             battery=self.battery,
             start=self.intervalframe.start_datetime,
             end_limit=self.intervalframe.end_limit_datetime,
@@ -211,7 +211,7 @@ class TestBattery(TestCase):
         )
 
         # retrieve aggregate simulation from disk
-        stored_simulation = DERBatterySimulation.get_aggregate_simulation(
+        stored_simulations = StoredBatterySimulation.generate(
             battery=self.battery,
             start=self.intervalframe.start_datetime,
             end_limit=self.intervalframe.end_limit_datetime,
@@ -219,11 +219,13 @@ class TestBattery(TestCase):
             charge_schedule=self.charge_schedule,
             discharge_schedule=self.discharge_schedule,
         )
+
+        # test same intervalframes
         self.assertEqual(
-            stored_simulation.aggregate_pre_intervalframe,
+            stored_simulations.first().pre_intervalframe,
             self.simulation.pre_intervalframe,
         )
         self.assertEqual(
-            stored_simulation.aggregate_post_intervalframe,
+            stored_simulations.first().post_intervalframe,
             self.simulation.post_intervalframe,
         )

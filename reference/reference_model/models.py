@@ -46,10 +46,12 @@ class RateUnit(ValidationModel):
     """
 
     numerator = models.ForeignKey(
-        DataUnit, related_name="rate_unit_numerators", on_delete=models.PROTECT
+        to=DataUnit,
+        related_name="rate_unit_numerators",
+        on_delete=models.PROTECT,
     )
     denominator = models.ForeignKey(
-        DataUnit,
+        to=DataUnit,
         related_name="rate_unit_denominators",
         on_delete=models.PROTECT,
     )
@@ -83,7 +85,7 @@ class VoltageCategory(ValidationModel):
 
     name = models.CharField(max_length=32)
     utility = models.ForeignKey(
-        Utility, related_name="voltage_categories", on_delete=models.PROTECT
+        to=Utility, related_name="voltage_categories", on_delete=models.PROTECT
     )
 
     class Meta:
@@ -103,7 +105,7 @@ class Sector(ValidationModel):
 
     name = models.CharField(max_length=32)
     utility = models.ForeignKey(
-        Utility, related_name="sectors", on_delete=models.PROTECT
+        to=Utility, related_name="sectors", on_delete=models.PROTECT
     )
 
     class Meta:

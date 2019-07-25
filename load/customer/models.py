@@ -125,10 +125,10 @@ class Channel(IntervalFrameFileMixin, ValidationModel):
 
     export = models.BooleanField(default=False)
     data_unit = models.ForeignKey(
-        DataUnit, related_name="channels", on_delete=models.PROTECT
+        to=DataUnit, related_name="channels", on_delete=models.PROTECT
     )
     meter = models.ForeignKey(
-        Meter, related_name="channels", on_delete=models.CASCADE
+        to=Meter, related_name="channels", on_delete=models.CASCADE
     )
 
     # Required by IntervalFrameFileMixin.

@@ -3,6 +3,7 @@ import os
 
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models, transaction
+from django.utils.functional import cached_property
 
 from beo_datastore.libs.battery import Battery, FixedScheduleBatterySimulation
 from beo_datastore.libs.controller import AggregateBatterySimulation
@@ -25,10 +26,14 @@ class BatteryScheduleFrame288(Frame288File):
     Model for handling BatterySchedule Frame288Files.
     """
 
-    file_directory = os.path.join(MEDIA_ROOT, "der_battery_simulations")
+    file_directory = os.path.join(MEDIA_ROOT, "battery_simulations")
 
 
 class BatterySchedule(Frame288FileMixin, ValidationModel):
+    """
+    Container for storing charge and discharge schedule ValidationFrame288s.
+    """
+
     hash = models.CharField(max_length=64, unique=True)
 
     # Required by Frame288FileMixin.
@@ -36,6 +41,30 @@ class BatterySchedule(Frame288FileMixin, ValidationModel):
 
     class Meta:
         ordering = ["id"]
+
+    @classmethod
+    def create_from_frame288(cls, frame288):
+        """
+        Create BatterySchedule from ValidationFrame288.
+
+        :param frame288: ValidationFrame288
+        :return: BatterySchedule
+        """
+        return cls.create(hash=frame288, dataframe=frame288.dataframe)
+
+    @classmethod
+    def get_or_create_from_frame288(cls, frame288):
+        """
+        Get or create BatterySchedule from ValidationFrame288.
+
+        :param frame288: ValidationFrame288
+        :return: BatterySchedule
+        """
+        objects = cls.objects.filter(hash=frame288.__hash__())
+        if objects:
+            return (objects.first(), False)
+        else:
+            return (cls.create_from_frame288(frame288), True)
 
     def save(self, *args, **kwargs):
         """
@@ -46,6 +75,10 @@ class BatterySchedule(Frame288FileMixin, ValidationModel):
 
 
 class BatteryConfiguration(ValidationModel):
+    """
+    Container for storing Battery configurations.
+    """
+
     rating = models.IntegerField(blank=False, null=False)
     discharge_duration_hours = models.IntegerField(blank=False, null=False)
     efficiency = models.FloatField(
@@ -72,42 +105,76 @@ class BatteryConfiguration(ValidationModel):
             efficiency=self.efficiency,
         )
 
+    @classmethod
+    def create_from_battery(cls, battery):
+        """
+        Create BatteryConfiguration from Battery.
 
-class DERBatterySimulationFrame(BatteryIntervalFrameFile):
+        :param battery: Battery
+        :return: BatteryConfiguration
+        """
+        return cls.objects.create(
+            rating=battery.rating,
+            discharge_duration_hours=battery.discharge_duration_hours,
+            efficiency=battery.efficiency,
+        )
+
+    @classmethod
+    def get_or_create_from_battery(cls, battery):
+        """
+        Get or create BatteryConfiguration from Battery.
+
+        :param battery: Battery
+        :return: BatteryConfiguration
+        """
+        objects = cls.objects.filter(
+            rating=battery.rating,
+            discharge_duration_hours=battery.discharge_duration_hours,
+            efficiency=battery.efficiency,
+        )
+        if objects:
+            return (objects.first(), False)
+        else:
+            return (cls.create_from_battery(battery), True)
+
+
+class StoredBatterySimulationFrame(BatteryIntervalFrameFile):
     """
-    Model for handling DERBatterySimulation BatteryIntervalFrameFiles.
+    Model for handling StoredBatterySimulation BatteryIntervalFrameFiles.
     """
 
     # directory for parquet file storage
-    file_directory = os.path.join(MEDIA_ROOT, "der_battery_simulations")
+    file_directory = os.path.join(MEDIA_ROOT, "battery_simulations")
 
 
-class DERBatterySimulation(IntervalFrameFileMixin, ValidationModel):
+class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
+    """
+    Container for storing BatterySimulations.
+    """
+
+    start = models.DateTimeField()
+    end_limit = models.DateTimeField()
     meter = models.ForeignKey(
-        to=Meter,
-        on_delete=models.CASCADE,
-        related_name="der_battery_simulations",
+        to=Meter, on_delete=models.CASCADE, related_name="battery_simulations"
     )
     battery_configuration = models.ForeignKey(
         to=BatteryConfiguration,
         on_delete=models.CASCADE,
-        related_name="der_battery_simulations",
+        related_name="battery_simulations",
     )
     charge_schedule = models.ForeignKey(
         to=BatterySchedule,
         on_delete=models.CASCADE,
-        related_name="charge_schedule_der_battery_simulations",
+        related_name="charge_schedule_battery_simulations",
     )
     discharge_schedule = models.ForeignKey(
         to=BatterySchedule,
         on_delete=models.CASCADE,
-        related_name=("discharge_schedule_der_battery_simulations"),
+        related_name=("discharge_schedule_battery_simulations"),
     )
-    start = models.DateTimeField()
-    end_limit = models.DateTimeField()
 
-    # Required by IntervalFrameF.
-    frame_file_class = DERBatterySimulationFrame
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = StoredBatterySimulationFrame
 
     class Meta:
         ordering = ["id"]
@@ -120,7 +187,15 @@ class DERBatterySimulation(IntervalFrameFileMixin, ValidationModel):
             "end_limit",
         )
 
-    @property
+    @cached_property
+    def pre_intervalframe(self):
+        return self.simulation.pre_intervalframe
+
+    @cached_property
+    def post_intervalframe(self):
+        return self.simulation.post_intervalframe
+
+    @cached_property
     def simulation(self):
         """
         Return FixedScheduleBatterySimulation equivalent of self.
@@ -135,19 +210,39 @@ class DERBatterySimulation(IntervalFrameFileMixin, ValidationModel):
             battery_intervalframe=self.intervalframe,
         )
 
+    @cached_property
+    def agg_simulation(self):
+        """
+        Return AggregateBatterySimulation equivalent of self.
+        AggregateBatterySimulations with the same parameters can be added to
+        one another.
+        """
+        return AggregateBatterySimulation(
+            battery=self.battery_configuration.battery,
+            start=self.start,
+            end_limit=self.end_limit,
+            charge_schedule=self.charge_schedule.frame288,
+            discharge_schedule=self.discharge_schedule.frame288,
+            results={self.meter: self.simulation},
+        )
+
     @classmethod
-    def create_from_meter_simulation(
+    def get_or_create_from_objects(
         cls, meter, simulation, start=None, end_limit=None
     ):
         """
-        Create new DERBatterySimulation record from a Meter and Simulation.
-        Creates necessary BatteryConfiguration and charge and discharge
-        BatterySchedule objects.
+        Get existing or create new StoredBatterySimulation from a Meter and
+        Simulation. Creates necessary BatteryConfiguration and charge and
+        discharge BatterySchedule objects.
 
         :param meter: Meter
         :param simulation: FixedScheduleBatterySimulation
         :param start: datetime
         :param end_limit: datetime
+        :return: (
+            StoredBatterySimulation,
+            StoredBatterySimulation created (True/False)
+        )
         """
         if start is None:
             start = simulation.battery_intervalframe.start_datetime
@@ -178,71 +273,10 @@ class DERBatterySimulation(IntervalFrameFileMixin, ValidationModel):
                 start=start,
                 end_limit=end_limit,
                 dataframe=simulation.battery_intervalframe.dataframe,
-            )[0]
+            )
 
     @classmethod
-    def get_aggregate_simulation(
-        cls,
-        battery,
-        start,
-        end_limit,
-        meter_set,
-        charge_schedule,
-        discharge_schedule,
-    ):
-        """
-        Get many battery pre-existing simulations at once matching the
-        provided criteria. All matching simulations will be returned.
-
-        The following objects must already exist:
-        -   BatteryConfiguration matching battery
-        -   BatterySchedule matching charge_schedule
-        -   BatterySchedule matching discharge_schedule
-
-        :param battery: Battery
-        :param start: datetime
-        :param end_limit: datetime
-        :param meter_set: QuerySet or set of Meters
-        :param charge_schedule: ValidationFrame288
-        :param discharge_schedule: ValidationFrame288
-        :param multiprocess: True or False
-        :return: AggregateBatterySimulation
-        """
-        battery_configuration = BatteryConfiguration.objects.get(
-            rating=battery.rating,
-            discharge_duration_hours=(battery.discharge_duration_hours),
-            efficiency=battery.efficiency,
-        )
-        charge_schedule = BatterySchedule.objects.get(
-            hash=charge_schedule.__hash__()
-        )
-        discharge_schedule = BatterySchedule.objects.get(
-            hash=discharge_schedule.__hash__()
-        )
-
-        simulations = cls.objects.filter(
-            meter__id__in=[x.id for x in meter_set],
-            battery_configuration=battery_configuration,
-            charge_schedule=charge_schedule,
-            discharge_schedule=discharge_schedule,
-            start=start,
-            end_limit=end_limit,
-        )
-
-        return AggregateBatterySimulation(
-            battery=battery,
-            start=start,
-            end_limit=end_limit,
-            charge_schedule=charge_schedule.frame288,
-            discharge_schedule=discharge_schedule.frame288,
-            results={
-                simulation.meter: simulation.simulation
-                for simulation in simulations
-            },
-        )
-
-    @classmethod
-    def get_or_create_aggregate_simulation(
+    def generate(
         cls,
         battery,
         start,
@@ -253,10 +287,9 @@ class DERBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         multiprocess=False,
     ):
         """
-        Get or create many battery simulations at once. Pre-existing
-        simulations are retrieved and non-existing simulations are created and
-        stored. All simulations are returned in a single
-        AggregateBatterySimulation.
+        Get or create many StoredBatterySimulations at once. Pre-existing
+        StoredBatterySimulations are retrieved and non-existing
+        StoredBatterySimulations are created.
 
         :param battery: Battery
         :param start: datetime
@@ -265,52 +298,59 @@ class DERBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         :param charge_schedule: ValidationFrame288
         :param discharge_schedule: ValidationFrame288
         :param multiprocess: True or False
-        :return: (
-            AggregateBatterySimulation,
-            DERBatterySimulations created (True/False)
-        )
+        :return: StoredBatterySimulation QuerySet
         """
         with transaction.atomic():
-            BatteryConfiguration.objects.get_or_create(
+            configuration, _ = BatteryConfiguration.objects.get_or_create(
                 rating=battery.rating,
                 discharge_duration_hours=(battery.discharge_duration_hours),
                 efficiency=battery.efficiency,
             )
-            BatterySchedule.get_or_create(
+            charge_schedule, _ = BatterySchedule.get_or_create(
                 hash=charge_schedule.__hash__(),
                 dataframe=charge_schedule.dataframe,
             )
-            BatterySchedule.get_or_create(
+            discharge_schedule, _ = BatterySchedule.get_or_create(
                 hash=discharge_schedule.__hash__(),
                 dataframe=discharge_schedule.dataframe,
             )
 
-            # get existing aggregate simulation from disk
-            existing_simulation = cls.get_aggregate_simulation(
-                battery=battery,
-                start=start,
-                end_limit=end_limit,
-                meter_set=meter_set,
+            # get existing aggregate simulation
+            stored_simulations = cls.objects.filter(
+                meter__id__in=[x.id for x in meter_set],
+                battery_configuration=configuration,
                 charge_schedule=charge_schedule,
                 discharge_schedule=discharge_schedule,
+                start=start,
+                end_limit=end_limit,
             )
 
             # generate new aggregate simulation for remaining meters
+            new_meters = set(meter_set) - {x.meter for x in stored_simulations}
             new_simulation = AggregateBatterySimulation.create(
                 battery=battery,
                 start=start,
                 end_limit=end_limit,
-                meter_set=set(meter_set) - set(existing_simulation.meters),
-                charge_schedule=charge_schedule,
-                discharge_schedule=discharge_schedule,
+                meter_set=new_meters,
+                charge_schedule=charge_schedule.frame288,
+                discharge_schedule=discharge_schedule.frame288,
                 multiprocess=multiprocess,
             )
 
             # store new simulations
             for meter, battery_simulation in new_simulation.results.items():
-                cls.create_from_meter_simulation(meter, battery_simulation)
+                cls.get_or_create_from_objects(
+                    meter=meter,
+                    simulation=battery_simulation,
+                    start=start,
+                    end_limit=end_limit,
+                )
 
-            return (
-                existing_simulation + new_simulation,
-                bool(new_simulation.results),
+            return cls.objects.filter(
+                meter__in=meter_set,
+                battery_configuration=configuration,
+                charge_schedule=charge_schedule,
+                discharge_schedule=discharge_schedule,
+                start=start,
+                end_limit=end_limit,
             )

@@ -48,5 +48,15 @@
     "source": "https://www.mcecleanenergy.org/wp-content/uploads/2018/01/Understanding_MCE_GHG_EmissionFactors_2015.pdf",
     "rate_unit": 3
   }
+},
+{
+  "model": "ghg.ghgrate",
+  "pk": 6,
+  "fields": {
+    "name": "CARB - Unspecified Power",
+    "effective": "2013-01-01",
+    "source": "https://www.mcecleanenergy.org/wp-content/uploads/Understanding-MCE-GHGs-Emission-Factor_2013_3-16-2015_2.pdf",
+    "rate_unit": 3
+  }
 }
 ]
