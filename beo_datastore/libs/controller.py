@@ -7,7 +7,11 @@ from itertools import repeat
 from multiprocessing import Pool
 import pandas as pd
 
-from beo_datastore.libs.battery import Battery, FixedScheduleBatterySimulation
+from beo_datastore.libs.battery import (
+    Battery,
+    BatteryIntervalFrame,
+    FixedScheduleBatterySimulation,
+)
 from beo_datastore.libs.intervalframe import (
     ValidationFrame288,
     ValidationIntervalFrame,
@@ -144,16 +148,23 @@ class AggregateBatterySimulation(DERAggregateSimulation):
         )
 
     @cached_property
+    def aggregate_battery_intervalframe(self):
+        """
+        Return a single BatteryIntervalFrame represeting the aggregate
+        operations of all Batteries.
+        """
+        return reduce(
+            lambda x, y: x + y,
+            [x.battery_intervalframe for x in self.battery_simulations],
+            BatteryIntervalFrame(BatteryIntervalFrame.default_dataframe),
+        )
+
+    @cached_property
     def aggregate_energy_loss(self):
         """
         Return all energy lost due to battery roundtrip efficiency.
         """
-        return sum(
-            [
-                x.battery_intervalframe.energy_loss
-                for x in self.battery_simulations
-            ]
-        )
+        return self.aggregate_battery_intervalframe.energy_loss
 
     @staticmethod
     def _generate_battery_simulation(

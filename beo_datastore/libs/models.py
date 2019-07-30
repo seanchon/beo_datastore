@@ -2,6 +2,7 @@ from django_auto_repr import AutoRepr
 from polymorphic.models import PolymorphicModel
 
 from django.db import models, transaction
+from django.utils.functional import cached_property
 
 
 class ValidationModel(AutoRepr, models.Model):
@@ -19,6 +20,14 @@ class ValidationModel(AutoRepr, models.Model):
     class Meta:
         abstract = True
 
+    def _reset_cached_properties(self):
+        """
+        Resets values of cached properties.
+        """
+        for key, value in self.__class__.__dict__.items():
+            if isinstance(value, cached_property):
+                self.__dict__.pop(key, None)
+
 
 class PolymorphicValidationModel(AutoRepr, PolymorphicModel):
     """
@@ -34,6 +43,14 @@ class PolymorphicValidationModel(AutoRepr, PolymorphicModel):
 
     class Meta(PolymorphicModel.Meta):
         abstract = True
+
+    def _reset_cached_properties(self):
+        """
+        Resets values of cached properties.
+        """
+        for key, value in self.__class__.__dict__.items():
+            if isinstance(value, cached_property):
+                self.__dict__.pop(key, None)
 
 
 class FrameFileMixin(object):
