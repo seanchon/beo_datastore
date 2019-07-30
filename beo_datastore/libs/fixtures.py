@@ -14,18 +14,18 @@ from load.openei.models import (
 )
 
 
-def load_all_fixtures():
+def load_base_fixtures():
     """
     Loads base fixtures in defined order.
     """
-    call_command(
-        "loaddata",
-        "reference_model",
-        "customer",
-        "ghg",
-        "openei",
-        "utility_rate",
-    )
+    call_command("loaddata", "reference_model", "ghg")
+
+
+def load_test_fixtures():
+    """
+    Loads test fixtures in defined order.
+    """
+    call_command("loaddata", "customer", "openei", "utility_rate")
 
 
 def load_intervalframe_files():

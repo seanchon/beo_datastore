@@ -24,6 +24,7 @@ pyarrow
 requests
 rise
 scipy
+simple-terminal
 sklearn
 us
 Werkzeug
