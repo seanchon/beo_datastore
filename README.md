@@ -4,20 +4,43 @@ A place to store data for use in the CEC BEO project.
 
 # SETUP
 
-The following are the steps to get this project up and running. The virtualenv should be built using python3.6.
+The following are the steps to get this project up and running for the first time. These steps should be performed in the directory where this project has been downloaded. The virtual environment (virtualenv) should be built using python3.6 or later. These steps only need to be performed once.
 
 ```
 $ python -m venv <env_name>
 $ virtualenv <env_name>
 $ source <env_name>/bin/activate
 (<env_name>)$ pip install -r requirements.txt
-(<env_name>)$ python manage.py migrate
-(<env_name>)$ python manage.py runscript beo_datastore.scripts.load_data
+(<env_name>)$ jupyter-nbextension install rise --py --sys-prefix
+(<env_name>)$ jupyter-nbextension enable rise --py --sys-prefix
+```
+
+# LAUNCHING THE VIRTUAL ENVIRONMENT
+
+All of the following commands should be run in the virtualenv created in the previous step. The virtualenv can be launched with the following command where <env_name> is the name provided in the previous step. After launching the virtualenv, the terminal should show the name of the virtualenv in the terminal prompt.
+
+```
+source <env_name>/bin/activate
+(<env_name>)$
+```
+
+## INITIALIZING DEV ENVIRONMENT
+
+A script is available to initialize a dev environment. This script can be run anytime to reinitialize the dev environment. (__Note: Any local changes to the code base will be moved into a [git stash](https://git-scm.com/docs/git-stash) and all application data will be destroyed and recreated.__)
+
+```
+python scripts/initialize_dev.py --full
+```
+
+Optional test data including sample meters and utility rates can be added with the following flag.
+
+```
+python scripts/initialize_dev.py --full --test
 ```
 
 # LAUNCHING THE DEVELOPMENT APPLICATION
 
-When launching the application for the first time, you will want to create a superuser for site access.
+After each initialization of the dev environment, you will want to create a superuser for site access.
 
 ```
 python manage.py createsuperuser
@@ -26,26 +49,17 @@ python manage.py createsuperuser
 The following command can be used to launch the application on your local machine.
 
 ```
-(<env_name>)$ python manage.py runserver_plus
+python manage.py runserver_plus
 ```
 
 The application can be accessed at http://localhost:8000/ and the administration portal can be accessed at http://localhost:8000/admin/.
 
 # DEMO NOTEBOOK
 
-To get a feel for the underlying data, a Jupyter Notebook can be launched which contains demo scripts. (Note: Base fixtures are needed for the demo scripts to run. See [LOADING DATA](#loading-data).)
-
-Configuration note: enable [RISE](https://github.com/damianavila/RISE) for presentation views.
+To get a feel for the underlying data, a Jupyter Notebook can be launched which contains demo scripts. These scripts can be modified and run against data after it is loaded, which is covered in [LOADING DATA](#loading-data).
 
 ```
-(<env_name>)$ jupyter-nbextension install rise --py --sys-prefix
-(<env_name>)$ jupyter-nbextension enable rise --py --sys-prefix
-```
-
-Launch a local Jupyter Notebook application.
-
-```
-(<env_name>)$ python manage.py shell_plus --notebook
+python manage.py shell_plus --notebook
 ```
 
 After launching the Jupyter Notebook application, navigate to the Notebook application at http://localhost:8888/notebooks/. Opening the demo directory will display some demo notebooks.
@@ -59,7 +73,13 @@ To add robust datasets, the following scripts can be run.
 Base data has been populated in the codebase and can be loaded using the following script.
 
 ```
-(<env_name>)$ python manage.py runscript beo_datastore.scripts.load_data
+python manage.py runscript beo_datastore.scripts.load_data
+```
+
+Optional test data including sample meters and utility rates can be added with the following flag.
+
+```
+python manage.py runscript beo_datastore.scripts.load_data --script-args test
 ```
 
 ## Electricity Load Data
@@ -69,7 +89,7 @@ Base data has been populated in the codebase and can be loaded using the followi
 The following script will prime the database with all OpenEI reference buildings located in a particular state. It reaches out to the OpenEI website and scrapes the site's content.
 
 ```
-(<env_name>)$ python manage.py runscript load.openei.scripts.ingest_reference_buildings --script-args STATE
+python manage.py runscript load.openei.scripts.ingest_reference_buildings --script-args <STATE>
 ```
 
 Where STATE is the two-letter abbreviation of a state (ex. CA).
@@ -79,7 +99,7 @@ Where STATE is the two-letter abbreviation of a state (ex. CA).
 The following script will load PG&E Item 17 data (the CSV file will need to be downloaded locally).
 
 ```
-(<env_name>)$ python manage.py runscript load.customer.scripts.ingest_pge_data --script-args CSV_FILE
+python manage.py runscript load.customer.scripts.ingest_pge_data --script-args <CSV_FILE>
 ```
 
 Where CSV_FILE is the location of an Item 17 file to be used for ingestion.
@@ -91,7 +111,7 @@ Where CSV_FILE is the location of an Item 17 file to be used for ingestion.
 The following script will ingest GHG lookup tables from the CPUC's Clean Net Short Calculator Tool - http://www.cpuc.ca.gov/General.aspx?id=6442451195.
 
 ```
-(<env_name>)$ python manage.py runscript cost.ghg.scripts.ingest_ghg_data
+python manage.py runscript cost.ghg.scripts.ingest_ghg_data
 ```
 
 ### OpenEI Utility Rate Database
@@ -99,7 +119,7 @@ The following script will ingest GHG lookup tables from the CPUC's Clean Net Sho
 The following script will ingest utility rate data from OpenEI's Utility Rate Database.
 
 ```
-(<env_name>)$ python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args UTILITY_NAME (SOURCE)
+python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args UTILITY_NAME <SOURCE>
 ```
 
 Where UTILITY_NAME is the name of a utility (ex. "Pacific Gas & Electric Co").
@@ -108,19 +128,19 @@ Where SOURCE (optional) is the location of an OpenEI formatted JSON file.
 To see all possible utilities, run the following command.
 
 ```
-(<env_name>)$ python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args help
+python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args help
 ```
 
 Example: Load data from the OpenEI website.
 
 ```
-(<env_name>)$ python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args "Pacific Gas & Electric Co"
+python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args "Pacific Gas & Electric Co"
 ```
 
 Example: Load data from a local file.
 
 ```
-(<env_name>)$ python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args "MCE Clean Energy" cost/utility_rate/scripts/data/mce_residential_rates_20180501.json
+python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args "MCE Clean Energy" cost/utility_rate/scripts/data/mce_residential_rates_20180501.json
 ```
 
 # DEVELOPER NOTES
