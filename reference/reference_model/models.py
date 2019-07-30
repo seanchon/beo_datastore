@@ -1,3 +1,6 @@
+from localflavor.us.models import USStateField
+from localflavor.us.us_states import STATE_CHOICES
+
 from django.db import models
 
 from beo_datastore.libs.models import ValidationModel
@@ -64,18 +67,32 @@ class RateUnit(ValidationModel):
         return "{}/{}".format(self.numerator, self.denominator)
 
 
-class Utility(ValidationModel):
+class LoadServingEntity(ValidationModel):
     """
-    Investor Owned Utility.
+    Load serving entity (ex. Utility, CCA).
     """
 
     name = models.CharField(max_length=32, unique=True)
+    state = USStateField(choices=STATE_CHOICES)
 
     class Meta:
         ordering = ["id"]
 
     def __str__(self):
         return self.name
+
+    @classmethod
+    def menu(cls):
+        """
+        Return a list of IDs and LoadServingEntity names. This menu is used in
+        various scripts that require a LoadServingEntity as an input.
+        """
+        return "\n".join(
+            [
+                "ID: {} NAME: {}".format(x[0], x[1])
+                for x in cls.objects.values_list("id", "name")
+            ]
+        )
 
 
 class VoltageCategory(ValidationModel):
@@ -84,13 +101,15 @@ class VoltageCategory(ValidationModel):
     """
 
     name = models.CharField(max_length=32)
-    utility = models.ForeignKey(
-        to=Utility, related_name="voltage_categories", on_delete=models.PROTECT
+    load_serving_entity = models.ForeignKey(
+        to=LoadServingEntity,
+        related_name="voltage_categories",
+        on_delete=models.PROTECT,
     )
 
     class Meta:
         ordering = ["id"]
-        unique_together = ("name", "utility")
+        unique_together = ("name", "load_serving_entity")
 
     def __str__(self):
         return self.name
@@ -98,19 +117,19 @@ class VoltageCategory(ValidationModel):
 
 class Sector(ValidationModel):
     """
-    Classification of Utility customer.
+    Classification of LSE customer.
 
     Ex. Residential, Commercial
     """
 
     name = models.CharField(max_length=32)
-    utility = models.ForeignKey(
-        to=Utility, related_name="sectors", on_delete=models.PROTECT
+    load_serving_entity = models.ForeignKey(
+        to=LoadServingEntity, related_name="sectors", on_delete=models.PROTECT
     )
 
     class Meta:
         ordering = ["id"]
-        unique_together = ("name", "utility")
+        unique_together = ("name", "load_serving_entity")
 
     def __str__(self):
         return self.name

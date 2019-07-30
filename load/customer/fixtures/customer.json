@@ -4,8 +4,8 @@
   "pk": 1,
   "fields": {
     "sa_id": 0,
-    "rate_plan": "TEST",
-    "state": "CA"
+    "rate_plan_name": "TEST",
+    "load_serving_entity": 1
   }
 },
 {
@@ -13,8 +13,8 @@
   "pk": 2,
   "fields": {
     "sa_id": 8943913372,
-    "rate_plan": "EV, Residential Rates for Electric Vehicle Owners",
-    "state": "CA"
+    "rate_plan_name": "EV, Residential Rates for Electric Vehicle Owners",
+    "load_serving_entity": 2
   }
 },
 {
@@ -22,8 +22,8 @@
   "pk": 3,
   "fields": {
     "sa_id": 7720534682,
-    "rate_plan": "E19, Medium General Service, Primary",
-    "state": "CA"
+    "rate_plan_name": "E19, Medium General Service, Primary",
+    "load_serving_entity": 2
   }
 },
 {

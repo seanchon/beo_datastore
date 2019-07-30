@@ -233,17 +233,19 @@
   }
 },
 {
-  "model": "reference_model.utility",
+  "model": "reference_model.loadservingentity",
   "pk": 1,
   "fields": {
-    "name": "Pacific Gas & Electric Co"
+    "name": "Pacific Gas & Electric Co",
+    "state": "CA"
   }
 },
 {
-  "model": "reference_model.utility",
+  "model": "reference_model.loadservingentity",
   "pk": 2,
   "fields": {
-    "name": "MCE Clean Energy"
+    "name": "MCE Clean Energy",
+    "state": "CA"
   }
 },
 {
@@ -251,7 +253,7 @@
   "pk": 1,
   "fields": {
     "name": "Primary",
-    "utility": 1
+    "load_serving_entity": 1
   }
 },
 {
@@ -259,7 +261,7 @@
   "pk": 2,
   "fields": {
     "name": "Secondary",
-    "utility": 1
+    "load_serving_entity": 1
   }
 },
 {
@@ -267,7 +269,7 @@
   "pk": 3,
   "fields": {
     "name": "Transmission",
-    "utility": 1
+    "load_serving_entity": 1
   }
 },
 {
@@ -275,7 +277,7 @@
   "pk": 1,
   "fields": {
     "name": "Residential",
-    "utility": 1
+    "load_serving_entity": 1
   }
 },
 {
@@ -283,7 +285,7 @@
   "pk": 2,
   "fields": {
     "name": "Commercial",
-    "utility": 1
+    "load_serving_entity": 1
   }
 },
 {
@@ -291,7 +293,7 @@
   "pk": 3,
   "fields": {
     "name": "Industrial",
-    "utility": 1
+    "load_serving_entity": 1
   }
 },
 {
@@ -299,7 +301,7 @@
   "pk": 4,
   "fields": {
     "name": "Residential",
-    "utility": 2
+    "load_serving_entity": 2
   }
 },
 {
@@ -307,7 +309,7 @@
   "pk": 5,
   "fields": {
     "name": "Commercial",
-    "utility": 2
+    "load_serving_entity": 2
   }
 }
 ]

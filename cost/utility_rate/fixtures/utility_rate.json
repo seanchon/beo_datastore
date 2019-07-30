@@ -7,7 +7,7 @@
     "description": "This schedule is applicable to single-phase and polyphase residential service in single-family dwellings and in flats and apartments separately metered by PG&E; to single-phase and polyphase service in common areas in a multifamily complex; and to all single-phase and polyphase farm service on the premises operated by the person whose residence is supplied through the same meter.",
     "demand_min": null,
     "demand_max": null,
-    "utility": 1,
+    "load_serving_entity": 1,
     "sector": 1,
     "voltage_category": null
   }
@@ -20,7 +20,7 @@
     "description": null,
     "demand_min": null,
     "demand_max": null,
-    "utility": 2,
+    "load_serving_entity": 2,
     "sector": 4,
     "voltage_category": null
   }
@@ -33,7 +33,7 @@
     "description": null,
     "demand_min": null,
     "demand_max": null,
-    "utility": 2,
+    "load_serving_entity": 2,
     "sector": 4,
     "voltage_category": null
   }
@@ -46,7 +46,7 @@
     "description": null,
     "demand_min": null,
     "demand_max": null,
-    "utility": 2,
+    "load_serving_entity": 2,
     "sector": 4,
     "voltage_category": null
   }
@@ -59,7 +59,7 @@
     "description": null,
     "demand_min": null,
     "demand_max": null,
-    "utility": 2,
+    "load_serving_entity": 2,
     "sector": 5,
     "voltage_category": null
   }

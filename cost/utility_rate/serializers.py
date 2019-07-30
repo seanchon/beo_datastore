@@ -4,7 +4,9 @@ from cost.utility_rate.models import RateCollection, RatePlan
 
 
 class RatePlanSerializer(serializers.HyperlinkedModelSerializer):
-    utility = serializers.CharField(source="utility.name")
+    load_serving_entity = serializers.CharField(
+        source="load_serving_entity.name"
+    )
     sector = serializers.CharField(source="sector.name")
     voltage_category = serializers.CharField(
         source="voltage_category.name", allow_null=True
@@ -13,7 +15,7 @@ class RatePlanSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = RatePlan
         fields = (
-            "utility",
+            "load_serving_entity",
             "sector",
             "voltage_category",
             "name",
