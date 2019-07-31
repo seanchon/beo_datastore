@@ -11,7 +11,11 @@ from beo_datastore.libs.controller import AggregateBillCalculation
 from beo_datastore.libs.models import ValidationModel
 
 from der.simulation.models import StoredBatterySimulation
-from reference.reference_model.models import Sector, Utility, VoltageCategory
+from reference.reference_model.models import (
+    LoadServingEntity,
+    Sector,
+    VoltageCategory,
+)
 
 
 class RatePlan(ValidationModel):
@@ -23,8 +27,10 @@ class RatePlan(ValidationModel):
     description = models.TextField(blank=True, null=True)
     demand_min = models.IntegerField(blank=True, null=True)
     demand_max = models.IntegerField(blank=True, null=True)
-    utility = models.ForeignKey(
-        to=Utility, related_name="rate_plans", on_delete=models.PROTECT
+    load_serving_entity = models.ForeignKey(
+        to=LoadServingEntity,
+        related_name="rate_plans",
+        on_delete=models.PROTECT,
     )
     sector = models.ForeignKey(
         to=Sector, related_name="rate_plans", on_delete=models.PROTECT

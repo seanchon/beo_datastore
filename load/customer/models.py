@@ -1,17 +1,16 @@
 from functools import reduce
-from localflavor.us.models import USStateField
-from localflavor.us.us_states import STATE_CHOICES
 import os
 import us
 
-from django.db import models
+from django.db import connection, models
+from django.utils.functional import cached_property
 
 from beo_datastore.libs.intervalframe import ValidationIntervalFrame
 from beo_datastore.libs.intervalframe_file import IntervalFrameFile
 from beo_datastore.libs.models import ValidationModel, IntervalFrameFileMixin
 from beo_datastore.settings import MEDIA_ROOT
 
-from reference.reference_model.models import DataUnit
+from reference.reference_model.models import DataUnit, LoadServingEntity
 
 
 class Meter(ValidationModel):
@@ -21,10 +20,12 @@ class Meter(ValidationModel):
     """
 
     sa_id = models.IntegerField(db_index=True, unique=True)
-    rate_plan = models.CharField(
+    rate_plan_name = models.CharField(
         max_length=64, db_index=True, blank=True, null=True
     )
-    state = USStateField(choices=STATE_CHOICES)
+    load_serving_entity = models.ForeignKey(
+        to=LoadServingEntity, related_name="meters", on_delete=models.PROTECT
+    )
 
     class Meta:
         ordering = ["id"]
@@ -33,8 +34,59 @@ class Meter(ValidationModel):
         return str(self.sa_id)
 
     @property
+    def state(self):
+        return self.load_serving_entity.state
+
+    @property
     def timezone(self):
         return us.states.lookup(self.state).capital_tz
+
+    @property
+    def rate_plan_alias(self):
+        """
+        Heuristics for linking a rate_plan_name to a RatePlan.
+        """
+        alias = self.rate_plan_name
+
+        # remove H2 or H from beginning
+        if alias.startswith("H2"):
+            alias = alias[2:]
+        elif alias.startswith("H"):
+            alias = alias[1:]
+        # remove N from ending
+        if alias.endswith("N"):
+            alias = alias[:-1]
+        # convert ETOU to TOU
+        alias = alias.replace("ETOU", "E-TOU")
+
+        return alias
+
+    @cached_property
+    def linked_rate_plans(self):
+        """
+        Possible rate plans linked to meter.
+        """
+        if connection.vendor == "sqlite":
+            regex = r"\b{}\b".format(self.rate_plan_alias)
+        elif connection.vendor == "postgresql":
+            regex = r"\y{}\y".format(self.rate_plan_alias)
+        else:
+            regex = r""
+
+        return self.load_serving_entity.rate_plans.filter(
+            models.Q(name__contains=self.rate_plan_name)
+            | models.Q(name__iregex=regex)
+        ).distinct()
+
+    @cached_property
+    def linked_rate_plan(self):
+        """
+        Return unique rate plan if one exists.
+        """
+        if self.linked_rate_plans.count() == 1:
+            return self.linked_rate_plans.first()
+        else:
+            return self.linked_rate_plans.none()
 
     @property
     def intervalframe(self):

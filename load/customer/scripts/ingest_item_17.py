@@ -15,8 +15,8 @@ from django.db import transaction
 
 from beo_datastore.libs.dataframe import get_dataframe_period
 
-from load.customer.models import Meter, Channel, ChannelIntervalFrame
-from reference.reference_model.models import DataUnit
+from load.customer.models import Meter, Channel
+from reference.reference_model.models import DataUnit, LoadServingEntity
 
 
 # BEO source file located at https://tvrp.app.box.com/file/420277168014
@@ -56,27 +56,38 @@ def get_dataframe_saids(dataframe, sa_column):
     return set(dataframe[sa_column])
 
 
-def get_rate_plan(dataframe, sa_column, said):
-    rate_plan = dataframe[dataframe[sa_column] == said]["RS"].iloc[0]
-    if rate_plan != rate_plan:  # check for nan
-        rate_plan = None
+def get_rate_plan_name(dataframe, sa_column, said):
+    rate_plan_name = dataframe[dataframe[sa_column] == said]["RS"].iloc[0]
+    if rate_plan_name != rate_plan_name:  # check for nan
+        rate_plan_name = None
 
-    return rate_plan
+    return rate_plan_name
 
 
 def run(*args):
     """
     Usage:
-        - python manage.py runscript load.customer.scripts.ingest_pge_data --script-args CSV_FILE
+        - python manage.py runscript load.customer.scripts.ingest_item_17 --script-args LSE_NAME CSV_FILE
     """
-    if len(args) != 1:
+    if len(args) != 2:
         print(
             "USAGE `python manage.py runscript "
-            "load.customer.scripts.ingest_pge_data "
-            "--script-args CSV_FILE`"
+            "load.customer.scripts.ingest_item_17 "
+            "--script-args LSE_NAME CSV_FILE`"
         )
         return
-    dataframe = pd.read_csv(open(args[0], "rb"))
+
+    try:
+        load_serving_entity = LoadServingEntity.objects.get(name=args[0])
+    except LoadServingEntity.DoesNotExist:
+        print(
+            "If desired LSE does not exist, create LoadServingEntity or "
+            "ingest rates first. Options for LSE are: \n"
+            + LoadServingEntity.menu()
+        )
+        return
+
+    dataframe = pd.read_csv(open(args[1], "rb"))
     dataframe = reformat_timestamp_columns(dataframe)
     sa_column = get_sa_column(dataframe)
 
@@ -86,13 +97,15 @@ def run(*args):
     columns = ["DATE"] + timestamp_columns
 
     for said in saids:
-        rate_plan = get_rate_plan(dataframe, sa_column, said)
+        rate_plan_name = get_rate_plan_name(dataframe, sa_column, said)
 
         with transaction.atomic():
             if Meter.objects.filter(sa_id=said):
                 continue
             meter, _ = Meter.objects.get_or_create(
-                sa_id=said, rate_plan=rate_plan, state="CA"
+                sa_id=said,
+                rate_plan_name=rate_plan_name,
+                load_serving_entity=load_serving_entity,
             )
             try:
                 for export in [True, False]:

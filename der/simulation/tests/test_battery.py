@@ -10,7 +10,7 @@ from beo_datastore.libs.intervalframe import ValidationIntervalFrame
 
 from der.simulation.models import StoredBatterySimulation
 from load.customer.models import Meter, Channel
-from reference.reference_model.models import DataUnit
+from reference.reference_model.models import DataUnit, LoadServingEntity
 
 
 class TestBattery(TestCase):
@@ -49,7 +49,9 @@ class TestBattery(TestCase):
 
         # create test meter
         self.meter = Meter.objects.create(
-            sa_id="123", rate_plan=None, state="CA"
+            sa_id="123",
+            rate_plan_name=None,
+            load_serving_entity=LoadServingEntity.objects.first(),
         )
         Channel.create(
             export=False,

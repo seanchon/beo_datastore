@@ -6,7 +6,7 @@ from load.customer.models import Channel, Meter
 class MeterSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Meter
-        fields = ("sa_id", "rate_plan", "state", "channels")
+        fields = ("sa_id", "rate_plan_name", "state", "channels")
 
 
 class ChannelSerializer(serializers.HyperlinkedModelSerializer):

@@ -92,17 +92,18 @@ The following script will prime the database with all OpenEI reference buildings
 python manage.py runscript load.openei.scripts.ingest_reference_buildings --script-args <STATE>
 ```
 
-Where STATE is the two-letter abbreviation of a state (ex. CA).
+* Where STATE is the two-letter abbreviation of a state (ex. CA).
 
-### PG&E
+### Item 17
 
-The following script will load PG&E Item 17 data (the CSV file will need to be downloaded locally).
+The following script will load Item 17 data (the CSV file will need to be downloaded locally).
 
 ```
-python manage.py runscript load.customer.scripts.ingest_pge_data --script-args <CSV_FILE>
+python manage.py runscript load.customer.scripts.ingest_item_17 --script-args <LSE_NAME> <CSV_FILE>
 ```
 
-Where CSV_FILE is the location of an Item 17 file to be used for ingestion.
+* Where LSE_NAME is the name of a load serving entity (ex. "MCE Clean Energy").
+* Where CSV_FILE is the location of an Item 17 file to be used for ingestion.
 
 ## Cost Data
 
@@ -119,11 +120,11 @@ python manage.py runscript cost.ghg.scripts.ingest_ghg_data
 The following script will ingest utility rate data from OpenEI's Utility Rate Database.
 
 ```
-python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args UTILITY_NAME <SOURCE>
+python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args <UTILITY_NAME> <SOURCE>
 ```
 
-Where UTILITY_NAME is the name of a utility (ex. "Pacific Gas & Electric Co").
-Where SOURCE (optional) is the location of an OpenEI formatted JSON file.
+* Where UTILITY_NAME is the name of a utility (ex. "Pacific Gas & Electric Co").
+* Where SOURCE (optional) is the location of an OpenEI formatted JSON file.
 
 To see all possible utilities, run the following command.
 

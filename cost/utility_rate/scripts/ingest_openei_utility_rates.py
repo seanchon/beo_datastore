@@ -5,7 +5,11 @@ import os
 import urllib
 
 from cost.utility_rate.models import RateCollection, RatePlan
-from reference.reference_model.models import Sector, Utility, VoltageCategory
+from reference.reference_model.models import (
+    LoadServingEntity,
+    Sector,
+    VoltageCategory,
+)
 
 
 SOURCE_FILE_URL = "https://openei.org/apps/USURDB/download/usurdb.json.gz"
@@ -90,15 +94,17 @@ def run(*args):
 
     # ingest rates
     for rate_data in rates:
-        utility, _ = Utility.objects.get_or_create(
+        load_serving_entity, _ = LoadServingEntity.objects.get_or_create(
             name=rate_data.get("utilityName", None)
         )
         sector, _ = Sector.objects.get_or_create(
-            name=rate_data.get("sector", None), utility=utility
+            name=rate_data.get("sector", None),
+            load_serving_entity=load_serving_entity,
         )
         if rate_data.get("voltageCategory", None):
             voltage_category, _ = VoltageCategory.objects.get_or_create(
-                name=rate_data.get("voltageCategory", None), utility=utility
+                name=rate_data.get("voltageCategory", None),
+                load_serving_entity=load_serving_entity,
             )
         else:
             voltage_category = None
@@ -108,7 +114,7 @@ def run(*args):
             description=rate_data.get("description", None),
             demand_min=rate_data.get("demandMin", None),
             demand_max=rate_data.get("demandMax", None),
-            utility=utility,
+            load_serving_entity=load_serving_entity,
             sector=sector,
             voltage_category=voltage_category,
         )

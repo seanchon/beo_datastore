@@ -19,6 +19,7 @@ from der.simulation.models import (
     StoredBatterySimulation,
 )
 from load.customer.models import Meter
+from reference.reference_model.models import LoadServingEntity
 
 
 class SimulationOptimization(ValidationModel):
@@ -38,26 +39,39 @@ class SimulationOptimization(ValidationModel):
     end_limit = models.DateTimeField()
     charge_schedule = models.ForeignKey(
         to=BatterySchedule,
-        related_name="charge_schedule_battery_simulation_optimizations",
+        related_name="charge_schedule_simulation_optimizations",
         on_delete=models.CASCADE,
     )
     discharge_schedule = models.ForeignKey(
         to=BatterySchedule,
-        related_name="discharge_schedule_battery_simulation_optimizations",
+        related_name="discharge_schedule_simulation_optimizations",
         on_delete=models.CASCADE,
     )
     battery_configuration = models.ForeignKey(
         to=BatteryConfiguration,
-        related_name="battery_simulation_optimizations",
+        related_name="simulation_optimizations",
         on_delete=models.CASCADE,
+    )
+    # Constrains Meters and RatePlan to belong to LSE. If null is True, any
+    # Meter and RatePlan can be used in optimization.
+    load_serving_entity = models.ForeignKey(
+        to=LoadServingEntity,
+        related_name="simulation_optimizations",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
     )
     rate_plan = models.ForeignKey(
         to=RatePlan,
-        related_name="battery_simulation_optimizations",
+        related_name="simulation_optimizations",
         on_delete=models.CASCADE,
     )
-    ghg_rates = models.ManyToManyField(to=GHGRate)
-    meters = models.ManyToManyField(to=Meter)
+    ghg_rates = models.ManyToManyField(
+        to=GHGRate, related_name="simulation_optimizations"
+    )
+    meters = models.ManyToManyField(
+        to=Meter, related_name="simulation_optimizations"
+    )
 
     class Meta:
         # TODO: unique on LSE
@@ -68,8 +82,22 @@ class SimulationOptimization(ValidationModel):
             "charge_schedule",
             "discharge_schedule",
             "battery_configuration",
+            "load_serving_entity",
             "rate_plan",
         )
+
+    def save(self, *args, **kwargs):
+        if (
+            self.rate_plan
+            and self.load_serving_entity
+            and self.rate_plan not in self.load_serving_entity.rate_plans.all()
+        ):
+            raise AttributeError(
+                "RatePlan assignment is limited by those belonging to the "
+                "LoadServingEntity."
+            )
+
+        super().save(*args, **kwargs)
 
     @property
     def battery_simulations(self):
@@ -180,7 +208,9 @@ class SimulationOptimization(ValidationModel):
         """
         return pandas DataFrame with meter SA IDs and meter RatePlan.
         """
-        dataframe = pd.DataFrame(self.meters.values_list("sa_id", "rate_plan"))
+        dataframe = pd.DataFrame(
+            self.meters.values_list("sa_id", "rate_plan_name")
+        )
 
         if not dataframe.empty:
             return dataframe.rename(
@@ -336,8 +366,37 @@ def reset_cached_properties_update_meters(sender, **kwargs):
     Reset cached properties whenever meters is updated. This resets any cached
     reports.
     """
-    simulation_optimization = kwargs.get("instance", None)
+    simulation_optimization = kwargs.get(
+        "instance", SimulationOptimization.objects.none()
+    )
     simulation_optimization._reset_cached_properties()
+
+
+@receiver(m2m_changed, sender=SimulationOptimization.meters.through)
+def validate_meters_belong_to_lse(sender, **kwargs):
+    """
+    If load_serving_entity is set, this validation ensure meters not belonging
+    to LSE are not added to SimulationOptimization.
+    """
+    # get SimulationOptimization and Meters proposed to be added
+    simulation_optimization = kwargs.get(
+        "instance", SimulationOptimization.objects.none()
+    )
+    pk_set = kwargs.get("pk_set", {})
+    if pk_set is None:
+        pk_set = {}
+
+    if (
+        kwargs.get("action", None) == "pre_add"
+        and simulation_optimization.load_serving_entity
+        and Meter.objects.filter(id__in=pk_set).exclude(
+            load_serving_entity=simulation_optimization.load_serving_entity
+        )
+    ):
+        raise AttributeError(
+            "Meter assignment is limited by those belonging to the "
+            "LoadServingEntity."
+        )
 
 
 @receiver(m2m_changed, sender=SimulationOptimization.ghg_rates.through)
@@ -346,7 +405,9 @@ def reset_cached_properties_update_ghg_rates(sender, **kwargs):
     Reset cached properties whenever ghg_rates is updated. This resets any
     cached reports.
     """
-    simulation_optimization = kwargs.get("instance", None)
+    simulation_optimization = kwargs.get(
+        "instance", SimulationOptimization.objects.none()
+    )
     simulation_optimization._reset_cached_properties()
 
 
