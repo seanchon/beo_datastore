@@ -5,6 +5,7 @@ from multiprocessing import Pool
 import numpy as np
 
 from beo_datastore.libs.battery import FixedScheduleBatterySimulation
+from beo_datastore.libs.dataframe import get_unique_values
 from beo_datastore.libs.intervalframe import ValidationFrame288
 
 
@@ -37,46 +38,66 @@ def create_fixed_schedule(
     )
 
 
-def create_optimized_cns_schedule(
-    cns_frame288, number_of_hours, charge=True, threshold=None
+def optimize_battery_schedule(
+    frame288, level, charge, minimize=True, threshold=None
 ):
     """
     Create a ValidationFrame288 schedule that would charge/discharge
-    battery at 100% at best hours based on Clean Net Short
-    ValidationFrame288.
+    battery at best levels based on values from a ValidationFrame288.
 
-    :param cns_frame288: ValidationFrame288
-    :param number_of_hours: number of best hours to charge
+    - frame288 is a ValidationFrame288 of integer/float values.
+    - level is an integer value where the higher the level, the more aggresive
+    the charge/discharge strategy.
+    - charge when True optimizes a charge schedule and when False optimizes
+        a discharge schedule.
+    - minimize when True aims to minimize cost function output, when False aims
+        to maximize cost function output.
+    - threshold sets a limit for charging or discharging. (ex. A limit of 0
+        when charging would limit charging up to a 0kW meter reading, i.e. only
+        charge on exports. A limit of 0 when discharging would limit
+        discharging down to a 0kW meter reading, i.e. do not discharge to
+        grid.)
+
+    :param frame288: ValidationFrame288
+    :param level: integer
     :param charge: True to create charge schedule, False to create
         discharge schedule
+    :param minimize: True to minimize cost function impact, False to maximimize
+        cost function impact.
     :param threshold: set to charge/discharge threshold
     :return: ValidationFrame288
     """
-    dataframe = cns_frame288.dataframe
+    if charge is True:
+        passthrough = -float("inf")
+        if threshold is None:
+            threshold = float("inf")
+    elif charge is False:  # discharge
+        passthrough = float("inf")
+        if threshold is None:
+            threshold = -float("inf")
+    else:
+        raise RuntimeError("Error in optimization parameters.")
 
+    dataframe = frame288.dataframe
     matrix = []
     for month in dataframe.columns:
         month_df = dataframe[month]
-        if charge:
-            if threshold is None:
-                threshold = float("inf")
-            best_values = sorted(month_df)[:number_of_hours]
-            matrix.append(
-                [
-                    threshold if x in best_values else -float("inf")
-                    for x in month_df
-                ]
-            )
-        else:  # discharge
-            if threshold is None:
-                threshold = -float("inf")
-            best_values = list(reversed(sorted(month_df)))[:number_of_hours]
-            matrix.append(
-                [
-                    threshold if x in best_values else float("inf")
-                    for x in month_df
-                ]
-            )
+        if (charge and minimize) or (not charge and not minimize):
+            # exclude worst value
+            possible_values = get_unique_values(month_df)[:-1]
+            # keep best values up to level
+            best_values = possible_values[:level]
+        elif (charge and not minimize) or (not charge and minimize):
+            # exclude worst value
+            possible_values = get_unique_values(month_df)[::-1][:-1]
+            # keep best values up to level
+            best_values = possible_values[:level]
+        else:  # should not be possible
+            raise RuntimeError("Error in optimization parameters.")
+
+        matrix.append(
+            [threshold if x in best_values else passthrough for x in month_df]
+        )
 
     return ValidationFrame288.convert_matrix_to_frame288(matrix)
 
