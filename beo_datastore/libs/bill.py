@@ -5,6 +5,7 @@ import pandas as pd
 import re
 import warnings
 
+from beo_datastore.libs.dataframe import get_unique_values
 from beo_datastore.libs.intervalframe import (
     ValidationDataFrame,
     ValidationFrame288,
@@ -235,6 +236,63 @@ class OpenEIRateData(object):
         tou_matrix = self.rate_data.get(lookup_key, None)
 
         return ValidationFrame288.convert_matrix_to_frame288(tou_matrix)
+
+    def get_energy_rate(self, tou_id, tier):
+        """
+        Return rate value from self.energy_rates at tou_id and tier.
+        """
+        try:
+            return self.energy_rates[tou_id]["energyRateTiers"][tier]["rate"]
+        except (IndexError, TypeError):
+            return None
+
+    def get_demand_rate(self, tou_id, tier):
+        """
+        Return rate value from self.demand_rates at tou_id and tier.
+        """
+        try:
+            return self.demand_rates[tou_id]["demandRateTiers"][tier]["rate"]
+        except (IndexError, TypeError):
+            return None
+
+    def get_rate_frame288(self, rate_type, schedule_type, tier=0):
+        """
+        Return energy rates in ValidationFrame288 format.
+
+        :param rate_type: choice "energy" or "demand"
+        :param schedule_type: choice "weekday" or "weekend"
+        :param tier: choice of tier for tiered-rates (integer)
+        :return: ValidationFrame288
+        """
+        if rate_type == "energy":
+            get_rate = self.get_energy_rate
+            if schedule_type == "weekday":
+                schedule = self.energy_weekday_schedule
+            elif schedule_type == "weekend":
+                schedule = self.energy_weekend_schedule
+            else:
+                raise AttributeError(
+                    "schedule_type options are weekday or weekend"
+                )
+        elif rate_type == "demand":
+            get_rate = self.get_demand_rate
+            if schedule_type == "weekday":
+                schedule = self.demand_weekday_schedule
+            elif schedule_type == "weekend":
+                schedule = self.demand_weekend_schedule
+            else:
+                raise AttributeError(
+                    "schedule_type options are weekday or weekend"
+                )
+        else:
+            raise AttributeError("rate_type options are energy or demand")
+
+        tou_ids = get_unique_values(schedule.dataframe)
+        return ValidationFrame288(
+            dataframe=schedule.dataframe.replace(
+                tou_ids, [get_rate(tou_id=x, tier=tier) for x in tou_ids]
+            )
+        )
 
 
 @attr.s()

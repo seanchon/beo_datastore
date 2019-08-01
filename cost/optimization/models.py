@@ -353,6 +353,11 @@ class SimulationOptimization(ValidationModel):
             discharge_schedule=self.discharge_schedule,
         )
 
+        if self.load_serving_entity:
+            existing_simulations = existing_simulations.filter(
+                load_serving_entity=self.load_serving_entity
+            )
+
         self.meters.add(
             *Meter.objects.filter(
                 id__in=existing_simulations.values_list("meter__id", flat=True)

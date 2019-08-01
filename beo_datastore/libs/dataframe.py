@@ -52,6 +52,13 @@ def get_dataframe_period(dataframe):
         )
 
 
+def get_unique_values(dataframe):
+    """
+    Return sorted array of unique values found in a dataframe.
+    """
+    return sorted(pd.unique(dataframe.values.ravel()))
+
+
 def filter_dataframe_by_datetime(
     dataframe, start=pd.Timestamp.min, end_limit=pd.Timestamp.max
 ):
