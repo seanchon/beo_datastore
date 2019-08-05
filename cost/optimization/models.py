@@ -145,6 +145,8 @@ class SimulationOptimization(ValidationModel):
         report[
             "BatteryConfiguration"
         ] = self.battery_configuration.detailed_name
+        report["ChargeSchedule"] = self.charge_schedule.id
+        report["DischargeSchedule"] = self.discharge_schedule.id
         report["SimulationRatePlan"] = self.rate_plan.name
 
         return report.join(self.meter_report, how="outer")
@@ -355,7 +357,7 @@ class SimulationOptimization(ValidationModel):
 
         if self.load_serving_entity:
             existing_simulations = existing_simulations.filter(
-                load_serving_entity=self.load_serving_entity
+                meter__load_serving_entity=self.load_serving_entity
             )
 
         self.meters.add(
@@ -622,7 +624,7 @@ class MultiScenarioOptimization(ValidationModel):
         """
         # get values per SA ID using transform
         idx = (
-            self.detailed_report.groupby([self.detailed_report.index.name])[
+            self.detailed_report.groupby([self.detailed_report.index])[
                 column_name
             ].transform(transform)
             == self.detailed_report[column_name]
