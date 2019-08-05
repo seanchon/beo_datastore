@@ -84,9 +84,11 @@ class RatePlan(ValidationModel):
                             for start, end_limit in date_ranges
                         ],
                         [
-                            self.get_latest_rate_collection(
-                                start
-                            ).openei_rate_data
+                            getattr(
+                                self.get_latest_rate_collection(start),
+                                "openei_rate_data",
+                                OpenEIRateData(rate_data={}),
+                            )
                             for start, _ in date_ranges
                         ],
                     ),
@@ -99,9 +101,11 @@ class RatePlan(ValidationModel):
                         intervalframe=intervalframe.filter_by_datetime(
                             start, end_limit
                         ),
-                        openei_rate_data=self.get_latest_rate_collection(
-                            start
-                        ).openei_rate_data,
+                        openei_rate_data=getattr(
+                            self.get_latest_rate_collection(start),
+                            "openei_rate_data",
+                            OpenEIRateData(rate_data={}),
+                        ),
                     )
                 )
 
@@ -509,9 +513,13 @@ class BillComparison(ValidationModel):
         return ValidationBill(
             intervalframe=self.pre_intervalframe,
             openei_rate_data=(
-                self.bill_collection.rate_plan.get_latest_rate_collection(
-                    start=self.start
-                ).openei_rate_data
+                getattr(
+                    self.bill_collection.rate_plan.get_latest_rate_collection(
+                        start=self.start
+                    ),
+                    "openei_rate_data",
+                    OpenEIRateData(rate_data={}),
+                )
             ),
         )
 
@@ -523,8 +531,12 @@ class BillComparison(ValidationModel):
         return ValidationBill(
             intervalframe=self.post_intervalframe,
             openei_rate_data=(
-                self.bill_collection.rate_plan.get_latest_rate_collection(
-                    start=self.start
-                ).openei_rate_data
+                getattr(
+                    self.bill_collection.rate_plan.get_latest_rate_collection(
+                        start=self.start
+                    ),
+                    "openei_rate_data",
+                    OpenEIRateData(rate_data={}),
+                )
             ),
         )
