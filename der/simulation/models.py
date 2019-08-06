@@ -17,7 +17,9 @@ from beo_datastore.libs.models import (
     IntervalFrameFileMixin,
 )
 from beo_datastore.settings import MEDIA_ROOT
-
+from beo_datastore.libs.plot_intervalframe import (
+    plot_frame288_monthly_comparison,
+)
 from load.customer.models import Meter
 
 
@@ -209,6 +211,28 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
     @cached_property
     def post_intervalframe(self):
         return self.simulation.post_intervalframe
+
+    @property
+    def pre_vs_post_average_288_html_plot(self):
+        """
+        Return Django-formatted HTML pre vs. post average 288 plt.
+        """
+        return plot_frame288_monthly_comparison(
+            original_frame288=self.pre_intervalframe.average_frame288,
+            modified_frame288=self.post_intervalframe.average_frame288,
+            to_html=True,
+        )
+
+    @property
+    def pre_vs_post_maximum_288_html_plot(self):
+        """
+        Return Django-formatted HTML pre vs. post maximum 288 plt.
+        """
+        return plot_frame288_monthly_comparison(
+            original_frame288=self.pre_intervalframe.maximum_frame288,
+            modified_frame288=self.post_intervalframe.maximum_frame288,
+            to_html=True,
+        )
 
     @cached_property
     def simulation(self):

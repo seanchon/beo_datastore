@@ -7,6 +7,7 @@ from beo_datastore.libs.controller import AggregateGHGCalculation
 from beo_datastore.libs.intervalframe_file import Frame288File
 from beo_datastore.libs.models import ValidationModel, Frame288FileMixin
 from beo_datastore.settings import MEDIA_ROOT
+from beo_datastore.libs.views import dataframe_to_html
 
 from der.simulation.models import StoredBatterySimulation
 from reference.reference_model.models import RateUnit
@@ -94,6 +95,15 @@ class StoredGHGCalculation(ValidationModel):
         Return post-DER total minus pre-DER total.
         """
         return self.post_DER_total - self.pre_DER_total
+
+    @property
+    def comparision_html_table(self):
+        """
+        Return Django-formatted HTML pre vs. post comparision table.
+        """
+        return dataframe_to_html(
+            self.aggregate_ghg_calculation.comparison_table
+        )
 
     @cached_property
     def aggregate_ghg_calculation(self):

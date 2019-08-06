@@ -2,10 +2,16 @@ from math import floor
 import matplotlib.pyplot as plt
 
 from beo_datastore.libs.intervalframe import ValidationFrame288
+from beo_datastore.libs.views import plot_to_html
 
 
 def plot_intervalframe(
-    intervalframe, column=None, line_color=(0, 0, 0, 0.1), save_as=None
+    intervalframe,
+    column=None,
+    line_color=(0, 0, 0, 0.1),
+    y_label="",
+    save_as=None,
+    to_html=False,
 ):
     """
     Plot a single graph with every daily load profile from intervalframe.
@@ -13,7 +19,9 @@ def plot_intervalframe(
     :param intervalframe: ValidationIntervalFrame
     :param column: column to use
     :param line_color: matplotlib line color
+    :param y_label: name of y axis
     :param save_as: destination to save PNG file
+    :param to_html: True to return as HTML
     """
     if column is None:
         column = intervalframe.aggregation_column
@@ -25,16 +33,24 @@ def plot_intervalframe(
 
     plt.xlim([0, 23])
     plt.xlabel("Hour of the day")
-    plt.ylabel("Load")
+    plt.ylabel(y_label)
 
     plt.tight_layout()
     if save_as:
         plt.savefig(save_as, format="png", dpi=1000)
-    plt.show()
+    if to_html:
+        return plot_to_html(plt)
+    else:
+        plt.show()
 
 
 def plot_frame288(
-    frame288, months=None, line_color=(0, 0, 0, 0.1), save_as=None
+    frame288,
+    months=None,
+    line_color=(0, 0, 0, 0.1),
+    y_label="",
+    save_as=None,
+    to_html=False,
 ):
     """
     Plot a single graph with 12 monthly loads from a ValidationFrame288.
@@ -42,7 +58,9 @@ def plot_frame288(
     :param frame288: ValidationFrame288
     :param months: list of months (int)
     :param line_color: matplotlib line color
+    :param y_label: name of y axis
     :param save_as: destination to save PNG file
+    :param to_html: True to return as HTML
     """
     if months is None:
         months = frame288.dataframe.columns
@@ -54,12 +72,15 @@ def plot_frame288(
 
     plt.xlim([0, 23])
     plt.xlabel("Hour of the day")
-    plt.ylabel("Load")
+    plt.ylabel(y_label)
 
     plt.tight_layout()
     if save_as:
         plt.savefig(save_as, format="png", dpi=1000)
-    plt.show()
+    if to_html:
+        return plot_to_html(plt)
+    else:
+        plt.show()
 
 
 def plot_many_frame288s(
@@ -70,15 +91,22 @@ def plot_many_frame288s(
     months=None,
     line_color=(0, 0, 0, 0.1),
     reference_line_color="blue",
+    y_label="",
     save_as=None,
+    to_html=False,
 ):
     """
     Plot many ValidationFrame288s with an optional reference
     ValidationFrame288.
 
     :param frame288s: list of ValidationFrame288s
+    :param reference_frame288: ValidationFrame288
+    :param months: list of integer months for filtering plot
     :param line_color: matplotlib line color
+    :param reference_line_color: matplotlib line color
+    :param y_label: name of y axis
     :param save_as: destination to save PNG file
+    :param to_html: True to return as HTML
     """
     if months is None:
         months = frame288s[0].dataframe.columns
@@ -97,12 +125,15 @@ def plot_many_frame288s(
 
     plt.xlim([0, 23])
     plt.xlabel("Hour of the day")
-    plt.ylabel("Load")
+    plt.ylabel(y_label)
 
     plt.tight_layout()
     if save_as:
         plt.savefig(save_as, format="png", dpi=1000)
-    plt.show()
+    if to_html:
+        return plot_to_html(plt)
+    else:
+        plt.show()
 
 
 def plot_frame288_monthly_comparison(
@@ -111,6 +142,7 @@ def plot_frame288_monthly_comparison(
     original_line_color="grey",
     modified_line_color="blue",
     save_as=None,
+    to_html=False,
 ):
     """
     Plot 12 separate montly graphs of load comparisions between
@@ -118,7 +150,10 @@ def plot_frame288_monthly_comparison(
 
     :param original_frame288: ValidationFrame288
     :param modified_frame288: ValidationFrame288
+    :param original_line_color: matplotlib line color
+    :param modified_line_color: matplotlib line color
     :param save_as: destination to save PNG file
+    :param to_html: True to return as HTML
     """
     fig, axs = plt.subplots(4, 3)
 
@@ -140,4 +175,7 @@ def plot_frame288_monthly_comparison(
     plt.tight_layout()
     if save_as:
         plt.savefig(save_as, format="png", dpi=1000)
-    plt.show()
+    if to_html:
+        return plot_to_html(plt)
+    else:
+        plt.show()
