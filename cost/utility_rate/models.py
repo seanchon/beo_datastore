@@ -10,6 +10,7 @@ from beo_datastore.libs.bill import OpenEIRateData, ValidationBill
 from beo_datastore.libs.controller import AggregateBillCalculation
 from beo_datastore.libs.intervalframe import ValidationFrame288
 from beo_datastore.libs.models import ValidationModel
+from beo_datastore.libs.views import dataframe_to_html
 
 from der.simulation.models import StoredBatterySimulation
 from reference.reference_model.models import (
@@ -51,7 +52,7 @@ class RatePlan(ValidationModel):
         return self.__str__()
 
     def __str__(self):
-        return self.name
+        return self.load_serving_entity.name + ": " + self.name
 
     def get_latest_rate_collection(self, start):
         """
@@ -189,6 +190,13 @@ class RateCollection(ValidationModel):
             rate_type="energy", schedule_type="weekday"
         )
 
+    @property
+    def energy_weekday_rates_html_table(self):
+        """
+        Return Django-formatted HTML energy weekday rates.
+        """
+        return dataframe_to_html(self.energy_weekday_rates_frame288.dataframe)
+
     @cached_property
     def energy_weekend_rates_frame288(self):
         """
@@ -198,6 +206,13 @@ class RateCollection(ValidationModel):
         return self.openei_rate_data.get_rate_frame288(
             rate_type="energy", schedule_type="weekend"
         )
+
+    @property
+    def energy_weekend_rates_html_table(self):
+        """
+        Return Django-formatted HTML energy weekend rates.
+        """
+        return dataframe_to_html(self.energy_weekend_rates_frame288.dataframe)
 
     @cached_property
     def demand_weekday_rates_frame288(self):
@@ -209,6 +224,13 @@ class RateCollection(ValidationModel):
             rate_type="demand", schedule_type="weekday"
         )
 
+    @property
+    def demand_weekday_rates_html_table(self):
+        """
+        Return Django-formatted HTML demand weekday rates.
+        """
+        return dataframe_to_html(self.demand_weekday_rates_frame288.dataframe)
+
     @cached_property
     def demand_weekend_rates_frame288(self):
         """
@@ -218,6 +240,13 @@ class RateCollection(ValidationModel):
         return self.openei_rate_data.get_rate_frame288(
             rate_type="demand", schedule_type="weekend"
         )
+
+    @property
+    def demand_weekend_rates_html_table(self):
+        """
+        Return Django-formatted HTML demand weekend rates.
+        """
+        return dataframe_to_html(self.demand_weekend_rates_frame288.dataframe)
 
     @classmethod
     def all_fixed_rate_keys(cls):
@@ -523,6 +552,13 @@ class BillComparison(ValidationModel):
             ),
         )
 
+    @property
+    def pre_DER_bill_html(self):
+        """
+        Return Django-formatted HTML pre-DER bill.
+        """
+        return dataframe_to_html(self.pre_DER_validation_bill.total_dataframe)
+
     @cached_property
     def post_DER_validation_bill(self):
         """
@@ -540,3 +576,10 @@ class BillComparison(ValidationModel):
                 )
             ),
         )
+
+    @property
+    def post_DER_bill_html(self):
+        """
+        Return Django-formatted HTML post-DER bill.
+        """
+        return dataframe_to_html(self.post_DER_validation_bill.total_dataframe)

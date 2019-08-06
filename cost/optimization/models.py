@@ -10,6 +10,7 @@ from beo_datastore.libs.battery import BatteryIntervalFrame
 from beo_datastore.libs.controller import AggregateBatterySimulation
 from beo_datastore.libs.intervalframe import ValidationIntervalFrame
 from beo_datastore.libs.models import ValidationModel
+from beo_datastore.libs.views import dataframe_to_html
 
 from cost.ghg.models import GHGRate, StoredGHGCalculation
 from cost.utility_rate.models import RatePlan, StoredBillCalculation
@@ -150,6 +151,13 @@ class SimulationOptimization(ValidationModel):
         report["SimulationRatePlan"] = self.rate_plan.name
 
         return report.join(self.meter_report, how="outer")
+
+    @property
+    def detailed_report_html_table(self):
+        """
+        Return Django-formatted HTML detailed report.
+        """
+        return dataframe_to_html(self.detailed_report)
 
     @cached_property
     def report_with_id(self):
@@ -502,6 +510,13 @@ class MultiScenarioOptimization(ValidationModel):
             [x.detailed_report for x in self.simulation_optimizations.all()],
             pd.DataFrame(),
         ).sort_index()
+
+    @property
+    def detailed_report_html_table(self):
+        """
+        Return Django-formatted HTML detailed report.
+        """
+        return dataframe_to_html(self.detailed_report)
 
     @cached_property
     def report(self):

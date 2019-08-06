@@ -4,6 +4,8 @@ from polymorphic.models import PolymorphicModel
 from django.db import models, transaction
 from django.utils.functional import cached_property
 
+from beo_datastore.libs.views import dataframe_to_html
+
 
 class ValidationModel(AutoRepr, models.Model):
     """
@@ -13,12 +15,15 @@ class ValidationModel(AutoRepr, models.Model):
     method.
     """
 
+    class Meta:
+        abstract = True
+
+    def __str__(self):
+        return self.__repr__()
+
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
-
-    class Meta:
-        abstract = True
 
     def _reset_cached_properties(self):
         """
@@ -37,12 +42,15 @@ class PolymorphicValidationModel(AutoRepr, PolymorphicModel):
     overriding the clean() method.
     """
 
+    class Meta(PolymorphicModel.Meta):
+        abstract = True
+
+    def __str__(self):
+        return self.__repr__()
+
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
-
-    class Meta(PolymorphicModel.Meta):
-        abstract = True
 
     def _reset_cached_properties(self):
         """
@@ -87,6 +95,13 @@ class FrameFileMixin(object):
         Sets frame property. Writes to disk on save().
         """
         self._frame = frame
+
+    @property
+    def html_table(self):
+        """
+        Return self.frame as Django-formatted HTML dataframe.
+        """
+        return dataframe_to_html(self.frame.dataframe)
 
     def save(self, *args, **kwargs):
         if hasattr(self, "_frame"):
