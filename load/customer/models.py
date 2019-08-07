@@ -12,7 +12,6 @@ from beo_datastore.libs.plot_intervalframe import (
     plot_intervalframe,
     plot_frame288_monthly_comparison,
 )
-from beo_datastore.libs.views import dataframe_to_html
 from beo_datastore.settings import MEDIA_ROOT
 
 from reference.reference_model.models import DataUnit, LoadServingEntity
@@ -61,6 +60,8 @@ class Meter(ValidationModel):
         # remove N from ending
         if alias.endswith("N"):
             alias = alias[:-1]
+        if alias == "EVA":
+            alias = "EV"
         # convert ETOU to TOU
         alias = alias.replace("ETOU", "E-TOU")
 

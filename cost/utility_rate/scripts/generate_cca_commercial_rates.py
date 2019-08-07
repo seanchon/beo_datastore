@@ -112,12 +112,12 @@ def create_demand_dict(
 def run(*args):
     """
     Usage:
-        - python manage.py runscript cost.utility_rate.scripts.generate_mce_commercial_rates --script-args DESTINATION
+        - python manage.py runscript cost.utility_rate.scripts.generate_cca_commercial_rates --script-args DESTINATION
     """
     if len(args) < 1:
         print(
             "USAGE `python manage.py runscript "
-            "cost.utility_rate.scripts.generate_mce_residential_rates "
+            "cost.utility_rate.scripts.generate_cca_commercial_rates "
             "--script-args DESTINATION`"
         )
         return
