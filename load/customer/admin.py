@@ -33,6 +33,7 @@ class MeterAdmin(admin.ModelAdmin):
         "average_vs_maximum_html_plot",
     ]
     inlines = [ChannelInline, StoredBatterySimulationInline]
+    search_fields = ["sa_id", "rate_plan_name", "load_serving_entity__name"]
 
 
 @admin.register(Channel)
@@ -43,4 +44,9 @@ class ChannelAdmin(admin.ModelAdmin):
         "meter",
         "intervalframe_html_plot",
         "average_vs_maximum_html_plot",
+    ]
+    search_fields = [
+        "meter__sa_id",
+        "meter__rate_plan_name",
+        "meter__load_serving_entity__name",
     ]

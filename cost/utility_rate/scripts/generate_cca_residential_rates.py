@@ -2,9 +2,7 @@ from datetime import datetime
 import json
 
 
-SOURCE = (
-    "https://tvrp.app.box.com/file/503531851026"
-)
+SOURCE = "https://tvrp.app.box.com/file/503531851026"
 
 BASIC_SCHED = [[0] * 24] * 12
 

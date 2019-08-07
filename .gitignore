@@ -88,5 +88,8 @@ local_settings.py
 .env
 db.sqlite3
 
+# Jupyter
+*.ipynb_checkpoints
+
 # Project Specific
 media_root/*/

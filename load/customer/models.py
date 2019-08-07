@@ -35,7 +35,9 @@ class Meter(ValidationModel):
         ordering = ["id"]
 
     def __str__(self):
-        return str(self.sa_id)
+        return "{} ({}: {})".format(
+            self.sa_id, self.load_serving_entity, self.rate_plan_name
+        )
 
     @property
     def state(self):
