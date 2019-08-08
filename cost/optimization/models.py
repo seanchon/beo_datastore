@@ -16,7 +16,6 @@ from cost.ghg.models import GHGRate, StoredGHGCalculation
 from cost.utility_rate.models import RatePlan, StoredBillCalculation
 from der.simulation.models import (
     BatteryConfiguration,
-    BatterySchedule,
     BatteryStrategy,
     StoredBatterySimulation,
 )
@@ -39,22 +38,10 @@ class SimulationOptimization(ValidationModel):
 
     start = models.DateTimeField()
     end_limit = models.DateTimeField()
-    _charge_schedule = models.ForeignKey(
-        to=BatterySchedule,
-        related_name="charge_schedule_simulation_optimizations",
-        on_delete=models.CASCADE,
-    )
-    _discharge_schedule = models.ForeignKey(
-        to=BatterySchedule,
-        related_name="discharge_schedule_simulation_optimizations",
-        on_delete=models.CASCADE,
-    )
     battery_strategy = models.ForeignKey(
         to=BatteryStrategy,
         related_name="simulation_optimizations",
         on_delete=models.CASCADE,
-        blank=True,
-        null=True,
     )
     battery_configuration = models.ForeignKey(
         to=BatteryConfiguration,
