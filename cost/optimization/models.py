@@ -15,8 +15,8 @@ from beo_datastore.libs.views import dataframe_to_html
 from cost.ghg.models import GHGRate, StoredGHGCalculation
 from cost.utility_rate.models import RatePlan, StoredBillCalculation
 from der.simulation.models import (
-    BatterySchedule,
     BatteryConfiguration,
+    BatteryStrategy,
     StoredBatterySimulation,
 )
 from load.customer.models import Meter
@@ -38,14 +38,9 @@ class SimulationOptimization(ValidationModel):
 
     start = models.DateTimeField()
     end_limit = models.DateTimeField()
-    charge_schedule = models.ForeignKey(
-        to=BatterySchedule,
-        related_name="charge_schedule_simulation_optimizations",
-        on_delete=models.CASCADE,
-    )
-    discharge_schedule = models.ForeignKey(
-        to=BatterySchedule,
-        related_name="discharge_schedule_simulation_optimizations",
+    battery_strategy = models.ForeignKey(
+        to=BatteryStrategy,
+        related_name="simulation_optimizations",
         on_delete=models.CASCADE,
     )
     battery_configuration = models.ForeignKey(
@@ -80,8 +75,7 @@ class SimulationOptimization(ValidationModel):
         unique_together = (
             "start",
             "end_limit",
-            "charge_schedule",
-            "discharge_schedule",
+            "battery_strategy",
             "battery_configuration",
             "load_serving_entity",
             "rate_plan",
@@ -99,6 +93,14 @@ class SimulationOptimization(ValidationModel):
             )
 
         super().save(*args, **kwargs)
+
+    @property
+    def charge_schedule(self):
+        return self.battery_strategy.charge_schedule
+
+    @property
+    def discharge_schedule(self):
+        return self.battery_strategy.discharge_schedule
 
     @property
     def battery_simulations(self):
@@ -146,8 +148,7 @@ class SimulationOptimization(ValidationModel):
         report[
             "BatteryConfiguration"
         ] = self.battery_configuration.detailed_name
-        report["ChargeSchedule"] = self.charge_schedule.id
-        report["DischargeSchedule"] = self.discharge_schedule.id
+        report["BatteryStrategy"] = self.battery_strategy.name
         report["SimulationRatePlan"] = self.rate_plan.name
 
         return report.join(self.meter_report, how="outer")

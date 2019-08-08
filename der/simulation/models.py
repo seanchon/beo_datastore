@@ -6,6 +6,7 @@ from django.db import models, transaction
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.battery import Battery, FixedScheduleBatterySimulation
+from beo_datastore.libs.battery_schedule import optimize_battery_schedule
 from beo_datastore.libs.controller import AggregateBatterySimulation
 from beo_datastore.libs.intervalframe_file import (
     BatteryIntervalFrameFile,
@@ -74,6 +75,113 @@ class BatterySchedule(Frame288FileMixin, ValidationModel):
         """
         self.hash = self.frame288.__hash__()
         super().save(*args, **kwargs)
+
+
+class BatteryStrategy(ValidationModel):
+    """
+    Container for storing a combination of charge and discharge schedules.
+    """
+
+    name = models.CharField(max_length=88, blank=True, null=True)
+    charge_schedule = models.ForeignKey(
+        to=BatterySchedule,
+        related_name="charge_schedule_battery_strategies",
+        on_delete=models.PROTECT,
+    )
+    discharge_schedule = models.ForeignKey(
+        to=BatterySchedule,
+        related_name="discharge_schedule_battery_strategies",
+        on_delete=models.PROTECT,
+    )
+
+    class Meta:
+        ordering = ["id"]
+        unique_together = ("charge_schedule", "discharge_schedule")
+        verbose_name_plural = "battery strategies"
+
+    @property
+    def charge_schedule_html_table(self):
+        return self.charge_schedule.html_table
+
+    @property
+    def discharge_schedule_html_table(self):
+        return self.discharge_schedule.html_table
+
+    @property
+    def charge_discharge_html_plot(self):
+        """
+        Return Django-formatted HTML charge vs. discharge 288 plt.
+        """
+        return plot_frame288_monthly_comparison(
+            original_frame288=self.charge_schedule.frame288,
+            original_line_color="green",
+            modified_frame288=self.discharge_schedule.frame288,
+            modified_line_color="red",
+            to_html=True,
+        )
+
+    @classmethod
+    def generate(
+        cls, frame288_name, frame288, level, minimize=True, threshold=None
+    ):
+        """
+        Based on an input ValidationFrame288 representing part of a cost
+        function (i.e. GHG rates, utility rates, RA system maximums, etc.),
+        this method will create a BatteryStrategy composed of a charge_schedule
+        and discharge_schedule.
+
+        :param frame288_name: name of ValidationFrame288 (ex. "E-19 Energy
+            Demand Rates", "A-10 Energy Weekend Rates", etc.)
+        :param frame288: ValidationFrame288
+        :param level: aggresiveness of charge/discharge schedule, the higher
+            the value, the more the schedule tries to charge and discharge
+            (int)
+        :param minimize: when True attempts to minimize the cost function, when
+            False attempts to maximize the cost function
+        :param threshold: a threshold at which when a meter reading is below, a
+            battery attepts to charge and when above, attempts to discharge
+        :return: BatteryStrategy
+        """
+        charge_schedule_frame_288 = optimize_battery_schedule(
+            frame288=frame288,
+            level=level,
+            charge=True,
+            minimize=minimize,
+            threshold=threshold,
+        )
+        charge_schedule, _ = BatterySchedule.get_or_create(
+            hash=charge_schedule_frame_288.__hash__(),
+            dataframe=charge_schedule_frame_288.dataframe,
+        )
+        discharge_schedule_frame_288 = optimize_battery_schedule(
+            frame288=frame288,
+            level=level,
+            charge=False,
+            minimize=minimize,
+            threshold=threshold,
+        )
+        discharge_schedule, _ = BatterySchedule.get_or_create(
+            hash=discharge_schedule_frame_288.__hash__(),
+            dataframe=discharge_schedule_frame_288.dataframe,
+        )
+
+        objective = "Minimize" if minimize else "Maximize"
+        threshold_name = (
+            ""
+            if threshold is None
+            else " with {}kW threshold".format(threshold)
+        )
+        name = "{} using {}{} (level: {})".format(
+            objective, frame288_name, threshold_name, level
+        )
+        object, _ = cls.objects.get_or_create(
+            charge_schedule=charge_schedule,
+            discharge_schedule=discharge_schedule,
+        )
+        object.name = name
+        object.save()
+
+        return object
 
 
 class BatteryConfiguration(ValidationModel):

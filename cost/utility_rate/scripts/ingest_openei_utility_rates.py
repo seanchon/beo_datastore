@@ -95,8 +95,7 @@ def run(*args):
     # ingest rates
     for rate_data in rates:
         load_serving_entity, _ = LoadServingEntity.objects.get_or_create(
-            name=rate_data.get("utilityName", None),
-            state="CA"
+            name=rate_data.get("utilityName", None), state="CA"
         )
         sector, _ = Sector.objects.get_or_create(
             name=rate_data.get("sector", None),
