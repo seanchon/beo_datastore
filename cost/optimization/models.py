@@ -19,7 +19,7 @@ from der.simulation.models import (
     BatteryStrategy,
     StoredBatterySimulation,
 )
-from load.customer.models import Meter
+from load.customer.models import Meter, CustomerCluster
 from reference.reference_model.models import LoadServingEntity
 
 
@@ -29,11 +29,11 @@ class SimulationOptimization(ValidationModel):
 
     Steps to create a simulation optimization:
     1. Create SimulationOptimization object
-    2. Add Meters and GHGRates
+    2. Add CustomerClusters and GHGRates
     3. run() to generate all simulations
     4. filter_by_query() to filter results
     5. display reports
-    6. reinitialize() before running different filter_by_query()
+    6. initialize() before running different filter_by_query()
     """
 
     start = models.DateTimeField()
@@ -63,10 +63,13 @@ class SimulationOptimization(ValidationModel):
         on_delete=models.CASCADE,
     )
     ghg_rates = models.ManyToManyField(
-        to=GHGRate, related_name="simulation_optimizations"
+        to=GHGRate, related_name="simulation_optimizations", blank=True
+    )
+    customer_clusters = models.ManyToManyField(
+        to=CustomerCluster, related_name="simulation_optimizations", blank=True
     )
     meters = models.ManyToManyField(
-        to=Meter, related_name="simulation_optimizations"
+        to=Meter, related_name="simulation_optimizations", blank=True
     )
 
     class Meta:
@@ -93,6 +96,14 @@ class SimulationOptimization(ValidationModel):
             )
 
         super().save(*args, **kwargs)
+
+    @property
+    def customer_cluster_meters(self):
+        return reduce(
+            lambda x, y: x | y,
+            [x.meters.all() for x in self.customer_clusters.all()],
+            Meter.objects.none(),
+        )
 
     @property
     def charge_schedule(self):
@@ -311,6 +322,9 @@ class SimulationOptimization(ValidationModel):
 
         :param multiprocess: True to multiprocess
         """
+        # add Meters from CustomerClusters
+        self.initialize()
+
         battery_simulation_set = StoredBatterySimulation.generate(
             battery=self.battery_configuration.battery,
             start=self.start,
@@ -337,7 +351,7 @@ class SimulationOptimization(ValidationModel):
         """
         Based on DataFrame query, only matching meters are kept as part of
         the SimulationOptimization. All filtering can be reset using
-        reinitialize().
+        initialize().
 
         Example:
         query = "Bill_Delta > 0" only keeps meters where Bill_Delta is greater
@@ -349,31 +363,15 @@ class SimulationOptimization(ValidationModel):
             )
         )
 
-    def reinitialize(self):
+    def initialize(self):
         """
-        Re-attaches any Meters previously associated with self. Optimizations
+        Attaches any Meters within attached CustomerClusters. Optimizations
         are performed by removing meters until only the desired Meters are
         attached to a SimulationOptimization. This method allows many
         optimizations to be tried.
         """
-        existing_simulations = StoredBatterySimulation.objects.filter(
-            start=self.start,
-            end_limit=self.end_limit,
-            battery_configuration=self.battery_configuration,
-            charge_schedule=self.charge_schedule,
-            discharge_schedule=self.discharge_schedule,
-        )
-
-        if self.load_serving_entity:
-            existing_simulations = existing_simulations.filter(
-                meter__load_serving_entity=self.load_serving_entity
-            )
-
-        self.meters.add(
-            *Meter.objects.filter(
-                id__in=existing_simulations.values_list("meter__id", flat=True)
-            )
-        )
+        self.meters.clear()
+        self.meters.add(*self.customer_cluster_meters)
 
 
 @receiver(m2m_changed, sender=SimulationOptimization.meters.through)
@@ -437,11 +435,11 @@ class MultiScenarioOptimization(ValidationModel):
     2. run() to generate all simulations
     3. filter_by_query() or filter_by_transform() to filter results
     4. display reports
-    5. reinitialize() before running different filter_by_query()
+    5. initialize() before running different filter_by_query()
     """
 
     simulation_optimizations = models.ManyToManyField(
-        to=SimulationOptimization
+        to=SimulationOptimization, related_name="multi_scenario_optimizations"
     )
 
     class Meta:
@@ -619,7 +617,7 @@ class MultiScenarioOptimization(ValidationModel):
         """
         Based on DataFrame query, only matching meters are kept as part of
         the simulation_optimizations. All filtering can be reset using
-        reinitialize().
+        initialize().
 
         Example:
         query = "Bill_Delta > 0" only keeps meters where Bill_Delta is greater
@@ -667,13 +665,13 @@ class MultiScenarioOptimization(ValidationModel):
             )
         self._reset_cached_properties()
 
-    def reinitialize(self):
+    def initialize(self):
         """
         Re-attaches any Meters previously associated with related
         SimulationOptimizations.
         """
         for simulation_optimization in self.simulation_optimizations.all():
-            simulation_optimization.reinitialize()
+            simulation_optimization.initialize()
         self._reset_cached_properties()
 
 
