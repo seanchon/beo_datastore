@@ -11,6 +11,7 @@ from cost.optimization.models import (
 
 @admin.register(SimulationOptimization)
 class SimulationOptimizationAdmin(admin.ModelAdmin):
+    exclude = ["meters"]
     readonly_fields = ["detailed_report_html_table"]
 
 

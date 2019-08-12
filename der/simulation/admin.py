@@ -35,4 +35,7 @@ class StoredBatterySimulation(admin.ModelAdmin):
     readonly_fields = [
         "pre_vs_post_average_288_html_plot",
         "pre_vs_post_maximum_288_html_plot",
+        "average_battery_operations_html_plot",
+        "average_state_of_charge_html_plot",
     ]
+    search_fields = ["meter__sa_id"]

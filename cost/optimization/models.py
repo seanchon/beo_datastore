@@ -357,11 +357,12 @@ class SimulationOptimization(ValidationModel):
         query = "Bill_Delta > 0" only keeps meters where Bill_Delta is greater
         than 0.
         """
-        self.meters.remove(
-            *Meter.objects.filter(
-                sa_id__in=self.report[~self.detailed_report.eval(query)].index
+        if self.meters.count() > 0:
+            df = ~self.detailed_report.eval(query)
+            sa_ids_to_remove = df.index[df == 1].tolist()
+            self.meters.remove(
+                *Meter.objects.filter(sa_id__in=sa_ids_to_remove)
             )
-        )
 
     def initialize(self):
         """
@@ -636,6 +637,9 @@ class MultiScenarioOptimization(ValidationModel):
         :param column_name: string
         :param transfrom: transform function
         """
+        if self.meters.count() == 0:
+            return
+
         # get values per SA ID using transform
         idx = (
             self.detailed_report.groupby([self.detailed_report.index])[
