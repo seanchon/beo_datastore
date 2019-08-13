@@ -19,6 +19,7 @@ from beo_datastore.libs.models import (
 )
 from beo_datastore.settings import MEDIA_ROOT
 from beo_datastore.libs.plot_intervalframe import (
+    plot_frame288,
     plot_frame288_monthly_comparison,
 )
 from load.customer.models import Meter
@@ -320,6 +321,17 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
     def post_intervalframe(self):
         return self.simulation.post_intervalframe
 
+    @cached_property
+    def average_state_of_charge_frame288(self):
+        aggregation_column = self.intervalframe.aggregation_column
+        self.intervalframe.aggregation_column = "capacity"
+        capacity_frame288 = self.intervalframe.average_frame288
+        self.intervalframe.aggregation_column = "charge"
+        charge_frame288 = self.intervalframe.average_frame288
+        self.intervalframe.aggregation_column = aggregation_column
+
+        return charge_frame288 / capacity_frame288
+
     @property
     def pre_vs_post_average_288_html_plot(self):
         """
@@ -339,6 +351,21 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         return plot_frame288_monthly_comparison(
             original_frame288=self.pre_intervalframe.maximum_frame288,
             modified_frame288=self.post_intervalframe.maximum_frame288,
+            to_html=True,
+        )
+
+    @property
+    def average_battery_operations_html_plot(self):
+        return plot_frame288(
+            frame288=self.intervalframe.average_frame288,
+            y_label="kW",
+            to_html=True,
+        )
+
+    @property
+    def average_state_of_charge_html_plot(self):
+        return plot_frame288(
+            frame288=self.average_state_of_charge_frame288,
             to_html=True,
         )
 

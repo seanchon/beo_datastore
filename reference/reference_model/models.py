@@ -77,6 +77,7 @@ class LoadServingEntity(ValidationModel):
 
     class Meta:
         ordering = ["id"]
+        verbose_name_plural = "load serving entities"
 
     def __str__(self):
         return self.name
