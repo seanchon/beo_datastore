@@ -365,8 +365,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
     @property
     def average_state_of_charge_html_plot(self):
         return plot_frame288(
-            frame288=self.average_state_of_charge_frame288,
-            to_html=True,
+            frame288=self.average_state_of_charge_frame288, to_html=True
         )
 
     @cached_property

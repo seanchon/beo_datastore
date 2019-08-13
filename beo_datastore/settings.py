@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     # apps
     "cost.ghg.apps.GhgConfig",
     "cost.optimization.apps.OptimizationConfig",
+    "cost.procurement.apps.ProcurementConfig",
     "cost.utility_rate.apps.UtilityRateConfig",
     "der.simulation.apps.SimulationConfig",
     "load.customer.apps.CustomerConfig",
