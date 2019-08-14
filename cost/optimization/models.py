@@ -13,6 +13,10 @@ from beo_datastore.libs.models import ValidationModel
 from beo_datastore.libs.views import dataframe_to_html
 
 from cost.ghg.models import GHGRate, StoredGHGCalculation
+from cost.procurement.models import (
+    SystemProfile,
+    StoredResourceAdequacyCalculation,
+)
 from cost.utility_rate.models import RatePlan, StoredBillCalculation
 from der.simulation.models import (
     BatteryConfiguration,
@@ -29,7 +33,7 @@ class SimulationOptimization(ValidationModel):
 
     Steps to create a simulation optimization:
     1. Create SimulationOptimization object
-    2. Add CustomerClusters and GHGRates
+    2. Add CustomerClusters, GHGRates, and SystemProfiles
     3. run() to generate all simulations
     4. filter_by_query() to filter results
     5. display reports
@@ -66,6 +70,9 @@ class SimulationOptimization(ValidationModel):
     ghg_rates = models.ManyToManyField(
         to=GHGRate, related_name="simulation_optimizations", blank=True
     )
+    system_profiles = models.ManyToManyField(
+        to=SystemProfile, related_name="simulation_optimizations", blank=True
+    )
     customer_clusters = models.ManyToManyField(
         to=CustomerCluster, related_name="simulation_optimizations", blank=True
     )
@@ -100,6 +107,9 @@ class SimulationOptimization(ValidationModel):
 
     @property
     def customer_cluster_meters(self):
+        """
+        QuerySet of Meters from all customer_clusters.
+        """
         return reduce(
             lambda x, y: x | y,
             [x.meters.all() for x in self.customer_clusters.all()],
@@ -108,10 +118,16 @@ class SimulationOptimization(ValidationModel):
 
     @property
     def charge_schedule(self):
+        """
+        Charge BatterySchedule.
+        """
         return self.battery_strategy.charge_schedule
 
     @property
     def discharge_schedule(self):
+        """
+        Discharge BatterySchedule.
+        """
         return self.battery_strategy.discharge_schedule
 
     @property
@@ -147,6 +163,62 @@ class SimulationOptimization(ValidationModel):
             battery_simulation__in=self.battery_simulations,
             ghg_rate__in=self.ghg_rates.all(),
         )
+
+    @property
+    def resource_adequacy_calculations(self):
+        """
+        Return StoredResourceAdequacyCalculations related to self.
+        """
+        return StoredResourceAdequacyCalculation.objects.filter(
+            battery_simulation__in=self.battery_simulations,
+            system_profile__in=self.system_profiles.all(),
+        )
+
+    @cached_property
+    def agg_simulation(self):
+        """
+        Return AggregateBatterySimulation associated with self.
+
+        AggregateBatterySimulations with the same parameters can be added to
+        one another and can be used for aggregate "cost calculations" found in
+        beo_datastore/libs/controller.py.
+        """
+        return reduce(
+            lambda x, y: x + y,
+            [x.agg_simulation for x in self.battery_simulations],
+            AggregateBatterySimulation(
+                battery=self.battery_configuration.battery,
+                start=self.start,
+                end_limit=self.end_limit,
+                charge_schedule=self.charge_schedule.frame288,
+                discharge_schedule=self.discharge_schedule.frame288,
+                results={},
+            ),
+        )
+
+    @property
+    def aggregate_battery_intervalframe(self):
+        """
+        Return BatteryIntervalFrame representing all battery operations in
+        aggregate.
+        """
+        return self.agg_simulation.aggregate_battery_intervalframe
+
+    @property
+    def pre_DER_intervalframe(self):
+        """
+        Return a single ValidationIntervalFrame represeting the aggregate
+        readings of all meter readings before a DER simulation.
+        """
+        return self.agg_simulation.pre_DER_intervalframe
+
+    @property
+    def post_DER_intervalframe(self):
+        """
+        Return a single ValidationIntervalFrame represeting the aggregate
+        readings of all meter reading after a DER simulation.
+        """
+        return self.agg_simulation.post_DER_intervalframe
 
     @cached_property
     def detailed_report(self):
@@ -187,7 +259,9 @@ class SimulationOptimization(ValidationModel):
         """
         Return pandas Dataframe with meter SA IDs and all bill and GHG impacts.
         """
-        return self.bill_report.join(self.ghg_report, how="outer")
+        return self.bill_report.join(self.ghg_report, how="outer").join(
+            self.resource_adequacy_report, how="outer"
+        )
 
     @cached_property
     def bill_report(self):
@@ -227,6 +301,21 @@ class SimulationOptimization(ValidationModel):
         )
 
     @cached_property
+    def resource_adequacy_report(self):
+        """
+        Return pandas DataFrame with meter SA IDs and GHG impacts from all
+        associated GHGRates.
+        """
+        return reduce(
+            lambda x, y: x.join(y, how="outer"),
+            [
+                self.get_resource_adequacy_report(system_profile)
+                for system_profile in self.system_profiles.all()
+            ],
+            pd.DataFrame(),
+        )
+
+    @cached_property
     def meter_report(self):
         """
         return pandas DataFrame with meter SA IDs and meter RatePlan.
@@ -243,46 +332,11 @@ class SimulationOptimization(ValidationModel):
             return pd.DataFrame()
 
     @cached_property
-    def agg_simulation(self):
+    def energy_loss(self):
         """
-        Return AggregateBatterySimulation equivalent of self.
+        Return all energy lost due to battery roundtrip efficiency.
         """
-        return reduce(
-            lambda x, y: x + y,
-            [x.agg_simulation for x in self.battery_simulations],
-            AggregateBatterySimulation(
-                battery=self.battery_configuration.battery,
-                start=self.start,
-                end_limit=self.end_limit,
-                charge_schedule=self.charge_schedule.frame288,
-                discharge_schedule=self.discharge_schedule.frame288,
-                results={},
-            ),
-        )
-
-    @property
-    def aggregate_battery_intervalframe(self):
-        """
-        Return BatteryIntervalFrame representing all battery operations in
-        aggregate.
-        """
-        return self.agg_simulation.aggregate_battery_intervalframe
-
-    @property
-    def aggregate_pre_intervalframe(self):
-        """
-        Return a single ValidationIntervalFrame represeting the aggregate
-        readings of all meter readings before a DER simulation.
-        """
-        return self.agg_simulation.aggregate_pre_intervalframe
-
-    @property
-    def aggregate_post_intervalframe(self):
-        """
-        Return a single ValidationIntervalFrame represeting the aggregate
-        readings of all meter reading after a DER simulation.
-        """
-        return self.agg_simulation.aggregate_post_intervalframe
+        return sum([x.energy_loss for x in self.battery_simulations])
 
     def get_ghg_report(self, ghg_rate):
         """
@@ -307,6 +361,40 @@ class SimulationOptimization(ValidationModel):
                     0: "SA_ID",
                     1: "{}{}Delta".format(
                         ghg_rate.name.replace(" ", ""), ghg_rate.effective.year
+                    ),
+                }
+            ).set_index("SA_ID")
+        else:
+            return pd.DataFrame()
+
+    def get_resource_adequacy_report(self, system_profile):
+        """
+        Return pandas DataFrame with meter SA IDs and RA impacts.
+
+        :param system_profile: SystemProfile
+        :return: pandas DataFrame
+        """
+        dataframe = pd.DataFrame(
+            sorted(
+                [
+                    (x.battery_simulation.meter.sa_id, x.net_impact)
+                    for x in self.resource_adequacy_calculations.filter(
+                        system_profile=system_profile
+                    )
+                ],
+                key=lambda x: x[1],
+            )
+        )
+
+        if not dataframe.empty:
+            return dataframe.rename(
+                columns={
+                    0: "SA_ID",
+                    1: "{}{}PeakDelta".format(
+                        system_profile.load_serving_entity.name.replace(
+                            " ", ""
+                        ),
+                        system_profile.name.replace(" ", ""),
                     ),
                 }
             ).set_index("SA_ID")
@@ -346,6 +434,12 @@ class SimulationOptimization(ValidationModel):
             StoredGHGCalculation.generate(
                 battery_simulation_set=battery_simulation_set,
                 ghg_rate=ghg_rate,
+            )
+
+        for system_profile in self.system_profiles.all():
+            StoredResourceAdequacyCalculation.generate(
+                battery_simulation_set=battery_simulation_set,
+                system_profile=system_profile,
             )
 
     def filter_by_query(self, query):
@@ -502,6 +596,52 @@ class MultiScenarioOptimization(ValidationModel):
         ).distinct()
 
     @cached_property
+    def aggregate_battery_intervalframe(self):
+        """
+        Return ValidationIntervalFrame representing aggregate battery
+        operations.
+        """
+        self.validate_unique_meters()
+        return reduce(
+            lambda x, y: x + y,
+            [
+                x.aggregate_battery_intervalframe
+                for x in self.simulation_optimizations.all()
+            ],
+            BatteryIntervalFrame(BatteryIntervalFrame.default_dataframe),
+        )
+
+    @cached_property
+    def pre_DER_intervalframe(self):
+        """
+        Return ValidationIntervalFrame representing aggregate pre-DER load.
+        """
+        self.validate_unique_meters()
+        return reduce(
+            lambda x, y: x + y,
+            [
+                x.pre_DER_intervalframe
+                for x in self.simulation_optimizations.all()
+            ],
+            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
+        )
+
+    @cached_property
+    def post_DER_intervalframe(self):
+        """
+        Return ValidationIntervalFrame representing aggregate post-DER load.
+        """
+        self.validate_unique_meters()
+        return reduce(
+            lambda x, y: x + y,
+            [
+                x.post_DER_intervalframe
+                for x in self.simulation_optimizations.all()
+            ],
+            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
+        )
+
+    @cached_property
     def detailed_report(self):
         """
         Return pandas DataFrame of all simulation_optimizations'
@@ -533,49 +673,12 @@ class MultiScenarioOptimization(ValidationModel):
         ).sort_index()
 
     @cached_property
-    def aggregate_battery_intervalframe(self):
+    def energy_loss(self):
         """
-        Return ValidationIntervalFrame representing aggregate battery
-        operations.
+        Return all energy lost due to battery roundtrip efficiency.
         """
-        self.validate_unique_meters()
-        return reduce(
-            lambda x, y: x + y,
-            [
-                x.aggregate_battery_intervalframe
-                for x in self.simulation_optimizations.all()
-            ],
-            BatteryIntervalFrame(BatteryIntervalFrame.default_dataframe),
-        )
-
-    @cached_property
-    def aggregate_pre_intervalframe(self):
-        """
-        Return ValidationIntervalFrame representing aggregate pre-DER load.
-        """
-        self.validate_unique_meters()
-        return reduce(
-            lambda x, y: x + y,
-            [
-                x.aggregate_pre_intervalframe
-                for x in self.simulation_optimizations.all()
-            ],
-            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
-        )
-
-    @cached_property
-    def aggregate_post_intervalframe(self):
-        """
-        Return ValidationIntervalFrame representing aggregate post-DER load.
-        """
-        self.validate_unique_meters()
-        return reduce(
-            lambda x, y: x + y,
-            [
-                x.aggregate_post_intervalframe
-                for x in self.simulation_optimizations.all()
-            ],
-            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
+        return sum(
+            [x.energy_loss for x in self.simulation_optimizations.all()]
         )
 
     def validate_unique_meters(self):

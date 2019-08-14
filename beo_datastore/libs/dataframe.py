@@ -6,6 +6,42 @@ import requests
 from scipy import stats
 
 
+def add_interval_dataframe(dataframe_1, dataframe_2):
+    """
+    Adds dataframe_1 to dataframe_2 when both DataFrames consist of intervals.
+    """
+    if dataframe_2.empty:
+        return dataframe_1
+    elif dataframe_1.empty:
+        return dataframe_2
+
+    dataframe_1_period = get_dataframe_period(dataframe_1)
+    dataframe_2_period = get_dataframe_period(dataframe_2)
+
+    if dataframe_1_period < dataframe_2_period:
+        dataframe_2 = resample_dataframe(
+            dataframe=dataframe_2, rule=dataframe_1_period, aggfunc=np.mean
+        )
+    elif dataframe_2_period < dataframe_1_period:
+        dataframe_1 = resample_dataframe(
+            dataframe=dataframe_1, rule=dataframe_2_period, aggfunc=np.mean
+        )
+
+    existing_indices = dataframe_1.index.difference(dataframe_2.index)
+    overlapping_indices = dataframe_1.index.intersection(dataframe_2.index)
+    new_indices = dataframe_2.index.difference(dataframe_1.index)
+
+    return (
+        dataframe_1.loc[existing_indices]
+        .append(
+            dataframe_1.loc[overlapping_indices]
+            + dataframe_2.loc[overlapping_indices]
+        )
+        .append(dataframe_2.loc[new_indices])
+        .sort_index()
+    )
+
+
 def convert_columns_type(dataframe, type_):
     """
     Convert columns type to another type_.

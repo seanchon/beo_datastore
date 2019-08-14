@@ -13,8 +13,10 @@ from cost.optimization.models import (
 class SimulationOptimizationAdmin(admin.ModelAdmin):
     exclude = ["meters"]
     readonly_fields = ["detailed_report_html_table"]
+    search_fields = ["id", "name"]
 
 
 @admin.register(MultiScenarioOptimization)
 class MultiScenarioOptimizationAdmin(admin.ModelAdmin):
     readonly_fields = ["detailed_report_html_table"]
+    search_fields = ["id", "name"]

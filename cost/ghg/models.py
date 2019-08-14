@@ -53,19 +53,6 @@ class GHGRate(Frame288FileMixin, ValidationModel):
     def dataframe(self):
         return self.frame288.dataframe
 
-    def calculate_ghg_total(self, intervalframe):
-        """
-        Return total tCO2 created.
-
-        :param intervalframe: ValidationIntervalFrame
-        :return: tCO2 (float)
-        """
-        return (
-            (self.frame288.dataframe * intervalframe.total_frame288.dataframe)
-            .sum()
-            .sum()
-        )
-
 
 class StoredGHGCalculation(ValidationModel):
     """
@@ -135,24 +122,26 @@ class StoredGHGCalculation(ValidationModel):
             )
 
             # create new GHG calculations
+            stored_simulations = [
+                x.battery_simulation for x in stored_ghg_calculations
+            ]
+            objects = []
             for battery_simulation in battery_simulation_set:
-                objects = []
-                if battery_simulation not in [
-                    x.battery_simulation for x in stored_ghg_calculations
-                ]:
-                    objects.append(
-                        cls(
-                            pre_DER_total=ghg_rate.calculate_ghg_total(
-                                battery_simulation.pre_intervalframe
-                            ),
-                            post_DER_total=ghg_rate.calculate_ghg_total(
-                                battery_simulation.post_intervalframe
-                            ),
-                            battery_simulation=battery_simulation,
-                            ghg_rate=ghg_rate,
-                        )
+                if battery_simulation in stored_simulations:
+                    continue
+                ghg_calculation = AggregateGHGCalculation(
+                    agg_simulation=battery_simulation.agg_simulation,
+                    ghg_frame288=ghg_rate.frame288,
+                )
+                objects.append(
+                    cls(
+                        pre_DER_total=ghg_calculation.pre_DER_total,
+                        post_DER_total=ghg_calculation.post_DER_total,
+                        battery_simulation=battery_simulation,
+                        ghg_rate=ghg_rate,
                     )
-                cls.objects.bulk_create(objects)
+                )
+            cls.objects.bulk_create(objects)
 
             return cls.objects.filter(
                 battery_simulation__in=battery_simulation_set,
