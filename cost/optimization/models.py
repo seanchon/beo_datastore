@@ -36,6 +36,7 @@ class SimulationOptimization(ValidationModel):
     6. initialize() before running different filter_by_query()
     """
 
+    name = models.CharField(max_length=128, blank=True, null=True)
     start = models.DateTimeField()
     end_limit = models.DateTimeField()
     battery_strategy = models.ForeignKey(
@@ -73,9 +74,9 @@ class SimulationOptimization(ValidationModel):
     )
 
     class Meta:
-        # TODO: unique on LSE
         ordering = ["id"]
         unique_together = (
+            "name",
             "start",
             "end_limit",
             "battery_strategy",
@@ -439,6 +440,7 @@ class MultiScenarioOptimization(ValidationModel):
     5. initialize() before running different filter_by_query()
     """
 
+    name = models.CharField(max_length=128, blank=True, null=True)
     simulation_optimizations = models.ManyToManyField(
         to=SimulationOptimization, related_name="multi_scenario_optimizations"
     )

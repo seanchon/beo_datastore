@@ -67,5 +67,5 @@ class Migration(migrations.Migration):
                 )
             },
         ),
-        migrations.RunPython(create_battery_strategies),
+        # migrations.RunPython(create_battery_strategies),
     ]
