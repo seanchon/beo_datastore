@@ -38,7 +38,12 @@ class MeterAdmin(admin.ModelAdmin):
         "average_vs_maximum_html_plot",
     ]
     inlines = [ChannelInline, StoredBatterySimulationInline]
-    search_fields = ["sa_id", "rate_plan_name", "load_serving_entity__name"]
+    search_fields = [
+        "id",
+        "sa_id",
+        "rate_plan_name",
+        "load_serving_entity__name",
+    ]
 
 
 @admin.register(Channel)
@@ -51,6 +56,7 @@ class ChannelAdmin(admin.ModelAdmin):
         "average_vs_maximum_html_plot",
     ]
     search_fields = [
+        "meter__id",
         "meter__sa_id",
         "meter__rate_plan_name",
         "meter__load_serving_entity__name",
@@ -72,13 +78,19 @@ class CustomerClusterInline(admin.TabularInline):
 class CustomerPopulationAdmin(admin.ModelAdmin):
     readonly_fields = ["number_of_clusters"]
     inlines = [CustomerClusterInline]
-    search_fields = ["name", "frame288_type", "load_serving_entity__name"]
+    search_fields = [
+        "id",
+        "name",
+        "frame288_type",
+        "load_serving_entity__name",
+    ]
 
 
 @admin.register(CustomerCluster)
 class CustomerClusterAdmin(admin.ModelAdmin):
     readonly_fields = ["number_of_meters", "frame288_html_plot"]
     search_fields = [
+        "customer_population__id",
         "customer_population__name",
         "customer_population__frame288_type",
         "customer_population__load_serving_entity__name",

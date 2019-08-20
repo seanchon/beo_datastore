@@ -1,7 +1,7 @@
 import attr
 from attr.validators import instance_of
 from cached_property import cached_property
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import reduce
 from itertools import repeat
 from multiprocessing import Pool
@@ -20,10 +20,53 @@ from beo_datastore.libs.intervalframe import (
 
 class DERAggregateSimulation(object):
     """
-    Base class for DER simulators.
+    Base class for DERAggregateSimulations. A DERAggregateSimulation takes a
+    number of input meters and simulates what would happen if the same DER were
+    introduced to each of those individual meters.
+
+    A DERAggregateSimulation serves as an input to a DERCostCalculation, so it
+    should provide a standardized set of results.
     """
 
-    pass
+    @property
+    def pre_DER_results(self):
+        """
+        Return a dictionary of key, value pairs where each key is a meter and
+        each value is a ValidationIntervalFrame before introducing a DER.
+        """
+        raise NotImplementedError()
+
+    @property
+    def post_DER_results(self):
+        """
+        Return a dictionary of key, value pairs where each key is a meter and
+        each value is a ValidationIntervalFrame after introducing a DER.
+        """
+        raise NotImplementedError()
+
+    @property
+    def pre_DER_intervalframe(self):
+        """
+        Return a ValidationIntervalFrame that represents the aggregate interval
+        readings before introducing a DER.
+        """
+        raise NotImplementedError()
+
+    @property
+    def post_DER_intervalframe(self):
+        """
+        Return a ValidationIntervalFrame that represents the aggregate interval
+        readings after introducing a DER.
+        """
+        raise NotImplementedError()
+
+    @property
+    def net_intervalframe(self):
+        """
+        Return a ValidationIntervalFrame that represents the aggregate changes
+        between a pre-DER and post-DER scenario.
+        """
+        raise NotImplementedError()
 
 
 @attr.s(frozen=True)
@@ -70,80 +113,66 @@ class AggregateBatterySimulation(DERAggregateSimulation):
     @cached_property
     def meters(self):
         """
-        Return generator of all meters in aggregate simulation.
+        Return generator of all meters in an aggregate simulation.
         """
         return self.results.keys()
 
     @cached_property
     def battery_simulations(self):
         """
-        Return generator of all battery simulations in aggregate simulation.
+        Return generator of all battery simulations in an aggregate simulation.
         """
         return self.results.values()
 
-    @cached_property
-    def pre_intervalframes(self):
+    @property
+    def pre_DER_results(self):
         """
-        Return list of all meter readings (ValidationIntervalFrame) before a
-        DER simulation.
-        """
-        return [x.pre_intervalframe for x in self.battery_simulations]
-
-    @cached_property
-    def pre_meter_intervalframes(self):
-        """
-        Return a dictionary of all meters and meter readings
-        (ValidationIntervalFrame) before a DER simulation.
+        Return a dictionary of key, value pairs where each key is a meter and
+        each value is a ValidationIntervalFrame after introducing a Battery.
         """
         return {
             meter: intervalframe
             for meter, intervalframe in zip(
-                self.meters, self.pre_intervalframes
+                self.meters,
+                [x.pre_intervalframe for x in self.battery_simulations],
+            )
+        }
+
+    @property
+    def post_DER_results(self):
+        """
+        Return a ValidationIntervalFrame that represents the interval readings
+        before introducing a Battery.
+        """
+        return {
+            meter: intervalframe
+            for meter, intervalframe in zip(
+                self.meters,
+                [x.post_intervalframe for x in self.battery_simulations],
             )
         }
 
     @cached_property
-    def aggregate_pre_intervalframe(self):
+    def pre_DER_intervalframe(self):
         """
         Return a single ValidationIntervalFrame represeting the aggregate
-        readings of all meter readings before a DER simulation.
+        readings of all meter readings before a battery simulation.
         """
         return reduce(
             lambda x, y: x + y,
-            self.pre_intervalframes,
+            [x.pre_intervalframe for x in self.battery_simulations],
             ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
         )
 
     @cached_property
-    def post_intervalframes(self):
-        """
-        Return list of all meter readings (ValidationIntervalFrame) after a DER
-        simulation.
-        """
-        return [x.post_intervalframe for x in self.battery_simulations]
-
-    @cached_property
-    def post_meter_intervalframes(self):
-        """
-        Return a dictionary of all meters and meter readings
-        (ValidationIntervalFrame) after a DER simulation.
-        """
-        return {
-            meter: intervalframe
-            for meter, intervalframe in zip(
-                self.meters, self.post_intervalframes
-            )
-        }
-
-    @cached_property
-    def aggregate_post_intervalframe(self):
+    def post_DER_intervalframe(self):
         """
         Return a single ValidationIntervalFrame represeting the aggregate
-        readings of all meter reading after a DER simulation.
+        readings of all meter reading after a battery simulation.
         """
         return reduce(
             lambda x, y: x + y,
-            self.post_intervalframes,
+            [x.post_intervalframe for x in self.battery_simulations],
             ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
         )
 
@@ -160,7 +189,18 @@ class AggregateBatterySimulation(DERAggregateSimulation):
         )
 
     @cached_property
-    def aggregate_energy_loss(self):
+    def net_intervalframe(self):
+        """
+        Return a ValidationIntervalFrame that represents the changes between a
+        pre-battery and post-battery scenario.
+        """
+        return (
+            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe)
+            + self.aggregate_battery_intervalframe
+        )
+
+    @cached_property
+    def energy_loss(self):
         """
         Return all energy lost due to battery roundtrip efficiency.
         """
@@ -250,8 +290,41 @@ class AggregateBatterySimulation(DERAggregateSimulation):
         )
 
 
+class DERCostCalculation(object):
+    """
+    Base class for DERCostCalculations. A DERCostCalculation takes a
+    DERAggregateSimulation as an input and calculates a net impact of that DER
+    plus supporting calculations.
+
+    A DERCostCalculation serves as an input to a report, so it should provide a
+    standardized set of results.
+    """
+
+    @property
+    def pre_DER_total(self):
+        """
+        Return the cost calculation of a pre-DER scenario.
+        """
+        raise NotImplementedError()
+
+    @property
+    def post_DER_total(self):
+        """
+        Return the cost calculation of a post-DER scenario.
+        """
+        raise NotImplementedError()
+
+    @property
+    def net_impact(self):
+        """
+        Return the cost calculation of a post-DER scenario minus the cost
+        calculation of a pre-DER scenario.
+        """
+        raise NotImplementedError()
+
+
 @attr.s(frozen=True)
-class AggregateBillCalculation(object):
+class AggregateBillCalculation(DERCostCalculation):
     """
     Run bill calculations across a DERAggregateSimulation's many before and
     after load profiles.
@@ -287,6 +360,27 @@ class AggregateBillCalculation(object):
         )
 
     @cached_property
+    def pre_DER_total(self):
+        """
+        Return sum of all bills for pre-DER scenario.
+        """
+        return self.pre_DER_bill_totals.sum().sum()
+
+    @cached_property
+    def post_DER_total(self):
+        """
+        Return sum of all bills for post-DER scenario.
+        """
+        return self.post_DER_bill_totals.sum().sum()
+
+    @cached_property
+    def net_impact(self):
+        """
+        Return total billing impact (post scenario - pre scenario).
+        """
+        return self.post_DER_total - self.pre_DER_total
+
+    @cached_property
     def pre_DER_bill_totals(self):
         """
         Return Pandas DataFrame containing bill totals for pre-DER scenario.
@@ -298,13 +392,6 @@ class AggregateBillCalculation(object):
         df.index = [x[0] for x in self.date_ranges]
 
         return df
-
-    @cached_property
-    def pre_DER_bill_grand_total(self):
-        """
-        Return sum of all bills for pre-DER scenario.
-        """
-        return self.pre_DER_bill_totals.sum().sum()
 
     @cached_property
     def post_DER_bill_totals(self):
@@ -320,26 +407,12 @@ class AggregateBillCalculation(object):
         return df
 
     @cached_property
-    def post_DER_bill_grand_total(self):
-        """
-        Return sum of all bills for post-DER scenario.
-        """
-        return self.post_DER_bill_totals.sum().sum()
-
-    @cached_property
     def net_DER_bill_totals(self):
         """
         Return Pandas DataFrame containing net difference of pre-DER bills
         minus post-DER bills.
         """
         return self.post_DER_bill_totals - self.pre_DER_bill_totals
-
-    @cached_property
-    def net_impact(self):
-        """
-        Return total billing impact (post scenario - pre scenario).
-        """
-        return self.post_DER_bill_grand_total - self.pre_DER_bill_grand_total
 
     @classmethod
     def create(
@@ -355,13 +428,13 @@ class AggregateBillCalculation(object):
         :return: AggregateBillCalculation
         """
         pre_bills = cls.generate_bills(
-            meter_intervalframes=agg_simulation.pre_meter_intervalframes,
+            meter_intervalframes=agg_simulation.pre_DER_results,
             rate_plan=rate_plan,
             date_ranges=date_ranges,
             multiprocess=multiprocess,
         )
         post_bills = cls.generate_bills(
-            meter_intervalframes=agg_simulation.post_meter_intervalframes,
+            meter_intervalframes=agg_simulation.post_DER_results,
             rate_plan=rate_plan,
             date_ranges=date_ranges,
             multiprocess=multiprocess,
@@ -392,7 +465,7 @@ class AggregateBillCalculation(object):
 
 
 @attr.s(frozen=True)
-class AggregateGHGCalculation(object):
+class AggregateGHGCalculation(DERCostCalculation):
     """
     Run GHG calculations across a DERAggregateSimulation's many before and
     after load profiles.
@@ -418,29 +491,51 @@ class AggregateGHGCalculation(object):
         )
 
     @cached_property
-    def ghg_before_frame288(self):
-        return (
-            self.agg_simulation.aggregate_pre_intervalframe.total_frame288
-            * self.ghg_frame288
-        )
-
-    @cached_property
-    def ghg_before_total(self):
+    def pre_DER_total(self):
+        """
+        Return total tons of CO2 pre-DER.
+        """
         return self.ghg_before_frame288.dataframe.sum().sum()
 
     @cached_property
-    def ghg_after_frame288(self):
+    def post_DER_total(self):
+        """
+        Return total tons of CO2 post-DER.
+        """
+        return self.ghg_after_frame288.dataframe.sum().sum()
+
+    @cached_property
+    def net_impact(self):
+        """
+        Return total GHG impact (post scenario - pre scenario).
+        """
+        return self.post_DER_total - self.pre_DER_total
+
+    @cached_property
+    def ghg_before_frame288(self):
+        """
+        Return 288 frame of month-hour GHG emissions pre-DER.
+        """
         return (
-            self.agg_simulation.aggregate_post_intervalframe.total_frame288
+            self.agg_simulation.pre_DER_intervalframe.total_frame288
             * self.ghg_frame288
         )
 
     @cached_property
-    def ghg_after_total(self):
-        return self.ghg_after_frame288.dataframe.sum().sum()
+    def ghg_after_frame288(self):
+        """
+        Return 288 frame of month-hour GHG emissions post-DER.
+        """
+        return (
+            self.agg_simulation.post_DER_intervalframe.total_frame288
+            * self.ghg_frame288
+        )
 
     @cached_property
     def comparison_table(self):
+        """
+        Return table of monthly pre-DER and post-DER values.
+        """
         df = pd.merge(
             pd.DataFrame(self.ghg_before_frame288.dataframe.sum()),
             pd.DataFrame(self.ghg_after_frame288.dataframe.sum()),
@@ -452,16 +547,113 @@ class AggregateGHGCalculation(object):
             columns={"0_x": "before", "0_y": "after"}
         )
 
-    @cached_property
-    def net_impact(self):
-        """
-        Return total GHG impact (post scenario - pre scenario).
-        """
-        return self.ghg_after_total - self.ghg_before_total
-
     @classmethod
     def create(cls, agg_simulation, ghg_frame288):
         """
         Alias for __init__().
         """
         return cls(agg_simulation=agg_simulation, ghg_frame288=ghg_frame288)
+
+
+@attr.s(frozen=True)
+class AggregateResourceAdequacyCalculation(DERCostCalculation):
+    """
+    Run RA calculations across a DERAggregateSimulation's many before and
+    after load profiles.
+    """
+
+    agg_simulation = attr.ib(validator=instance_of(DERAggregateSimulation))
+    system_profile_intervalframe = attr.ib(
+        validator=instance_of(ValidationIntervalFrame)
+    )
+
+    @cached_property
+    def system_profile_year(self):
+        years = set(self.system_profile_intervalframe.dataframe.index.year)
+        if len(years) != 1:
+            raise AttributeError(
+                "Unique year not detected in {}.".format(years)
+            )
+        else:
+            return years.pop()
+
+    @cached_property
+    def pre_DER_total(self):
+        """
+        Return sum of all monthly system peaks pre-DER.
+        """
+        system_peaks = self.pre_DER_system_intervalframe.maximum_frame288
+        return system_peaks.dataframe.max().sum()
+
+    @cached_property
+    def post_DER_total(self):
+        """
+        Return sum of all monthly system peaks post-DER.
+        """
+        system_peaks = self.post_DER_system_intervalframe.maximum_frame288
+        return system_peaks.dataframe.max().sum()
+
+    @cached_property
+    def net_impact(self):
+        """
+        Return total RA impact (post scenario - pre scenario) (kW).
+        """
+        return self.post_DER_total - self.pre_DER_total
+
+    @cached_property
+    def pre_DER_system_intervalframe(self):
+        """
+        Return pre-DER SystemProfileIntervalFrame.
+        """
+        return self.system_profile_intervalframe
+
+    @cached_property
+    def post_DER_system_intervalframe(self):
+        """
+        Add ValidationIntervalFrame consisting of net kW changes due to a DER.
+        The ValidationIntervalFrame index year will be changed so that the
+        SystemProfile dates align with ValidationIntervalFrame dates.
+        """
+        intervalframe = self.agg_simulation.net_intervalframe
+        if (
+            intervalframe.end_limit_timestamp - intervalframe.start_timestamp
+        ) > timedelta(days=366):
+            raise RuntimeError(
+                "ValidationIntervalFrame must be one year or less."
+            )
+
+        # shift BatteryIntervalFrame year to align with SystemProfile
+        updated_index = intervalframe.dataframe.index.map(
+            lambda t: t.replace(year=self.system_profile_year)
+        )
+        intervalframe.dataframe.index = updated_index
+
+        return intervalframe + self.system_profile_intervalframe
+
+    @cached_property
+    def comparison_table(self):
+        """
+        Return table of monthly pre-DER and post-DER values.
+        """
+        pre_DER_max_288 = self.pre_DER_system_intervalframe.maximum_frame288
+        post_DER_max_288 = self.post_DER_system_intervalframe.maximum_frame288
+        df = pd.merge(
+            pd.DataFrame(pre_DER_max_288.dataframe.max()),
+            pd.DataFrame(post_DER_max_288.dataframe.max()),
+            how="inner",
+            left_index=True,
+            right_index=True,
+        )
+        return df.append(df.sum().rename("Total")).rename(
+            columns={"0_x": "before", "0_y": "after"}
+        )
+
+    @classmethod
+    def create(cls, agg_simulation, system_profile_intervalframe):
+        """
+        Alias for __init__().
+        """
+        return cls(
+            agg_simulation=agg_simulation,
+            system_profile_intervalframe=system_profile_intervalframe,
+        )

@@ -14,6 +14,7 @@ from der.simulation.models import (
 @admin.register(BatterySchedule)
 class BatteryScheduleAdmin(admin.ModelAdmin):
     readonly_fields = ["html_table"]
+    search_fields = ["id"]
 
 
 @admin.register(BatteryStrategy)
@@ -23,11 +24,17 @@ class BatteryStrategy(admin.ModelAdmin):
         "charge_schedule_html_table",
         "discharge_schedule_html_table",
     ]
+    search_fields = [
+        "id",
+        "name",
+        "charge_schedule__id",
+        "discharge_schedule__id",
+    ]
 
 
 @admin.register(BatteryConfiguration)
 class BatteryConfiguration(admin.ModelAdmin):
-    pass
+    search_fields = ["rating", "discharge_duration_hours", "efficiency"]
 
 
 @admin.register(StoredBatterySimulation)
@@ -38,4 +45,4 @@ class StoredBatterySimulation(admin.ModelAdmin):
         "average_battery_operations_html_plot",
         "average_state_of_charge_html_plot",
     ]
-    search_fields = ["meter__sa_id"]
+    search_fields = ["id", "meter__sa_id"]

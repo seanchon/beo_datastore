@@ -313,6 +313,13 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
             "end_limit",
         )
 
+    @property
+    def energy_loss(self):
+        """
+        Return all energy lost due to battery roundtrip efficiency.
+        """
+        return self.intervalframe.energy_loss
+
     @cached_property
     def pre_intervalframe(self):
         return self.simulation.pre_intervalframe
@@ -387,8 +394,10 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
     def agg_simulation(self):
         """
         Return AggregateBatterySimulation equivalent of self.
+
         AggregateBatterySimulations with the same parameters can be added to
-        one another.
+        one another and can be used for aggregate "cost calculations" found in
+        beo_datastore/libs/controller.py.
         """
         return AggregateBatterySimulation(
             battery=self.battery_configuration.battery,

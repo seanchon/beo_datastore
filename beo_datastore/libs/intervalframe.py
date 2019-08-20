@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from beo_datastore.libs.dataframe import (
+    add_interval_dataframe,
     csv_url_to_dataframe,
     filter_dataframe_by_datetime,
     filter_dataframe_by_weekday,
@@ -142,7 +143,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         :param other: ValidationIntervalFrame
         :return: ValidationIntervalFrame
         """
-        # filter other dataframe so columns match
+        # change other to type self.__class__
         other = self.__class__(
             other.dataframe[list(self.default_dataframe.columns)]
         )
@@ -152,29 +153,11 @@ class ValidationIntervalFrame(ValidationDataFrame):
         elif self.dataframe.empty:
             return other
 
-        if self.period < other.period:
-            other = other.resample_intervalframe(
-                rule=self.period, aggfunc=np.mean
-            )
-        elif other.period < self.period:
-            self = self.resample_intervalframe(
-                rule=other.period, aggfunc=np.mean
-            )
-
-        df_1 = self.dataframe
-        df_2 = other.dataframe
-
-        existing_indices = df_1.index.difference(df_2.index)
-        overlapping_indices = df_1.index.intersection(df_2.index)
-        new_indices = df_2.index.difference(df_1.index)
+        # filter other dataframe so columns match
+        other_dataframe = other.dataframe[list(self.default_dataframe.columns)]
 
         return self.__class__(
-            df_1.loc[existing_indices]
-            .append(
-                df_1.loc[overlapping_indices] + df_2.loc[overlapping_indices]
-            )
-            .append(df_2.loc[new_indices])
-            .sort_index()
+            dataframe=add_interval_dataframe(self.dataframe, other_dataframe)
         )
 
     @property
