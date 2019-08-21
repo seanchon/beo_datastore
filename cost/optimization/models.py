@@ -221,6 +221,13 @@ class SimulationOptimization(ValidationModel):
         return self.agg_simulation.post_DER_intervalframe
 
     @cached_property
+    def energy_loss(self):
+        """
+        Return all energy lost due to battery roundtrip efficiency.
+        """
+        return sum([x.energy_loss for x in self.battery_simulations])
+
+    @cached_property
     def detailed_report(self):
         """
         Return pandas Dataframe with self.report_with_id and
@@ -259,19 +266,58 @@ class SimulationOptimization(ValidationModel):
         """
         Return pandas Dataframe with meter SA IDs and all bill and GHG impacts.
         """
-        return self.bill_report.join(self.ghg_report, how="outer").join(
-            self.resource_adequacy_report, how="outer"
+        return (
+            self.usage_report.join(self.bill_report, how="outer")
+            .join(self.ghg_report, how="outer")
+            .join(self.resource_adequacy_report, how="outer")
         )
 
     @cached_property
-    def bill_report(self):
+    def usage_report(self):
         """
-        Return pandas DataFrame with meter SA IDs and bill impacts.
+        Return pandas DataFrame with meter SA IDs and usage deltas.
         """
         dataframe = pd.DataFrame(
             sorted(
                 [
-                    (x.battery_simulation.meter.sa_id, x.net_impact)
+                    (
+                        x.meter.sa_id,
+                        x.pre_DER_total,
+                        x.post_DER_total,
+                        x.net_impact,
+                    )
+                    for x in self.battery_simulations
+                ],
+                key=lambda x: x[1],
+            )
+        )
+
+        if not dataframe.empty:
+            return dataframe.rename(
+                columns={
+                    0: "SA_ID",
+                    1: "UsagePreDER",
+                    2: "UsagePostDER",
+                    3: "UsageDelta",
+                }
+            ).set_index("SA_ID")
+        else:
+            return pd.DataFrame()
+
+    @cached_property
+    def bill_report(self):
+        """
+        Return pandas DataFrame with meter SA IDs and bill deltas.
+        """
+        dataframe = pd.DataFrame(
+            sorted(
+                [
+                    (
+                        x.battery_simulation.meter.sa_id,
+                        x.pre_DER_total,
+                        x.post_DER_total,
+                        x.net_impact,
+                    )
                     for x in self.bill_calculations
                 ],
                 key=lambda x: x[1],
@@ -280,7 +326,12 @@ class SimulationOptimization(ValidationModel):
 
         if not dataframe.empty:
             return dataframe.rename(
-                columns={0: "SA_ID", 1: "BillDelta"}
+                columns={
+                    0: "SA_ID",
+                    1: "BillPreDER",
+                    2: "BillPostDER",
+                    3: "BillDelta",
+                }
             ).set_index("SA_ID")
         else:
             return pd.DataFrame()
@@ -288,7 +339,7 @@ class SimulationOptimization(ValidationModel):
     @cached_property
     def ghg_report(self):
         """
-        Return pandas DataFrame with meter SA IDs and GHG impacts from all
+        Return pandas DataFrame with meter SA IDs and GHG deltas from all
         associated GHGRates.
         """
         return reduce(
@@ -303,7 +354,7 @@ class SimulationOptimization(ValidationModel):
     @cached_property
     def resource_adequacy_report(self):
         """
-        Return pandas DataFrame with meter SA IDs and GHG impacts from all
+        Return pandas DataFrame with meter SA IDs and RA deltas from all
         associated GHGRates.
         """
         return reduce(
@@ -331,13 +382,6 @@ class SimulationOptimization(ValidationModel):
         else:
             return pd.DataFrame()
 
-    @cached_property
-    def energy_loss(self):
-        """
-        Return all energy lost due to battery roundtrip efficiency.
-        """
-        return sum([x.energy_loss for x in self.battery_simulations])
-
     def get_ghg_report(self, ghg_rate):
         """
         Return pandas DataFrame with meter SA IDs and GHG impacts.
@@ -348,7 +392,12 @@ class SimulationOptimization(ValidationModel):
         dataframe = pd.DataFrame(
             sorted(
                 [
-                    (x.battery_simulation.meter.sa_id, x.net_impact)
+                    (
+                        x.battery_simulation.meter.sa_id,
+                        x.pre_DER_total,
+                        x.post_DER_total,
+                        x.net_impact,
+                    )
                     for x in self.ghg_calculations.filter(ghg_rate=ghg_rate)
                 ],
                 key=lambda x: x[1],
@@ -356,12 +405,15 @@ class SimulationOptimization(ValidationModel):
         )
 
         if not dataframe.empty:
+            name = "{}{}".format(
+                ghg_rate.name.replace(" ", ""), ghg_rate.effective.year
+            )
             return dataframe.rename(
                 columns={
                     0: "SA_ID",
-                    1: "{}{}Delta".format(
-                        ghg_rate.name.replace(" ", ""), ghg_rate.effective.year
-                    ),
+                    1: "{}PreDER".format(name),
+                    2: "{}PostDER".format(name),
+                    3: "{}Delta".format(name),
                 }
             ).set_index("SA_ID")
         else:
@@ -377,7 +429,12 @@ class SimulationOptimization(ValidationModel):
         dataframe = pd.DataFrame(
             sorted(
                 [
-                    (x.battery_simulation.meter.sa_id, x.net_impact)
+                    (
+                        x.battery_simulation.meter.sa_id,
+                        x.pre_DER_total,
+                        x.post_DER_total,
+                        x.net_impact,
+                    )
                     for x in self.resource_adequacy_calculations.filter(
                         system_profile=system_profile
                     )
@@ -387,15 +444,16 @@ class SimulationOptimization(ValidationModel):
         )
 
         if not dataframe.empty:
+            name = "{}{}".format(
+                system_profile.name.replace(" ", ""),
+                system_profile.load_serving_entity.name.replace(" ", ""),
+            )
             return dataframe.rename(
                 columns={
                     0: "SA_ID",
-                    1: "{}{}PeakDelta".format(
-                        system_profile.load_serving_entity.name.replace(
-                            " ", ""
-                        ),
-                        system_profile.name.replace(" ", ""),
-                    ),
+                    1: "{}PeakPreDER".format(name),
+                    2: "{}PeakPostDER".format(name),
+                    3: "{}PeakDelta".format(name),
                 }
             ).set_index("SA_ID")
         else:
@@ -593,6 +651,20 @@ class MultiScenarioOptimization(ValidationModel):
                 for x in self.simulation_optimizations.all()
             ],
             StoredGHGCalculation.objects.none(),
+        ).distinct()
+
+    @property
+    def resource_adequacy_calculations(self):
+        """
+        Return StoredResourceAdequacyCalculations related to self.
+        """
+        return reduce(
+            lambda x, y: x | y,
+            [
+                x.resource_adequacy_calculations.all()
+                for x in self.simulation_optimizations.all()
+            ],
+            StoredResourceAdequacyCalculation.objects.none(),
         ).distinct()
 
     @cached_property
