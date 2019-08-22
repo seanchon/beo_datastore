@@ -321,6 +321,18 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         return self.intervalframe.energy_loss
 
     @cached_property
+    def pre_DER_total(self):
+        return self.pre_intervalframe.dataframe["kw"].sum()
+
+    @cached_property
+    def post_DER_total(self):
+        return self.post_intervalframe.dataframe["kw"].sum()
+
+    @cached_property
+    def net_impact(self):
+        return self.post_DER_total - self.pre_DER_total
+
+    @cached_property
     def pre_intervalframe(self):
         return self.simulation.pre_intervalframe
 
