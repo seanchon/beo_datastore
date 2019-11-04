@@ -3,7 +3,14 @@ from localflavor.us.us_states import STATE_CHOICES
 
 from django.db import models
 
-from beo_datastore.libs.models import ValidationModel
+from beo_datastore.libs.models import (
+    PolymorphicValidationModel,
+    ValidationModel,
+)
+from beo_datastore.libs.plot_intervalframe import (
+    plot_intervalframe,
+    plot_frame288_monthly_comparison,
+)
 
 
 class BuildingType(ValidationModel):
@@ -94,6 +101,64 @@ class LoadServingEntity(ValidationModel):
                 for x in cls.objects.values_list("id", "name")
             ]
         )
+
+
+class MeterIntervalFrame(PolymorphicValidationModel):
+    """
+    Model containing a linked intervalframe with time-stamped power readings.
+    """
+
+    @property
+    def intervalframe(self):
+        raise NotImplementedError()
+
+    @property
+    def intervalframe_html_plot(self):
+        """
+        Return Django-formatted HTML intervalframe plt.
+        """
+        return plot_intervalframe(
+            intervalframe=self.intervalframe, y_label="kw", to_html=True
+        )
+
+    @property
+    def average_vs_maximum_html_plot(self):
+        """
+        Return Django-formatted HTML average vs maximum 288 plt.
+        """
+        return plot_frame288_monthly_comparison(
+            original_frame288=self.intervalframe.average_frame288,
+            modified_frame288=self.intervalframe.maximum_frame288,
+            to_html=True,
+        )
+
+    @property
+    def total_288(self):
+        """
+        Return a 12 x 24 dataframe of totals (sums).
+        """
+        return self.intervalframe.total_frame288.dataframe
+
+    @property
+    def average_288(self):
+        """
+        Return a 12 x 24 dataframe of averages.
+        """
+        return self.intervalframe.average_frame288.dataframe
+
+    @property
+    def peak_288(self):
+        """
+        Return a 12 x 24 dataframe of peaks.
+        """
+        return self.intervalframe.minimum_frame288.dataframe
+
+    @property
+    def count_288(self):
+        """
+        Return a 12 x 24 dataframe of counts.
+        """
+        return self.intervalframe.count_frame288.dataframe
 
 
 class VoltageCategory(ValidationModel):
