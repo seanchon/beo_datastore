@@ -293,6 +293,8 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         on_delete=models.CASCADE,
         related_name="battery_strategies",
     )
+    pre_DER_total = models.FloatField()
+    post_DER_total = models.FloatField()
 
     # Required by IntervalFrameFileMixin.
     frame_file_class = StoredBatterySimulationFrame
@@ -321,14 +323,6 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         Return all energy lost due to battery roundtrip efficiency.
         """
         return self.intervalframe.energy_loss
-
-    @cached_property
-    def pre_DER_total(self):
-        return self.pre_intervalframe.dataframe["kw"].sum()
-
-    @cached_property
-    def post_DER_total(self):
-        return self.post_intervalframe.dataframe["kw"].sum()
 
     @cached_property
     def net_impact(self):
@@ -465,12 +459,18 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
                 charge_schedule=charge_schedule,
                 discharge_schedule=discharge_schedule,
             )
+            pre_total_frame288 = simulation.pre_intervalframe.total_frame288
+            pre_DER_total = pre_total_frame288.dataframe.sum().sum()
+            post_total_frame288 = simulation.post_intervalframe.total_frame288
+            post_DER_total = post_total_frame288.dataframe.sum().sum()
             return cls.get_or_create(
+                start=start,
+                end_limit=end_limit,
                 meter=meter,
                 battery_configuration=configuration,
                 battery_strategy=battery_strategy,
-                start=start,
-                end_limit=end_limit,
+                pre_DER_total=pre_DER_total,
+                post_DER_total=post_DER_total,
                 dataframe=simulation.battery_intervalframe.dataframe,
             )
 
