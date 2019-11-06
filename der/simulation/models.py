@@ -288,15 +288,10 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         on_delete=models.CASCADE,
         related_name="battery_simulations",
     )
-    charge_schedule = models.ForeignKey(
-        to=BatterySchedule,
+    battery_strategy = models.ForeignKey(
+        to=BatteryStrategy,
         on_delete=models.CASCADE,
-        related_name="charge_schedule_battery_simulations",
-    )
-    discharge_schedule = models.ForeignKey(
-        to=BatterySchedule,
-        on_delete=models.CASCADE,
-        related_name=("discharge_schedule_battery_simulations"),
+        related_name="battery_strategies",
     )
 
     # Required by IntervalFrameFileMixin.
@@ -307,11 +302,18 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         unique_together = (
             "meter",
             "battery_configuration",
-            "charge_schedule",
-            "discharge_schedule",
+            "battery_strategy",
             "start",
             "end_limit",
         )
+
+    @property
+    def charge_schedule(self):
+        return self.battery_strategy.charge_schedule
+
+    @property
+    def discharge_schedule(self):
+        return self.battery_strategy.discharge_schedule
 
     @property
     def energy_loss(self):
@@ -459,11 +461,14 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
                 hash=simulation.discharge_schedule.__hash__(),
                 dataframe=simulation.discharge_schedule.dataframe,
             )
+            battery_strategy, _ = BatteryStrategy.objects.get_or_create(
+                charge_schedule=charge_schedule,
+                discharge_schedule=discharge_schedule,
+            )
             return cls.get_or_create(
                 meter=meter,
                 battery_configuration=configuration,
-                charge_schedule=charge_schedule,
-                discharge_schedule=discharge_schedule,
+                battery_strategy=battery_strategy,
                 start=start,
                 end_limit=end_limit,
                 dataframe=simulation.battery_intervalframe.dataframe,
@@ -508,13 +513,16 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
                 hash=discharge_schedule.__hash__(),
                 dataframe=discharge_schedule.dataframe,
             )
+            battery_strategy, _ = BatteryStrategy.objects.get_or_create(
+                charge_schedule=charge_schedule,
+                discharge_schedule=discharge_schedule,
+            )
 
             # get existing aggregate simulation
             stored_simulations = cls.objects.filter(
                 meter__id__in=[x.id for x in meter_set],
                 battery_configuration=configuration,
-                charge_schedule=charge_schedule,
-                discharge_schedule=discharge_schedule,
+                battery_strategy=battery_strategy,
                 start=start,
                 end_limit=end_limit,
             )
@@ -543,8 +551,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
             return cls.objects.filter(
                 meter__in=meter_set,
                 battery_configuration=configuration,
-                charge_schedule=charge_schedule,
-                discharge_schedule=discharge_schedule,
+                battery_strategy=battery_strategy,
                 start=start,
                 end_limit=end_limit,
             )
