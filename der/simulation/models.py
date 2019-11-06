@@ -288,12 +288,17 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         on_delete=models.CASCADE,
         related_name="battery_simulations",
     )
-    charge_schedule = models.ForeignKey(
+    battery_strategy = models.ForeignKey(
+        to=BatteryStrategy,
+        on_delete=models.CASCADE,
+        related_name="battery_strategies",
+    )
+    _charge_schedule = models.ForeignKey(
         to=BatterySchedule,
         on_delete=models.CASCADE,
         related_name="charge_schedule_battery_simulations",
     )
-    discharge_schedule = models.ForeignKey(
+    _discharge_schedule = models.ForeignKey(
         to=BatterySchedule,
         on_delete=models.CASCADE,
         related_name=("discharge_schedule_battery_simulations"),
@@ -307,11 +312,18 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         unique_together = (
             "meter",
             "battery_configuration",
-            "charge_schedule",
-            "discharge_schedule",
+            "battery_strategy",
             "start",
             "end_limit",
         )
+
+    @property
+    def charge_schedule(self):
+        return self.battery_strategy.charge_schedule
+
+    @property
+    def discharge_schedule(self):
+        return self.battery_strategy.discharge_schedule
 
     @property
     def energy_loss(self):
