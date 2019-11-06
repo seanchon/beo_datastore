@@ -13,6 +13,7 @@ $ source <env_name>/bin/activate
 (<env_name>)$ pip install -r requirements.txt
 (<env_name>)$ jupyter-nbextension install rise --py --sys-prefix
 (<env_name>)$ jupyter-nbextension enable rise --py --sys-prefix
+(<env_name>)$ pre-commit install
 ```
 
 # LAUNCHING THE VIRTUAL ENVIRONMENT
@@ -145,6 +146,10 @@ python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates
 ```
 
 # DEVELOPER NOTES
+
+## CODE FORMATTING
+
+This project is set up to automatically run the black code-formatting tool as well as running the flake8 linter. More details located at https://ljvmiranda921.github.io/notebook/2018/06/21/precommits-using-black-and-flake8/. The configuration lives in the codebase, but needs to be initialized in the dev environment with `pre-commit install`.
 
 ## UPDATING PIP PACKAGES
 
