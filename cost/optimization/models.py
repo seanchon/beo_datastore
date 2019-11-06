@@ -140,8 +140,7 @@ class SimulationOptimization(ValidationModel):
             end_limit=self.end_limit,
             meter__in=self.meters.all(),
             battery_configuration=self.battery_configuration,
-            charge_schedule=self.charge_schedule,
-            discharge_schedule=self.discharge_schedule,
+            battery_strategy=self.battery_strategy,
         )
 
     @property

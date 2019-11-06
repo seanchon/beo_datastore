@@ -55,7 +55,7 @@ class Migration(migrations.Migration):
             ),
             preserve_default=False,
         ),
-        migrations.RunPython(create_battery_strategies),
+        # migrations.RunPython(create_battery_strategies),
         migrations.AlterUniqueTogether(
             name="storedbatterysimulation",
             unique_together={
