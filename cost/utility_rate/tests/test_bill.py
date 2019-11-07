@@ -242,20 +242,16 @@ class TestMCECommercialBill(TestBill):
         self.meter = Meter.objects.get(sa_id=7720534682)
 
         date_ranges = [
-            (datetime(2018, 1, 4), datetime(2018, 2, 2)),
-            (datetime(2018, 2, 2), datetime(2018, 3, 6)),
-            (datetime(2018, 3, 6), datetime(2018, 4, 4)),
-            (datetime(2018, 4, 4), datetime(2018, 5, 4)),
-            (datetime(2018, 5, 4), datetime(2018, 6, 5)),
-            (datetime(2018, 6, 5), datetime(2018, 7, 5)),
-            (datetime(2018, 7, 5), datetime(2018, 8, 3)),
-            (datetime(2018, 8, 3), datetime(2018, 9, 5)),
-            (datetime(2018, 9, 5), datetime(2018, 10, 4)),
-            (datetime(2018, 10, 4), datetime(2018, 11, 5)),
             (datetime(2018, 11, 5), datetime(2018, 12, 5)),
             (datetime(2018, 12, 5), datetime(2019, 1, 5)),
             (datetime(2019, 1, 5), datetime(2019, 2, 5)),
             (datetime(2019, 2, 5), datetime(2019, 3, 7)),
+            (datetime(2019, 3, 7), datetime(2019, 4, 5)),
+            (datetime(2019, 4, 5), datetime(2019, 5, 7)),
+            (datetime(2019, 5, 7), datetime(2019, 6, 6)),
+            (datetime(2019, 6, 6), datetime(2019, 7, 8)),
+            (datetime(2019, 7, 8), datetime(2019, 8, 6)),
+            (datetime(2019, 8, 6), datetime(2019, 9, 6)),
         ]
 
         rate_plan = RatePlan.objects.get(
@@ -273,41 +269,34 @@ class TestMCECommercialBill(TestBill):
     def test_kwh_counts(self):
         # TODO: true up counts using TOU rules
         for start, tou_expected_counts in [
-            (datetime(2018, 1, 4), [(3, 119356.8), (4, 165600)]),
-            (datetime(2018, 2, 2), [(3, 115656), (4, 192446.4)]),
-            (datetime(2018, 3, 6), [(3, 132720), (4, 190075.2)]),
-            (
-                datetime(2018, 4, 4),
-                [
-                    (0, 8664),
-                    (1, 10344),
-                    (2, 14985.6),
-                    (3, 115152),
-                    (4, 179035.2),
-                ],
-            ),
-            (datetime(2018, 5, 4), [(0, 61920), (1, 73728), (2, 229656)]),
-            (datetime(2018, 6, 5), [(0, 60211.2), (1, 69648), (2, 198998.4)]),
-            (datetime(2018, 7, 5), [(0, 63432), (1, 72403.2), (2, 196380)]),
-            (
-                datetime(2018, 8, 3),
-                [(0, 64819.2), (1, 75727.2), (2, 230608.8)],
-            ),
-            (datetime(2018, 9, 5), [(0, 58632), (1, 67641.6), (2, 177808.8)]),
-            (
-                datetime(2018, 10, 4),
-                [
-                    (0, 50448),
-                    (1, 59640),
-                    (2, 163420.8),
-                    (3, 10502.4),
-                    (4, 27398.4),
-                ],
-            ),
             (
                 datetime(2018, 11, 5),
                 [(3, 109483.2 + 10876.8), (4, 178516.8 - 10876.8)],
             ),
+            (
+                datetime(2018, 12, 5),
+                [(3, 109428 + 10334.4), (4, 175843.2 - 10334.4)],
+            ),
+            (datetime(2019, 1, 5), [(3, 136147.2), (4, 220636.8)]),
+            (datetime(2019, 2, 5), [(3, 144609.6), (4, 223680)]),
+            (datetime(2019, 3, 7), [(3, 116769.6), (4, 176635.2)]),
+            (
+                datetime(2019, 4, 5),
+                [
+                    (0, 11510.4),
+                    (1, 13329.6),
+                    (2, 40660.8),
+                    (3, 104760),
+                    (4, 162417.6),
+                ],
+            ),
+            (
+                datetime(2019, 5, 7),
+                [(0, 56402.4), (1, 66076.8), (2, 188035.2)],
+            ),
+            (datetime(2019, 6, 6), [(0, 58392), (1, 67660.8), (2, 207350.4)]),
+            (datetime(2019, 7, 8), [(0, 54360), (1, 62100), (2, 163329.6)]),
+            (datetime(2019, 8, 6), [(0, 58800), (1, 68164.8), (2, 186724.8)]),
         ]:
             for tou_key, expected_count in tou_expected_counts:
                 self.validate_tou_energy_count(
@@ -318,15 +307,20 @@ class TestMCECommercialBill(TestBill):
                 )
 
     def test_energy_charges(self):
-        # TODO: add additional 2019 charges
         for start, expected_charge, unknown_error in [
             (datetime(2018, 11, 5), 12943.28, 0),
             (datetime(2018, 12, 5), 12833.41, 0),
             (datetime(2019, 1, 5), 16041.27, 0),
             (datetime(2019, 2, 5), 16611.51, 0),
+            (datetime(2019, 3, 7), 13254.20, 0),
+            (datetime(2019, 4, 5), 16973.54, 0),
+            (datetime(2019, 5, 7), 23411.11, 0),
+            (datetime(2019, 6, 6), 25580.61, 0),
+            (datetime(2019, 7, 8), 23218.52, -584.11),
+            (datetime(2019, 8, 6), 26288.38, 0),
         ]:
             self.validate_charge(
                 bill=self.e19_bills[start],
-                expected_total=expected_charge,
+                expected_total=(expected_charge + unknown_error),
                 allowable_error_rate=COMMERCIAL_CHARGE_ERROR_RATE,
             )
