@@ -3,8 +3,8 @@ import json
 
 
 SOURCE = (
-    "https://www.mcecleanenergy.org/wp-content/uploads/2019/01/"
-    "MCE-Commercial-Rates-updated-1.23.19-FINAL.pdf"
+    "https://www.mcecleanenergy.org/wp-content/uploads/2019/07/"
+    "MCE_Commercial_Rates_July2019.pdf"
 )
 
 BASIC_SCHED = [[0] * 24] * 12
@@ -140,7 +140,7 @@ def run(*args):
     ) in [
         (
             "A1, Small General Service",
-            [{"key": "Summer", "val": 0.092}, {"key": "Winter", "val": 0.057}],
+            [{"key": "Summer", "val": 0.103}, {"key": "Winter", "val": 0.063}],
             A1_A10_SCHED,
             A1_A10_SCHED,
             [],
@@ -152,11 +152,11 @@ def run(*args):
         (
             "A1X, Small General Service with Time-of-Use (TOU)",
             [
-                {"key": "Summer Peak", "val": 0.108},
-                {"key": "Summer Part-Peak", "val": 0.086},
-                {"key": "Summer Off-Peak", "val": 0.057},
-                {"key": "Winter Part-Peak", "val": 0.084},
-                {"key": "Winter Off-Peak", "val": 0.063},
+                {"key": "Summer Peak", "val": 0.117},
+                {"key": "Summer Part-Peak", "val": 0.094},
+                {"key": "Summer Off-Peak", "val": 0.067},
+                {"key": "Winter Part-Peak", "val": 0.094},
+                {"key": "Winter Off-Peak", "val": 0.073},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
@@ -169,11 +169,11 @@ def run(*args):
         (
             "A6, Small General Service with TOU",
             [
-                {"key": "Summer Peak", "val": 0.340},
-                {"key": "Summer Part-Peak", "val": 0.102},
-                {"key": "Summer Off-Peak", "val": 0.045},
-                {"key": "Winter Part-Peak", "val": 0.071},
-                {"key": "Winter Off-Peak", "val": 0.052},
+                {"key": "Summer Peak", "val": 0.356},
+                {"key": "Summer Part-Peak", "val": 0.118},
+                {"key": "Summer Off-Peak", "val": 0.060},
+                {"key": "Winter Part-Peak", "val": 0.085},
+                {"key": "Winter Off-Peak", "val": 0.067},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
@@ -185,46 +185,46 @@ def run(*args):
         ),
         (
             "A10, Medium General Service",
-            [{"key": "Summer", "val": 0.081}, {"key": "Winter", "val": 0.058}],
+            [{"key": "Summer", "val": 0.091}, {"key": "Winter", "val": 0.064}],
             A1_A10_SCHED,
             A1_A10_SCHED,
             [],
             None,
             None,
-            [{"key": "Summer", "val": 4.85}, {"key": "Winter", "val": 0}],
+            [{"key": "Summer", "val": 5.70}, {"key": "Winter", "val": 0}],
             A1_10_FLAT_DEMAND_SCHED,
         ),
         (
             "A10X, Medium General Service with TOU",
             [
-                {"key": "Summer Peak", "val": 0.135},
-                {"key": "Summer Part-Peak", "val": 0.082},
-                {"key": "Summer Off-Peak", "val": 0.054},
-                {"key": "Winter Part-Peak", "val": 0.065},
-                {"key": "Winter Off-Peak", "val": 0.049},
+                {"key": "Summer Peak", "val": 0.144},
+                {"key": "Summer Part-Peak", "val": 0.090},
+                {"key": "Summer Off-Peak", "val": 0.062},
+                {"key": "Winter Part-Peak", "val": 0.074},
+                {"key": "Winter Off-Peak", "val": 0.057},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
             [],
             None,
             None,
-            [{"key": "Summer", "val": 4.85}, {"key": "Winter", "val": 0}],
+            [{"key": "Summer", "val": 5.70}, {"key": "Winter", "val": 0}],
             A1_10_FLAT_DEMAND_SCHED,
         ),
         (
             "E19, Medium General Service, Secondary",
             [
-                {"key": "Summer Peak", "val": 0.105},
-                {"key": "Summer Part-Peak", "val": 0.065},
-                {"key": "Summer Off-Peak", "val": 0.040},
-                {"key": "Winter Part-Peak", "val": 0.059},
-                {"key": "Winter Off-Peak", "val": 0.045},
+                {"key": "Summer Peak", "val": 0.118},
+                {"key": "Summer Part-Peak", "val": 0.071},
+                {"key": "Summer Off-Peak", "val": 0.039},
+                {"key": "Winter Part-Peak", "val": 0.064},
+                {"key": "Winter Off-Peak", "val": 0.047},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
             [
-                {"key": "Summer Peak Demand", "val": 12.60},
-                {"key": "Summer Part-Peak Demand", "val": 3.10},
+                {"key": "Summer Peak Demand", "val": 14.78},
+                {"key": "Summer Part-Peak Demand", "val": 3.65},
                 {"key": "Summer Off-Peak Demand", "val": 0},
                 {"key": "Winter Part-Peak Demand", "val": 0},
                 {"key": "Winter Off-Peak Demand", "val": 0},
@@ -237,17 +237,17 @@ def run(*args):
         (
             "E19, Medium General Service, Primary",
             [
-                {"key": "Summer Peak", "val": 0.097},
-                {"key": "Summer Part-Peak", "val": 0.058},
-                {"key": "Summer Off-Peak", "val": 0.035},
-                {"key": "Winter Part-Peak", "val": 0.053},
+                {"key": "Summer Peak", "val": 0.107},
+                {"key": "Summer Part-Peak", "val": 0.062},
+                {"key": "Summer Off-Peak", "val": 0.033},
+                {"key": "Winter Part-Peak", "val": 0.056},
                 {"key": "Winter Off-Peak", "val": 0.040},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
             [
-                {"key": "Summer Peak Demand", "val": 11.25},
-                {"key": "Summer Part-Peak Demand", "val": 2.75},
+                {"key": "Summer Peak Demand", "val": 13.15},
+                {"key": "Summer Part-Peak Demand", "val": 3.20},
                 {"key": "Summer Off-Peak Demand", "val": 0},
                 {"key": "Winter Part-Peak Demand", "val": 0},
                 {"key": "Winter Off-Peak Demand", "val": 0},
@@ -260,17 +260,17 @@ def run(*args):
         (
             "E19, Medium General Service, Transmission",
             [
-                {"key": "Summer Peak", "val": 0.060},
-                {"key": "Summer Part-Peak", "val": 0.048},
-                {"key": "Summer Off-Peak", "val": 0.034},
-                {"key": "Winter Part-Peak", "val": 0.050},
-                {"key": "Winter Off-Peak", "val": 0.038},
+                {"key": "Summer Peak", "val": 0.065},
+                {"key": "Summer Part-Peak", "val": 0.050},
+                {"key": "Summer Off-Peak", "val": 0.031},
+                {"key": "Winter Part-Peak", "val": 0.052},
+                {"key": "Winter Off-Peak", "val": 0.037},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
             [
-                {"key": "Summer Peak Demand", "val": 12.40},
-                {"key": "Summer Part-Peak Demand", "val": 3.10},
+                {"key": "Summer Peak Demand", "val": 14.46},
+                {"key": "Summer Part-Peak Demand", "val": 3.62},
                 {"key": "Summer Off-Peak Demand", "val": 0},
                 {"key": "Winter Part-Peak Demand", "val": 0},
                 {"key": "Winter Off-Peak Demand", "val": 0},
@@ -283,11 +283,11 @@ def run(*args):
         (
             "E19R, Medium General Service, Secondary",
             [
-                {"key": "Summer Peak", "val": 0.240},
-                {"key": "Summer Part-Peak", "val": 0.095},
-                {"key": "Summer Off-Peak", "val": 0.039},
-                {"key": "Winter Part-Peak", "val": 0.060},
-                {"key": "Winter Off-Peak", "val": 0.045},
+                {"key": "Summer Peak", "val": 0.302},
+                {"key": "Summer Part-Peak", "val": 0.135},
+                {"key": "Summer Off-Peak", "val": 0.068},
+                {"key": "Winter Part-Peak", "val": 0.092},
+                {"key": "Winter Off-Peak", "val": 0.076},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
@@ -300,11 +300,11 @@ def run(*args):
         (
             "E19R, Medium General Service, Primary",
             [
-                {"key": "Summer Peak", "val": 0.230},
-                {"key": "Summer Part-Peak", "val": 0.088},
-                {"key": "Summer Off-Peak", "val": 0.034},
-                {"key": "Winter Part-Peak", "val": 0.053},
-                {"key": "Winter Off-Peak", "val": 0.040},
+                {"key": "Summer Peak", "val": 0.285},
+                {"key": "Summer Part-Peak", "val": 0.122},
+                {"key": "Summer Off-Peak", "val": 0.059},
+                {"key": "Winter Part-Peak", "val": 0.081},
+                {"key": "Winter Off-Peak", "val": 0.066},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
@@ -317,11 +317,11 @@ def run(*args):
         (
             "E19R, Medium General Service, Transmission",
             [
-                {"key": "Summer Peak", "val": 0.230},
-                {"key": "Summer Part-Peak", "val": 0.085},
-                {"key": "Summer Off-Peak", "val": 0.032},
-                {"key": "Winter Part-Peak", "val": 0.050},
-                {"key": "Winter Off-Peak", "val": 0.038},
+                {"key": "Summer Peak", "val": 0.281},
+                {"key": "Summer Part-Peak", "val": 0.126},
+                {"key": "Summer Off-Peak", "val": 0.063},
+                {"key": "Winter Part-Peak", "val": 0.084},
+                {"key": "Winter Off-Peak", "val": 0.070},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
@@ -334,17 +334,17 @@ def run(*args):
         (
             "E20, Large General Service, Secondary",
             [
-                {"key": "Summer Peak", "val": 0.095},
-                {"key": "Summer Part-Peak", "val": 0.060},
+                {"key": "Summer Peak", "val": 0.109},
+                {"key": "Summer Part-Peak", "val": 0.066},
                 {"key": "Summer Off-Peak", "val": 0.036},
-                {"key": "Winter Part-Peak", "val": 0.055},
-                {"key": "Winter Off-Peak", "val": 0.041},
+                {"key": "Winter Part-Peak", "val": 0.059},
+                {"key": "Winter Off-Peak", "val": 0.043},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
             [
-                {"key": "Summer Peak Demand", "val": 12.20},
-                {"key": "Summer Part-Peak Demand", "val": 3.00},
+                {"key": "Summer Peak Demand", "val": 14.34},
+                {"key": "Summer Part-Peak Demand", "val": 3.53},
                 {"key": "Summer Off-Peak Demand", "val": 0},
                 {"key": "Winter Part-Peak Demand", "val": 0},
                 {"key": "Winter Off-Peak Demand", "val": 0},
@@ -357,17 +357,17 @@ def run(*args):
         (
             "E20, Large General Service, Primary",
             [
-                {"key": "Summer Peak", "val": 0.102},
-                {"key": "Summer Part-Peak", "val": 0.061},
+                {"key": "Summer Peak", "val": 0.113},
+                {"key": "Summer Part-Peak", "val": 0.066},
                 {"key": "Summer Off-Peak", "val": 0.037},
-                {"key": "Winter Part-Peak", "val": 0.056},
-                {"key": "Winter Off-Peak", "val": 0.042},
+                {"key": "Winter Part-Peak", "val": 0.060},
+                {"key": "Winter Off-Peak", "val": 0.044},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
             [
-                {"key": "Summer Peak Demand", "val": 13.40},
-                {"key": "Summer Part-Peak Demand", "val": 3.15},
+                {"key": "Summer Peak Demand", "val": 15.70},
+                {"key": "Summer Part-Peak Demand", "val": 3.71},
                 {"key": "Summer Off-Peak Demand", "val": 0},
                 {"key": "Winter Part-Peak Demand", "val": 0},
                 {"key": "Winter Off-Peak Demand", "val": 0},
@@ -380,17 +380,17 @@ def run(*args):
         (
             "E20, Large General Service, Transmission",
             [
-                {"key": "Summer Peak", "val": 0.062},
-                {"key": "Summer Part-Peak", "val": 0.049},
+                {"key": "Summer Peak", "val": 0.067},
+                {"key": "Summer Part-Peak", "val": 0.053},
                 {"key": "Summer Off-Peak", "val": 0.034},
-                {"key": "Winter Part-Peak", "val": 0.051},
-                {"key": "Winter Off-Peak", "val": 0.039},
+                {"key": "Winter Part-Peak", "val": 0.055},
+                {"key": "Winter Off-Peak", "val": 0.040},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
             [
-                {"key": "Summer Peak Demand", "val": 15.85},
-                {"key": "Summer Part-Peak Demand", "val": 3.75},
+                {"key": "Summer Peak Demand", "val": 18.72},
+                {"key": "Summer Part-Peak Demand", "val": 4.46},
                 {"key": "Summer Off-Peak Demand", "val": 0},
                 {"key": "Winter Part-Peak Demand", "val": 0},
                 {"key": "Winter Off-Peak Demand", "val": 0},
@@ -403,11 +403,11 @@ def run(*args):
         (
             "E20R, Large General Service, Secondary",
             [
-                {"key": "Summer Peak", "val": 0.220},
-                {"key": "Summer Part-Peak", "val": 0.090},
-                {"key": "Summer Off-Peak", "val": 0.037},
-                {"key": "Winter Part-Peak", "val": 0.055},
-                {"key": "Winter Off-Peak", "val": 0.042},
+                {"key": "Summer Peak", "val": 0.276},
+                {"key": "Summer Part-Peak", "val": 0.127},
+                {"key": "Summer Off-Peak", "val": 0.064},
+                {"key": "Winter Part-Peak", "val": 0.086},
+                {"key": "Winter Off-Peak", "val": 0.071},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
@@ -420,11 +420,11 @@ def run(*args):
         (
             "E20R, Large General Service, Primary",
             [
-                {"key": "Summer Peak", "val": 0.240},
-                {"key": "Summer Part-Peak", "val": 0.089},
-                {"key": "Summer Off-Peak", "val": 0.037},
-                {"key": "Winter Part-Peak", "val": 0.055},
-                {"key": "Winter Off-Peak", "val": 0.042},
+                {"key": "Summer Peak", "val": 0.291},
+                {"key": "Summer Part-Peak", "val": 0.123},
+                {"key": "Summer Off-Peak", "val": 0.061},
+                {"key": "Winter Part-Peak", "val": 0.083},
+                {"key": "Winter Off-Peak", "val": 0.068},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
@@ -437,11 +437,11 @@ def run(*args):
         (
             "E20R, Large General Service, Transmission",
             [
-                {"key": "Summer Peak", "val": 0.230},
-                {"key": "Summer Part-Peak", "val": 0.084},
-                {"key": "Summer Off-Peak", "val": 0.035},
-                {"key": "Winter Part-Peak", "val": 0.051},
-                {"key": "Winter Off-Peak", "val": 0.040},
+                {"key": "Summer Peak", "val": 0.289},
+                {"key": "Summer Part-Peak", "val": 0.121},
+                {"key": "Summer Off-Peak", "val": 0.061},
+                {"key": "Winter Part-Peak", "val": 0.082},
+                {"key": "Winter Off-Peak", "val": 0.067},
             ],
             DEFAULT_V1_WEEKDAY_SCHEDULE,
             DEFAULT_V1_WEEKEND_SCHEDULE,
@@ -512,7 +512,7 @@ def run(*args):
             rate_data[i]["sourceReference"] = SOURCE
         rate_data[i]["sector"] = "Commercial"
         rate_data[i]["effectiveDate"] = {
-            "$date": int(datetime(2018, 4, 1, 0, 0).timestamp() * 1000)
+            "$date": int(datetime(2019, 7, 1, 0, 0).timestamp() * 1000)
         }
 
     with open(destination, "w") as fp:
