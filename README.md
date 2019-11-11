@@ -145,6 +145,17 @@ Example: Load data from a local file.
 python manage.py runscript cost.utility_rate.scripts.ingest_openei_utility_rates --script-args "MCE Clean Energy" cost/utility_rate/scripts/data/mce_residential_rates_20180501.json
 ```
 
+### Resource Adequacy Load Curve
+
+The following script will ingest a LSE's load curve, which will be used as the starting point for calculating the net impact of a DER's load impact on RA costs.
+
+```
+python manage.py runscript cost.procurement.scripts.ingest_system_profiles --script-args LSE_NAME CSV_FILE
+```
+
+* Where UTILITY_NAME is the name of a utility (ex. "MCE Clean Energy").
+* Where CSV_FILE is the location of a properly-formatted system-load-profile file to be used for ingestion.
+
 # DEVELOPER NOTES
 
 ## CODE FORMATTING

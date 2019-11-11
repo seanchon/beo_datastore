@@ -87,7 +87,7 @@ class DataFrameFile(ValidationDataFrame):
     @classmethod
     def get_frame_from_file(cls, reference_object):
         """
-        Returns DataFrameFile based on reference_object.id if it exists.
+        Return DataFrameFile based on reference_object.id if it exists.
 
         :param reference_object: reference object IntervalFrameFile belongs to
         :return: cls instance
@@ -127,7 +127,7 @@ class Frame288File(ValidationFrame288, DataFrameFile):
     @classmethod
     def get_frame_from_file(cls, reference_object, *args, **kwargs):
         """
-        Returns Frame288File based on reference_object.id if it exists. Convert
+        Return Frame288File based on reference_object.id if it exists. Convert
         columns to Int64 on get_frame_from_file().
 
         :param reference_object: reference object IntervalFrameFile belongs to

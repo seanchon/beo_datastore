@@ -133,7 +133,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
 
     def __add__(self, other):
         """
-        Returns another ValidationIntervalFrame added to self.
+        Return another ValidationIntervalFrame added to self.
 
         Steps:
             1. Keep existing intervals from self not found in other.
@@ -231,7 +231,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
     @property
     def days(self):
         """
-        Returns the number of days in the ValidationIntervalFrame that have
+        Return the number of days in the ValidationIntervalFrame that have
         interval data.
         """
         return len(self.distinct_dates)
@@ -258,35 +258,35 @@ class ValidationIntervalFrame(ValidationDataFrame):
     @cached_property
     def average_frame288(self):
         """
-        Returns a ValidationFrame288 of hourly average values in kWh.
+        Return a ValidationFrame288 of hourly average values in kWh.
         """
         return self.compute_frame288(aggfunc=np.mean, convert_to_kwh=True)
 
     @cached_property
     def minimum_frame288(self):
         """
-        Returns a ValidationFrame288 of hourly minimum values in kW.
+        Return a ValidationFrame288 of hourly minimum values in kW.
         """
         return self.compute_frame288(aggfunc=np.min)
 
     @cached_property
     def maximum_frame288(self):
         """
-        Returns a ValidationFrame288 of hourly maximum values in kW.
+        Return a ValidationFrame288 of hourly maximum values in kW.
         """
         return self.compute_frame288(aggfunc=np.max)
 
     @cached_property
     def total_frame288(self):
         """
-        Returns a ValidationFrame288 of hourly totals in kWh.
+        Return a ValidationFrame288 of hourly totals in kWh.
         """
         return self.compute_frame288(aggfunc=sum, convert_to_kwh=True)
 
     @cached_property
     def count_frame288(self):
         """
-        Returns a ValidationFrame288 of counts.
+        Return a ValidationFrame288 of counts.
         """
         return self.compute_frame288(aggfunc=len)
 
@@ -359,7 +359,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         self, start=pd.Timestamp.min, end_limit=pd.Timestamp.max
     ):
         """
-        Returns a ValidationIntervalFrame filtered by index beginning on and
+        Return a ValidationIntervalFrame filtered by index beginning on and
         including start and ending on but excluding end_limit.
 
         :param start: datetime object
@@ -374,7 +374,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
 
     def filter_by_weekday(self):
         """
-        Returns a ValidationIntervalFrame filtered by weekdays.
+        Return a ValidationIntervalFrame filtered by weekdays.
 
         :return: ValidationIntervalFrame
         """
@@ -384,7 +384,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
 
     def filter_by_weekend(self):
         """
-        Returns a ValidationIntervalFrame filtered by weekend days.
+        Return a ValidationIntervalFrame filtered by weekend days.
 
         :return: ValidationIntervalFrame
         """
@@ -394,7 +394,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
 
     def filter_by_months(self, months):
         """
-        Returns a ValidationIntervalFrame filtered by months.
+        Return a ValidationIntervalFrame filtered by months.
 
         :param months: set/list of integers (1-12)
         :return: ValidationIntervalFrame
@@ -421,7 +421,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
 
     def compute_frame288(self, aggfunc, convert_to_kwh=False, default_value=0):
         """
-        Returns a 12-month by 24-hour (12 x 24 = 288) ValidationFrame288 where
+        Return a 12-month by 24-hour (12 x 24 = 288) ValidationFrame288 where
         each cell represents an aggregate computation on all intervals in that
         particular month and hour.
 
@@ -503,7 +503,7 @@ class ValidationFrame288(ValidationDataFrame):
 
     def __add__(self, other):
         """
-        Returns self plus other.
+        Return self plus other.
 
         :param other: ValidationFrame288
         :return: ValidationFrame288
@@ -513,7 +513,7 @@ class ValidationFrame288(ValidationDataFrame):
 
     def __sub__(self, other):
         """
-        Returns self minus other.
+        Return self minus other.
 
         :param other: ValidationFrame288
         :return: ValidationFrame288
@@ -523,7 +523,7 @@ class ValidationFrame288(ValidationDataFrame):
 
     def __mul__(self, other):
         """
-        Returns self times other.
+        Return self times other.
 
         :param other: ValidationFrame288
         :return: ValidationFrame288
@@ -533,7 +533,7 @@ class ValidationFrame288(ValidationDataFrame):
 
     def __truediv__(self, other):
         """
-        Returns self divided by other.
+        Return self divided by other.
 
         :param other: ValidationFrame288
         :return: ValidationFrame288
@@ -621,7 +621,7 @@ class ValidationFrame288(ValidationDataFrame):
 
     def get_mask(self, key):
         """
-        Returns ValidationFrame288 of True values when cell value matches key
+        Return ValidationFrame288 of True values when cell value matches key
         and False values otherwise.
 
         :param key: key of any type

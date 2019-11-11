@@ -31,7 +31,7 @@ def get_links(url, filter_string):
 
 def get_commercial_load_data_directories(url, state):
     """
-    Returns all directory links (CA only) from:
+    Return all directory links (CA only) from:
 
     https://openei.org/datasets/files/961/pub
     /COMMERCIAL_LOAD_DATA_E_PLUS_OUTPUT/
@@ -41,7 +41,7 @@ def get_commercial_load_data_directories(url, state):
 
 def get_all_commercial_load_data_links(url, state):
     """
-    Returns all .csv files located in sub directories.
+    Return all .csv files located in sub directories.
     """
     links = []
     for base_dir in get_commercial_load_data_directories(url, state):

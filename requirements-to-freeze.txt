@@ -3,6 +3,7 @@ black
 bs4
 cached-property
 coverage
+docutils
 Django
 django-allauth
 django-auto-repr
