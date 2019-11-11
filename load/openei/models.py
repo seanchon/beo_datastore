@@ -158,7 +158,7 @@ class ReferenceBuilding(IntervalFrameFileMixin, ValidationModel):
     @property
     def full_intervalframe(self):
         """
-        Returns IntervalFrameFile sourced from the source_file_url or cached
+        Return IntervalFrameFile sourced from the source_file_url or cached
         locally. If sourced from source_file_url, performs save() to disk.
         """
         if not hasattr(self, "_intervalframe"):
@@ -177,7 +177,7 @@ class ReferenceBuilding(IntervalFrameFileMixin, ValidationModel):
     @property
     def intervalframe(self):
         """
-        Returns ValidationIntervalFrame using self.full_intervalframe using the
+        Return ValidationIntervalFrame using self.full_intervalframe using the
         column representing building total usage.
         """
         return ValidationIntervalFrame(
@@ -191,27 +191,27 @@ class ReferenceBuilding(IntervalFrameFileMixin, ValidationModel):
     @property
     def total_288(self):
         """
-        Returns a 12 x 24 dataframe of totals (sums).
+        Return a 12 x 24 dataframe of totals (sums).
         """
         return self.intervalframe.total_frame288.dataframe
 
     @property
     def average_288(self):
         """
-        Returns a 12 x 24 dataframe of averages.
+        Return a 12 x 24 dataframe of averages.
         """
         return self.intervalframe.average_frame288.dataframe
 
     @property
     def peak_288(self):
         """
-        Returns a 12 x 24 dataframe of peaks.
+        Return a 12 x 24 dataframe of peaks.
         """
         return self.intervalframe.maximum_frame288.dataframe
 
     @property
     def count_288(self):
         """
-        Returns a 12 x 24 dataframe of counts.
+        Return a 12 x 24 dataframe of counts.
         """
         return self.intervalframe.count_frame288.dataframe
