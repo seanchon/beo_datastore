@@ -65,12 +65,7 @@ class ChannelAdmin(admin.ModelAdmin):
 
 class CustomerClusterInline(admin.TabularInline):
     model = CustomerCluster
-    readonly_fields = [
-        "id",
-        "cluster_id",
-        "number_of_meters",
-        "frame288_html_plot",
-    ]
+    readonly_fields = ["id", "cluster_id", "meter_count", "frame288_html_plot"]
     exclude = ["meters"]
 
 
@@ -88,7 +83,7 @@ class CustomerPopulationAdmin(admin.ModelAdmin):
 
 @admin.register(CustomerCluster)
 class CustomerClusterAdmin(admin.ModelAdmin):
-    readonly_fields = ["number_of_meters", "frame288_html_plot"]
+    readonly_fields = ["meter_count", "frame288_html_plot"]
     search_fields = [
         "customer_population__id",
         "customer_population__name",

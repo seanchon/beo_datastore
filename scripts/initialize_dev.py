@@ -40,6 +40,13 @@ def parse_arguments():
         dest="test_data",
         help="import test data",
     )
+    parser.add_argument(
+        "-d",
+        "--demo-data",
+        action="store_true",
+        dest="demo_data",
+        help="import demo data",
+    )
     return parser.parse_args()
 
 
@@ -72,6 +79,13 @@ if __name__ == "__main__":
             "beo_datastore.scripts.load_data",
             "--script-args",
             "test",
+        )
+    elif args.demo_data:
+        call_command(
+            "runscript",
+            "beo_datastore.scripts.load_data",
+            "--script-args",
+            "demo",
         )
     else:
         call_command("runscript", "beo_datastore.scripts.load_data")

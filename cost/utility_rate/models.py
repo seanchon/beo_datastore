@@ -326,8 +326,8 @@ class StoredBillCalculation(ValidationModel):
         )
 
     @property
-    def meter(self):
-        return self.battery_simulation.meter
+    def meter_intervalframe(self):
+        return self.battery_simulation.meter_intervalframe
 
     @cached_property
     def date_ranges(self):
@@ -347,7 +347,7 @@ class StoredBillCalculation(ValidationModel):
         Return dictionary of pre-DER bills.
         """
         return {
-            self.meter: {
+            self.meter_intervalframe: {
                 x.start: x.pre_DER_validation_bill
                 for x in self.bill_comparisons.all()
             }
@@ -359,7 +359,7 @@ class StoredBillCalculation(ValidationModel):
         Return dictionary of post-DER bills.
         """
         return {
-            self.meter: {
+            self.meter_intervalframe: {
                 x.start: x.post_DER_validation_bill
                 for x in self.bill_comparisons.all()
             }
@@ -421,7 +421,7 @@ class StoredBillCalculation(ValidationModel):
         )
         """
         with transaction.atomic():
-            meter = battery_simulation.meter
+            meter_intervalframe = battery_simulation.meter_intervalframe
             bill_collection, new = cls.objects.get_or_create(
                 battery_simulation=battery_simulation, rate_plan=rate_plan
             )
@@ -440,10 +440,14 @@ class StoredBillCalculation(ValidationModel):
                         start=start,
                         end_limit=end_limit,
                         pre_DER_total=(
-                            agg_bill_calculation.pre_bills[meter][start].total
+                            agg_bill_calculation.pre_bills[
+                                meter_intervalframe
+                            ][start].total
                         ),
                         post_DER_total=(
-                            agg_bill_calculation.post_bills[meter][start].total
+                            agg_bill_calculation.post_bills[
+                                meter_intervalframe
+                            ][start].total
                         ),
                         bill_collection=bill_collection,
                     )

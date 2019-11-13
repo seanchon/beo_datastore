@@ -177,7 +177,7 @@ class TestBattery(TestCase):
         Test the retrieval of battery simulation elements from disk/database.
         """
         StoredBatterySimulation.get_or_create_from_objects(
-            meter=self.meter, simulation=self.simulation
+            meter_intervalframe=self.meter, simulation=self.simulation
         )
 
         # retrieve simulation from disk
@@ -206,7 +206,7 @@ class TestBattery(TestCase):
             battery=self.battery,
             start=self.intervalframe.start_datetime,
             end_limit=self.intervalframe.end_limit_datetime,
-            meter_set={self.meter},
+            meter_intervalframe_set={self.meter},
             charge_schedule=self.charge_schedule,
             discharge_schedule=self.discharge_schedule,
             multiprocess=False,
@@ -217,7 +217,7 @@ class TestBattery(TestCase):
             battery=self.battery,
             start=self.intervalframe.start_datetime,
             end_limit=self.intervalframe.end_limit_datetime,
-            meter_set={self.meter},
+            meter_intervalframe_set={self.meter},
             charge_schedule=self.charge_schedule,
             discharge_schedule=self.discharge_schedule,
         )
