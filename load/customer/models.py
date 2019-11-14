@@ -23,10 +23,14 @@ from beo_datastore.libs.plot_intervalframe import (
 )
 from beo_datastore.settings import MEDIA_ROOT
 
-from reference.reference_model.models import DataUnit, LoadServingEntity
+from reference.reference_model.models import (
+    DataUnit,
+    LoadServingEntity,
+    MeterIntervalFrame,
+)
 
 
-class Meter(ValidationModel):
+class Meter(MeterIntervalFrame):
     """
     A Meter is a connection point to the Utility's distribution grid
     identified by a Service Address Identifier (sa_id).
@@ -119,54 +123,6 @@ class Meter(ValidationModel):
         )
 
     @property
-    def intervalframe_html_plot(self):
-        """
-        Return Django-formatted HTML intervalframe plt.
-        """
-        return plot_intervalframe(
-            intervalframe=self.intervalframe, y_label="kw", to_html=True
-        )
-
-    @property
-    def average_vs_maximum_html_plot(self):
-        """
-        Return Django-formatted HTML average vs maximum 288 plt.
-        """
-        return plot_frame288_monthly_comparison(
-            original_frame288=self.intervalframe.average_frame288,
-            modified_frame288=self.intervalframe.maximum_frame288,
-            to_html=True,
-        )
-
-    @property
-    def total_288(self):
-        """
-        Return a 12 x 24 dataframe of totals (sums).
-        """
-        return self.intervalframe.total_frame288.dataframe
-
-    @property
-    def average_288(self):
-        """
-        Return a 12 x 24 dataframe of averages.
-        """
-        return self.intervalframe.average_frame288.dataframe
-
-    @property
-    def peak_288(self):
-        """
-        Return a 12 x 24 dataframe of peaks.
-        """
-        return self.intervalframe.minimum_frame288.dataframe
-
-    @property
-    def count_288(self):
-        """
-        Return a 12 x 24 dataframe of counts.
-        """
-        return self.intervalframe.count_frame288.dataframe
-
-    @property
     def import_channel(self):
         try:
             return self.channels.get(export=False)
@@ -179,21 +135,6 @@ class Meter(ValidationModel):
             return self.channels.get(export=True)
         except Channel.DoesNotExist:
             return None
-
-
-class ChannelQuerySet(models.QuerySet):
-    """
-    Overloads QuerySet operations for bulk file-handling.
-    """
-
-    def delete(self, *args, **kwargs):
-        """
-        Bulk delete IntervalFrameFile files from disk.
-        """
-        # TODO: Create a quicker cleanup method.
-        for obj in self:
-            obj.intervalframe.delete()
-        super().delete(*args, **kwargs)
 
 
 class ChannelIntervalFrame(IntervalFrameFile):
@@ -222,9 +163,6 @@ class Channel(IntervalFrameFileMixin, ValidationModel):
 
     # Required by IntervalFrameFileMixin.
     frame_file_class = ChannelIntervalFrame
-
-    # custom QuerySet manager for frame file-handling
-    objects = ChannelQuerySet.as_manager()
 
     class Meta:
         ordering = ["id"]

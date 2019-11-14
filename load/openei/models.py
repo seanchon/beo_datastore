@@ -12,25 +12,14 @@ from django.utils.functional import cached_property
 from beo_datastore.libs.dataframe import csv_url_to_dataframe
 from beo_datastore.libs.intervalframe import ValidationIntervalFrame
 from beo_datastore.libs.intervalframe_file import IntervalFrameFile
-from beo_datastore.libs.models import ValidationModel, IntervalFrameFileMixin
+from beo_datastore.libs.models import IntervalFrameFileMixin
 from beo_datastore.settings import MEDIA_ROOT
 
-from reference.reference_model.models import BuildingType, DataUnit
-
-
-class ReferenceBuildingQuerySet(models.QuerySet):
-    """
-    Overloads QuerySet operations for bulk file-handling.
-    """
-
-    def delete(self, *args, **kwargs):
-        """
-        Bulk delete IntervalFrameFile files from disk.
-        """
-        # TODO: Create a quicker cleanup method.
-        for obj in self:
-            obj.intervalframe.delete()
-        super().delete(*args, **kwargs)
+from reference.reference_model.models import (
+    BuildingType,
+    DataUnit,
+    MeterIntervalFrame,
+)
 
 
 class ReferenceBuildingIntervalFrame(IntervalFrameFile):
@@ -80,7 +69,7 @@ class ReferenceBuildingIntervalFrame(IntervalFrameFile):
             pass
 
 
-class ReferenceBuilding(IntervalFrameFileMixin, ValidationModel):
+class ReferenceBuilding(IntervalFrameFileMixin, MeterIntervalFrame):
     """
     OpenEI: Commercial and Residential Hourly Load Profiles for all TMY3
     Locations in the United States.
@@ -113,9 +102,6 @@ class ReferenceBuilding(IntervalFrameFileMixin, ValidationModel):
 
     # Required by IntervalFrameFileMixin.
     frame_file_class = ReferenceBuildingIntervalFrame
-
-    # custom QuerySet manager for intervalframe file-handling
-    objects = ReferenceBuildingQuerySet.as_manager()
 
     def __str__(self):
         return self.building_type.name + ": " + self.location
@@ -187,31 +173,3 @@ class ReferenceBuilding(IntervalFrameFileMixin, ValidationModel):
                 columns={self.full_intervalframe.aggregation_column: "kw"}
             )
         )
-
-    @property
-    def total_288(self):
-        """
-        Return a 12 x 24 dataframe of totals (sums).
-        """
-        return self.intervalframe.total_frame288.dataframe
-
-    @property
-    def average_288(self):
-        """
-        Return a 12 x 24 dataframe of averages.
-        """
-        return self.intervalframe.average_frame288.dataframe
-
-    @property
-    def peak_288(self):
-        """
-        Return a 12 x 24 dataframe of peaks.
-        """
-        return self.intervalframe.maximum_frame288.dataframe
-
-    @property
-    def count_288(self):
-        """
-        Return a 12 x 24 dataframe of counts.
-        """
-        return self.intervalframe.count_frame288.dataframe

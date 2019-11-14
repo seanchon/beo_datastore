@@ -1,7 +1,17 @@
 [
-{
+  {
+    "model": "reference_model.meterintervalframe",
+    "pk": 4,
+    "fields": {
+      "polymorphic_ctype": [
+        "openei",
+        "referencebuilding"
+      ]
+    }
+  },
+  {
   "model": "openei.referencebuilding",
-  "pk": 1,
+  "pk": 4,
   "fields": {
     "location": "Alturas",
     "state": "CA",
