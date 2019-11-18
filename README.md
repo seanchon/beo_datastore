@@ -39,6 +39,12 @@ Optional test data including sample meters and utility rates can be added with t
 python scripts/initialize_dev.py --full --test
 ```
 
+Optional reference building and rate data from OpenEI to be used with demo scripts can be added with the following flag.
+
+```
+python scripts/initialize_dev.py --full --demo
+```
+
 # LAUNCHING THE DEVELOPMENT APPLICATION
 
 After each initialization of the dev environment, you will want to create a superuser for site access.
@@ -81,6 +87,12 @@ Optional test data including sample meters and utility rates can be added with t
 
 ```
 python manage.py runscript beo_datastore.scripts.load_data --script-args test
+```
+
+OpenEI data, which is required for some demo notebooks, can be loaded with the following flag.
+
+```
+python manage.py runscript beo_datastore.scripts.load_data --script-args demo
 ```
 
 ## Electricity Load Data

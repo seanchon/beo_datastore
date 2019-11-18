@@ -244,6 +244,8 @@ class CustomerPopulation(ValidationModel):
         to=LoadServingEntity,
         related_name="customer_populations",
         on_delete=models.CASCADE,
+        blank=True,
+        null=True,
     )
 
     class Meta:
@@ -255,68 +257,69 @@ class CustomerPopulation(ValidationModel):
             "load_serving_entity",
         ]
 
-    def __str__(self):
-        normalized = " normalize" if self.normalize else ""
-        return "{}: {} {}{} ({} clusters)".format(
-            self.load_serving_entity.name,
-            self.name,
-            self.frame288_type,
-            normalized,
-            self.number_of_clusters,
-        )
-
     @property
     def number_of_clusters(self):
+        """
+        Number of associated CustomerCluster objects.
+        """
         return self.customer_clusters.count()
 
     @property
-    def number_of_meters(self):
-        return sum([x.meters.count() for x in self.customer_clusters.all()])
+    def meter_intervalframes(self):
+        """
+        QuerySet of all MeterIntervalFrame objects in associated
+        CustomerCluster objects.
+        """
+        return reduce(
+            lambda x, y: x | y,
+            [
+                x.meter_intervalframes.all()
+                for x in self.customer_clusters.all()
+            ],
+            MeterIntervalFrame.objects.none(),
+        )
+
+    @property
+    def meter_count(self):
+        """
+        Number of associated MeterIntervalFrame objects.
+        """
+        return self.meter_intervalframes.count()
 
     @classmethod
     def generate(
         cls,
-        load_serving_entity,
-        meters,
+        name,
+        meter_intervalframes,
         frame288_type,
         number_of_clusters,
         normalize,
+        load_serving_entity=None,
     ):
         """
         Create a CustomerPopulation and related CustomerClusters.
 
-        :param load_serving_entity: LoadServingEntity
-        :param meters: Meter QuerySet
+        :param name: name of CustomerPopulation
+        :param meter_intervalframes: MeterIntervalFrame QuerySet
         :param frame288_type: choice - "average_frame288", "minimum_frame288",
             "maximum_frame288", "total_frame288", "count_frame288"
         :param number_of_clusters: number of clusters to create
         :param normalize: True to normalize all ValidationFrame288s to create
             values ranging between -1 and 1
+        :param load_serving_entity: LoadServingEntity
         :return CustomerPopulation:
         """
-        # filter Meters to those of a particular LoadServingEntity
-        meters = meters.filter(load_serving_entity=load_serving_entity)
-
-        # generate name based on Meters' RatePlans and count
-        name = " ".join(
-            meters.order_by()
-            .values_list("rate_plan_name", flat=True)
-            .distinct()
-        )
-        name += " (count: {})".format(meters.count())
-
-        # return existing population if one already exists
+        # return exising CustomerPopulation with same meter_intervalframes
         existing_populations = cls.objects.filter(
-            name=name,
             frame288_type=frame288_type,
             normalize=normalize,
-            load_serving_entity=load_serving_entity,
-        )
+            customer_clusters__meter_intervalframes__in=meter_intervalframes,
+        ).distinct()
         if existing_populations:
             return existing_populations.first()
 
         clustering = KMeansLoadClustering(
-            objects=meters,
+            objects=meter_intervalframes,
             frame288_type=frame288_type,
             number_of_clusters=number_of_clusters,
             normalize=normalize,
@@ -340,7 +343,9 @@ class CustomerPopulation(ValidationModel):
                     i
                 ).dataframe,
             )
-            cluster.meters.add(*clustering.get_objects_by_cluster_id(i))
+            cluster.meter_intervalframes.add(
+                *clustering.get_objects_by_cluster_id(i)
+            )
 
         return population
 
@@ -366,7 +371,9 @@ class CustomerCluster(Frame288FileMixin, ValidationModel):
         related_name="customer_clusters",
         on_delete=models.CASCADE,
     )
-    meters = models.ManyToManyField(to=Meter, related_name="customer_clusters")
+    meter_intervalframes = models.ManyToManyField(
+        to=MeterIntervalFrame, related_name="customer_clusters"
+    )
 
     # Required by Frame288FileMixin.
     frame_file_class = CustomerClusterFrame288
@@ -376,8 +383,7 @@ class CustomerCluster(Frame288FileMixin, ValidationModel):
 
     def __str__(self):
         normalized = " normalize" if self.customer_population.normalize else ""
-        return "{}: {} {}{} ({} of {}, ID: {})".format(
-            self.customer_population.load_serving_entity.name,
+        return "{} {}{} ({} of {}, ID: {})".format(
             self.customer_population.name,
             self.customer_population.frame288_type,
             normalized,
@@ -387,8 +393,8 @@ class CustomerCluster(Frame288FileMixin, ValidationModel):
         )
 
     @property
-    def number_of_meters(self):
-        return self.meters.count()
+    def meter_count(self):
+        return self.meter_intervalframes.count()
 
     @property
     def frame288_html_plot(self):

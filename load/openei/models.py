@@ -108,6 +108,14 @@ class ReferenceBuilding(IntervalFrameFileMixin, MeterIntervalFrame):
 
     class Meta:
         ordering = ["id"]
+        unique_together = (
+            "location",
+            "state",
+            "TMY3_id",
+            "source_file_url",
+            "building_type",
+            "data_unit",
+        )
 
     @property
     def timezone(self):

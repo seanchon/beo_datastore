@@ -23,8 +23,12 @@ from der.simulation.models import (
     BatteryStrategy,
     StoredBatterySimulation,
 )
-from load.customer.models import Meter, CustomerCluster
-from reference.reference_model.models import LoadServingEntity
+from load.customer.models import CustomerCluster, Meter
+from load.openei.models import ReferenceBuilding
+from reference.reference_model.models import (
+    LoadServingEntity,
+    MeterIntervalFrame,
+)
 
 
 class SimulationOptimization(ValidationModel):
@@ -76,8 +80,10 @@ class SimulationOptimization(ValidationModel):
     customer_clusters = models.ManyToManyField(
         to=CustomerCluster, related_name="simulation_optimizations", blank=True
     )
-    meters = models.ManyToManyField(
-        to=Meter, related_name="simulation_optimizations", blank=True
+    meter_intervalframes = models.ManyToManyField(
+        to=MeterIntervalFrame,
+        related_name="simulation_optimizations",
+        blank=True,
     )
 
     class Meta:
@@ -108,12 +114,15 @@ class SimulationOptimization(ValidationModel):
     @property
     def customer_cluster_meters(self):
         """
-        QuerySet of Meters from all customer_clusters.
+        QuerySet of MeterIntervalFrames from all customer_clusters.
         """
         return reduce(
             lambda x, y: x | y,
-            [x.meters.all() for x in self.customer_clusters.all()],
-            Meter.objects.none(),
+            [
+                x.meter_intervalframes.all()
+                for x in self.customer_clusters.all()
+            ],
+            MeterIntervalFrame.objects.none(),
         )
 
     @property
@@ -138,7 +147,7 @@ class SimulationOptimization(ValidationModel):
         return StoredBatterySimulation.objects.filter(
             start=self.start,
             end_limit=self.end_limit,
-            meter__in=self.meters.all(),
+            meter_intervalframe__in=self.meter_intervalframes.all(),
             battery_configuration=self.battery_configuration,
             battery_strategy=self.battery_strategy,
         )
@@ -241,7 +250,9 @@ class SimulationOptimization(ValidationModel):
         report["BatteryStrategy"] = self.battery_strategy.name
         report["SimulationRatePlan"] = self.rate_plan.name
 
-        return report.join(self.meter_report, how="outer")
+        return report.join(self.meter_report, how="outer").join(
+            self.reference_building_report, how="outer"
+        )
 
     @property
     def detailed_report_html_table(self):
@@ -280,7 +291,7 @@ class SimulationOptimization(ValidationModel):
             sorted(
                 [
                     (
-                        x.meter.sa_id,
+                        x.meter_intervalframe.id,
                         x.pre_DER_total,
                         x.post_DER_total,
                         x.net_impact,
@@ -294,12 +305,12 @@ class SimulationOptimization(ValidationModel):
         if not dataframe.empty:
             return dataframe.rename(
                 columns={
-                    0: "SA_ID",
+                    0: "ID",
                     1: "UsagePreDER",
                     2: "UsagePostDER",
                     3: "UsageDelta",
                 }
-            ).set_index("SA_ID")
+            ).set_index("ID")
         else:
             return pd.DataFrame()
 
@@ -312,7 +323,7 @@ class SimulationOptimization(ValidationModel):
             sorted(
                 [
                     (
-                        x.battery_simulation.meter.sa_id,
+                        x.battery_simulation.meter_intervalframe.id,
                         x.pre_DER_total,
                         x.post_DER_total,
                         x.net_impact,
@@ -326,12 +337,12 @@ class SimulationOptimization(ValidationModel):
         if not dataframe.empty:
             return dataframe.rename(
                 columns={
-                    0: "SA_ID",
+                    0: "ID",
                     1: "BillPreDER",
                     2: "BillPostDER",
                     3: "BillDelta",
                 }
-            ).set_index("SA_ID")
+            ).set_index("ID")
         else:
             return pd.DataFrame()
 
@@ -368,16 +379,37 @@ class SimulationOptimization(ValidationModel):
     @cached_property
     def meter_report(self):
         """
-        return pandas DataFrame with meter SA IDs and meter RatePlan.
+        Return pandas DataFrame with Meter SA IDs and RatePlans.
         """
         dataframe = pd.DataFrame(
-            self.meters.values_list("sa_id", "rate_plan_name")
+            Meter.objects.filter(
+                id__in=self.meter_intervalframes.values_list("id")
+            ).values_list("id", "sa_id", "rate_plan_name")
         )
 
         if not dataframe.empty:
             return dataframe.rename(
-                columns={0: "SA_ID", 1: "MeterRatePlan"}
-            ).set_index("SA_ID")
+                columns={0: "ID", 1: "SA ID", 2: "MeterRatePlan"}
+            ).set_index("ID")
+        else:
+            return pd.DataFrame()
+
+    @cached_property
+    def reference_building_report(self):
+        """
+        Return pandas DataFrame with ReferenceBuilding location and building
+        type.
+        """
+        dataframe = pd.DataFrame(
+            ReferenceBuilding.objects.filter(
+                id__in=self.meter_intervalframes.values_list("id")
+            ).values_list("id", "location", "building_type__name")
+        )
+
+        if not dataframe.empty:
+            return dataframe.rename(
+                columns={0: "ID", 1: "Location", 2: "Building Type"}
+            ).set_index("ID")
         else:
             return pd.DataFrame()
 
@@ -392,7 +424,7 @@ class SimulationOptimization(ValidationModel):
             sorted(
                 [
                     (
-                        x.battery_simulation.meter.sa_id,
+                        x.battery_simulation.meter_intervalframe.id,
                         x.pre_DER_total,
                         x.post_DER_total,
                         x.net_impact,
@@ -409,12 +441,12 @@ class SimulationOptimization(ValidationModel):
             )
             return dataframe.rename(
                 columns={
-                    0: "SA_ID",
+                    0: "ID",
                     1: "{}PreDER".format(name),
                     2: "{}PostDER".format(name),
                     3: "{}Delta".format(name),
                 }
-            ).set_index("SA_ID")
+            ).set_index("ID")
         else:
             return pd.DataFrame()
 
@@ -429,7 +461,7 @@ class SimulationOptimization(ValidationModel):
             sorted(
                 [
                     (
-                        x.battery_simulation.meter.sa_id,
+                        x.battery_simulation.meter_intervalframe.id,
                         x.pre_DER_total,
                         x.post_DER_total,
                         x.net_impact,
@@ -449,12 +481,12 @@ class SimulationOptimization(ValidationModel):
             )
             return dataframe.rename(
                 columns={
-                    0: "SA_ID",
+                    0: "ID",
                     1: "{}PeakPreDER".format(name),
                     2: "{}PeakPostDER".format(name),
                     3: "{}PeakDelta".format(name),
                 }
-            ).set_index("SA_ID")
+            ).set_index("ID")
         else:
             return pd.DataFrame()
 
@@ -463,19 +495,19 @@ class SimulationOptimization(ValidationModel):
         Run related StoredBatterySimulations, StoredBillCalculations and
         StoredGHGCalculations.
 
-        Note: Meters and GHGRates need to be added to object prior to
-        optimization.
+        Note: MeterIntervalFrames and GHGRates need to be added to object prior
+        to optimization.
 
         :param multiprocess: True to multiprocess
         """
-        # add Meters from CustomerClusters
+        # add MeterIntervalFrames from CustomerClusters
         self.initialize()
 
         battery_simulation_set = StoredBatterySimulation.generate(
             battery=self.battery_configuration.battery,
             start=self.start,
             end_limit=self.end_limit,
-            meter_set=self.meters.all(),
+            meter_intervalframe_set=self.meter_intervalframes.all(),
             charge_schedule=self.charge_schedule.frame288,
             discharge_schedule=self.discharge_schedule.frame288,
             multiprocess=multiprocess,
@@ -509,25 +541,27 @@ class SimulationOptimization(ValidationModel):
         query = "Bill_Delta > 0" only keeps meters where Bill_Delta is greater
         than 0.
         """
-        if self.meters.count() > 0:
+        if self.meter_intervalframes.count() > 0:
             df = ~self.detailed_report.eval(query)
-            sa_ids_to_remove = df.index[df == 1].tolist()
-            self.meters.remove(
-                *Meter.objects.filter(sa_id__in=sa_ids_to_remove)
+            ids_to_remove = df.index[df == 1].tolist()
+            self.meter_intervalframes.remove(
+                *MeterIntervalFrame.objects.filter(id__in=ids_to_remove)
             )
 
     def initialize(self):
         """
-        Attaches any Meters within attached CustomerClusters. Optimizations
-        are performed by removing meters until only the desired Meters are
-        attached to a SimulationOptimization. This method allows many
-        optimizations to be tried.
+        Attaches any MeterIntervalFrames within attached CustomerClusters.
+        Optimizations are performed by removing meters until only the desired
+        MeterIntervalFrames are attached to a SimulationOptimization. This
+        method allows many optimizations to be tried.
         """
-        self.meters.clear()
-        self.meters.add(*self.customer_cluster_meters)
+        self.meter_intervalframes.clear()
+        self.meter_intervalframes.add(*self.customer_cluster_meters)
 
 
-@receiver(m2m_changed, sender=SimulationOptimization.meters.through)
+@receiver(
+    m2m_changed, sender=SimulationOptimization.meter_intervalframes.through
+)
 def reset_cached_properties_update_meters(sender, **kwargs):
     """
     Reset cached properties whenever meters is updated. This resets any cached
@@ -539,7 +573,9 @@ def reset_cached_properties_update_meters(sender, **kwargs):
     simulation_optimization._reset_cached_properties()
 
 
-@receiver(m2m_changed, sender=SimulationOptimization.meters.through)
+@receiver(
+    m2m_changed, sender=SimulationOptimization.meter_intervalframes.through
+)
 def validate_meters_belong_to_lse(sender, **kwargs):
     """
     If load_serving_entity is set, this validation ensure meters not belonging
@@ -600,14 +636,18 @@ class MultiScenarioOptimization(ValidationModel):
         ordering = ["id"]
 
     @property
-    def meters(self):
+    def meter_intervalframes(self):
         """
-        Return QuerySet of Meters in all self.simulation_optimizations.
+        Return QuerySet of MeterIntervalFrames in all
+        self.simulation_optimizations.
         """
         return reduce(
             lambda x, y: x | y,
-            [x.meters.all() for x in self.simulation_optimizations.all()],
-            Meter.objects.none(),
+            [
+                x.meter_intervalframes.all()
+                for x in self.simulation_optimizations.all()
+            ],
+            MeterIntervalFrame.objects.none(),
         ).distinct()
 
     @property
@@ -754,17 +794,23 @@ class MultiScenarioOptimization(ValidationModel):
 
     def validate_unique_meters(self):
         """
-        Validate that each meter appears only once in
+        Validate that each meter_intervalframe appears only once in
         self.simulation_optimizations.
         """
         total_meter_count = reduce(
             lambda x, y: x + y,
-            [x.meters.count() for x in self.simulation_optimizations.all()],
+            [
+                x.meter_intervalframes.count()
+                for x in self.simulation_optimizations.all()
+            ],
         )
         unique_meter_count = (
             reduce(
                 lambda x, y: x | y,
-                [x.meters.all() for x in self.simulation_optimizations.all()],
+                [
+                    x.meter_intervalframes.all()
+                    for x in self.simulation_optimizations.all()
+                ],
                 SimulationOptimization.objects.none(),
             )
             .distinct()
@@ -773,16 +819,16 @@ class MultiScenarioOptimization(ValidationModel):
 
         if total_meter_count != unique_meter_count:
             raise RuntimeError(
-                "Meters in MultiScenarioOptimization are not unique."
-                "See: filter_by_transform() to filter meters."
+                "MeterIntervalFrames in MultiScenarioOptimization are not "
+                "unique. See: filter_by_transform() to filter meters."
             )
 
     def run(self, multiprocess=False):
         """
         Run related SimulationOptimizations.
 
-        Note: Meters and GHGRates need to be added to object prior to
-        optimization.
+        Note: MeterIntervalFrames and GHGRates need to be added to object prior
+        to optimization.
 
         :param multiprocess: True to multiprocess
         """
@@ -813,7 +859,7 @@ class MultiScenarioOptimization(ValidationModel):
         :param column_name: string
         :param transfrom: transform function
         """
-        if self.meters.count() == 0:
+        if self.meter_intervalframes.count() == 0:
             return
 
         # get values per SA ID using transform
@@ -833,21 +879,21 @@ class MultiScenarioOptimization(ValidationModel):
             id__in=set(self.detailed_report["SimulationOptimization"])
         ):
             id = simulation_optimization.id
-            sa_ids = report[report["SimulationOptimization"] == id].index
+            ids = report[report["SimulationOptimization"] == id].index
             meter_ids = list(
-                simulation_optimization.meters.filter(
-                    sa_id__in=sa_ids
+                simulation_optimization.meter_intervalframes.filter(
+                    id__in=ids
                 ).values_list("id", flat=True)
             )
-            simulation_optimization.meters.clear()
-            simulation_optimization.meters.add(
-                *Meter.objects.filter(id__in=meter_ids)
+            simulation_optimization.meter_intervalframes.clear()
+            simulation_optimization.meter_intervalframes.add(
+                *MeterIntervalFrame.objects.filter(id__in=meter_ids)
             )
         self._reset_cached_properties()
 
     def initialize(self):
         """
-        Re-attaches any Meters previously associated with related
+        Re-attaches any MeterIntervalFrames previously associated with related
         SimulationOptimizations.
         """
         for simulation_optimization in self.simulation_optimizations.all():

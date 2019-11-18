@@ -72,7 +72,6 @@ psycopg2-binary==2.8.3
 ptyprocess==0.6.0
 pyarrow==0.15.1
 Pygments==2.4.2
-pygraphviz==1.5
 pyparsing==2.4.0
 pyrsistent==0.15.2
 python-dateutil==2.8.0

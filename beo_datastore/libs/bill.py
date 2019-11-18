@@ -209,7 +209,7 @@ class OpenEIRateData(object):
         """
         return ValidationFrame288.convert_matrix_to_frame288(
             [
-                [x] * 23
+                [x] * 24
                 for x in self.rate_data.get("flatDemandMonths", [None] * 12)
             ]
         )

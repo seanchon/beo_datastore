@@ -89,7 +89,8 @@ def run(*args):
     rates = [
         x
         for x in full_utility_rates
-        if args[0] == x["utilityName"] and x["approved"] is True
+        if args[0].replace("\\", "") == x["utilityName"]
+        and x["approved"] is True
     ]
 
     # ingest rates
