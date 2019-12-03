@@ -1,7 +1,10 @@
 from localflavor.us.models import USStateField
 from localflavor.us.us_states import STATE_CHOICES
+import pandas as pd
 
+from django.contrib.auth.models import User
 from django.db import models
+from django.utils.functional import cached_property
 
 from beo_datastore.libs.models import (
     PolymorphicValidationModel,
@@ -103,10 +106,37 @@ class LoadServingEntity(ValidationModel):
         )
 
 
+class OriginFile(ValidationModel):
+    """
+    File containing customer Meter and Channel data.
+    """
+
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    file = models.FileField(upload_to="origin_files/")
+    owners = models.ManyToManyField(
+        to=User, related_name="origin_files", blank=True
+    )
+
+    @cached_property
+    def dataframe(self):
+        return pd.read_csv(open(self.file.path, "rb"))
+
+    class Meta:
+        ordering = ["id"]
+
+
 class MeterIntervalFrame(PolymorphicValidationModel):
     """
     Model containing a linked intervalframe with time-stamped power readings.
     """
+
+    origin_file = models.ForeignKey(
+        to=OriginFile,
+        related_name="meter_intervalframes",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
 
     @property
     def intervalframe(self):
