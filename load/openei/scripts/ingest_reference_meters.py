@@ -5,7 +5,7 @@ import requests
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.management import call_command
 
-from load.openei.models import ReferenceBuilding
+from load.openei.models import ReferenceMeter
 from reference.reference_model.models import BuildingType, DataUnit
 
 
@@ -119,7 +119,7 @@ def run(*args):
     links = get_all_commercial_load_data_links(COMMERCIAL_LOAD_DATA, state)
     building_attrs = [parse_building_attributes(link) for link in links]
     for (csv_url, building_type, location, tmy3) in building_attrs:
-        ReferenceBuilding.objects.get_or_create(
+        ReferenceMeter.objects.get_or_create(
             location=location,
             state=state,
             TMY3_id=tmy3,

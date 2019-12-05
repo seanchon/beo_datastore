@@ -10,10 +10,10 @@ from beo_datastore.libs.api.viewsets import ListRetrieveDestroyViewSet
 from reference.reference_model.models import (
     LoadServingEntity,
     OriginFile,
-    MeterIntervalFrame,
+    Meter,
 )
 
-from .serializers import MeterIntervalFrameSerializer, OriginFileSerializer
+from .serializers import MeterSerializer, OriginFileSerializer
 
 
 class OriginFileViewSet(ListRetrieveDestroyViewSet):
@@ -45,11 +45,11 @@ class OriginFileViewSet(ListRetrieveDestroyViewSet):
 
 class MeterViewSet(ListRetrieveDestroyViewSet):
     """
-    Meters and/or ReferenceBuildings with associated interval data.
+    Meters and/or ReferenceMeters with associated interval data.
     """
 
-    queryset = MeterIntervalFrame.objects.all()
-    serializer_class = MeterIntervalFrameSerializer
+    queryset = Meter.objects.all()
+    serializer_class = MeterSerializer
 
     schema = AutoSchema(
         manual_fields=[

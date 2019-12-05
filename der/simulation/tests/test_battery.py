@@ -9,7 +9,7 @@ from beo_datastore.libs.fixtures import flush_intervalframe_files
 from beo_datastore.libs.intervalframe import ValidationIntervalFrame
 
 from der.simulation.models import StoredBatterySimulation
-from load.customer.models import Meter, Channel
+from load.customer.models import CustomerMeter, Channel
 from reference.reference_model.models import DataUnit, LoadServingEntity
 
 
@@ -48,7 +48,7 @@ class TestBattery(TestCase):
         )
 
         # create test meter
-        self.meter = Meter.objects.create(
+        self.meter = CustomerMeter.objects.create(
             sa_id="123",
             rate_plan_name=None,
             load_serving_entity=LoadServingEntity.objects.first(),
@@ -177,7 +177,7 @@ class TestBattery(TestCase):
         Test the retrieval of battery simulation elements from disk/database.
         """
         StoredBatterySimulation.get_or_create_from_objects(
-            meter_intervalframe=self.meter, simulation=self.simulation
+            meter=self.meter, simulation=self.simulation
         )
 
         # retrieve simulation from disk
@@ -206,7 +206,7 @@ class TestBattery(TestCase):
             battery=self.battery,
             start=self.intervalframe.start_datetime,
             end_limit=self.intervalframe.end_limit_datetime,
-            meter_intervalframe_set={self.meter},
+            meter_set={self.meter},
             charge_schedule=self.charge_schedule,
             discharge_schedule=self.discharge_schedule,
             multiprocess=False,
@@ -217,7 +217,7 @@ class TestBattery(TestCase):
             battery=self.battery,
             start=self.intervalframe.start_datetime,
             end_limit=self.intervalframe.end_limit_datetime,
-            meter_intervalframe_set={self.meter},
+            meter_set={self.meter},
             charge_schedule=self.charge_schedule,
             discharge_schedule=self.discharge_schedule,
         )

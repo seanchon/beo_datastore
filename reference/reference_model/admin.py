@@ -7,7 +7,7 @@ from django.contrib import admin
 from reference.reference_model.models import (
     LoadServingEntity,
     OriginFile,
-    MeterIntervalFrame,
+    Meter,
 )
 
 
@@ -16,8 +16,8 @@ class LoadServingEntityAdmin(admin.ModelAdmin):
     pass
 
 
-@admin.register(MeterIntervalFrame)
-class MeterIntervalFrameAdmin(admin.ModelAdmin):
+@admin.register(Meter)
+class MeterAdmin(admin.ModelAdmin):
     readonly_fields = [
         "intervalframe_html_plot",
         "average_vs_maximum_html_plot",

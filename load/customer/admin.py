@@ -5,7 +5,7 @@ from django.contrib import admin
 
 from der.simulation.models import StoredBatterySimulation
 from load.customer.models import (
-    Meter,
+    CustomerMeter,
     Channel,
     CustomerPopulation,
     CustomerCluster,
@@ -28,8 +28,8 @@ class StoredBatterySimulationInline(admin.TabularInline):
     ]
 
 
-@admin.register(Meter)
-class MeterAdmin(admin.ModelAdmin):
+@admin.register(CustomerMeter)
+class CustomerMeterAdmin(admin.ModelAdmin):
     readonly_fields = [
         "sa_id",
         "rate_plan_name",

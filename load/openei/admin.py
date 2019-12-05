@@ -3,11 +3,11 @@ from __future__ import unicode_literals
 
 from django.contrib import admin
 
-from load.openei.models import ReferenceBuilding
+from load.openei.models import ReferenceMeter
 
 
-@admin.register(ReferenceBuilding)
-class ReferenceBuildingAdmin(admin.ModelAdmin):
+@admin.register(ReferenceMeter)
+class ReferenceMeterAdmin(admin.ModelAdmin):
     readonly_fields = [
         "location",
         "state",

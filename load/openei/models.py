@@ -15,22 +15,18 @@ from beo_datastore.libs.intervalframe_file import IntervalFrameFile
 from beo_datastore.libs.models import IntervalFrameFileMixin
 from beo_datastore.settings import MEDIA_ROOT
 
-from reference.reference_model.models import (
-    BuildingType,
-    DataUnit,
-    MeterIntervalFrame,
-)
+from reference.reference_model.models import BuildingType, DataUnit, Meter
 
 
-class ReferenceBuildingIntervalFrame(IntervalFrameFile):
+class ReferenceMeterIntervalFrame(IntervalFrameFile):
     """
-    Model for handling ReferenceBuilding IntervalFrameFiles, which have
+    Model for handling ReferenceMeter IntervalFrameFiles, which have
     timestamps with ambiguous year as well as multiple columns representing
     energy usage in various categories (ex. facility, lights, HVAC, etc.).
     """
 
     # directory for parquet file storage
-    file_directory = os.path.join(MEDIA_ROOT, "reference_buildings")
+    file_directory = os.path.join(MEDIA_ROOT, "reference_meters")
 
     # dataframe configuration
     default_aggregation_column = "Electricity:Facility [kW](Hourly)"
@@ -69,7 +65,7 @@ class ReferenceBuildingIntervalFrame(IntervalFrameFile):
             pass
 
 
-class ReferenceBuilding(IntervalFrameFileMixin, MeterIntervalFrame):
+class ReferenceMeter(IntervalFrameFileMixin, Meter):
     """
     OpenEI: Commercial and Residential Hourly Load Profiles for all TMY3
     Locations in the United States.
@@ -91,17 +87,15 @@ class ReferenceBuilding(IntervalFrameFileMixin, MeterIntervalFrame):
     source_file_url = models.URLField(max_length=254)
     building_type = models.ForeignKey(
         to=BuildingType,
-        related_name="reference_buildings",
+        related_name="reference_meters",
         on_delete=models.PROTECT,
     )
     data_unit = models.ForeignKey(
-        to=DataUnit,
-        related_name="reference_buildings",
-        on_delete=models.PROTECT,
+        to=DataUnit, related_name="reference_meters", on_delete=models.PROTECT
     )
 
     # Required by IntervalFrameFileMixin.
-    frame_file_class = ReferenceBuildingIntervalFrame
+    frame_file_class = ReferenceMeterIntervalFrame
 
     def __str__(self):
         return self.building_type.name + ": " + self.location
@@ -136,7 +130,7 @@ class ReferenceBuilding(IntervalFrameFileMixin, MeterIntervalFrame):
         )
         dataframe.set_index("start", inplace=True)
 
-        return ReferenceBuildingIntervalFrame(
+        return ReferenceMeterIntervalFrame(
             reference_object=self, dataframe=dataframe
         )
 
@@ -145,7 +139,7 @@ class ReferenceBuilding(IntervalFrameFileMixin, MeterIntervalFrame):
         """
         Creates IntervalFrameFile from local parquet copy.
         """
-        return ReferenceBuildingIntervalFrame.get_frame_from_file(
+        return ReferenceMeterIntervalFrame.get_frame_from_file(
             reference_object=self
         )
 
@@ -160,7 +154,7 @@ class ReferenceBuilding(IntervalFrameFileMixin, MeterIntervalFrame):
                 # attempt to retrieve from file
                 self._intervalframe = self.intervalframe_from_file
             if self._intervalframe.dataframe.equals(
-                ReferenceBuildingIntervalFrame.default_dataframe
+                ReferenceMeterIntervalFrame.default_dataframe
             ):
                 # file does not exist, fetch from csv_url
                 self._intervalframe = self.source_file_intervalframe

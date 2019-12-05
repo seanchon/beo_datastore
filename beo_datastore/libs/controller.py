@@ -428,13 +428,13 @@ class AggregateBillCalculation(DERCostCalculation):
         :return: AggregateBillCalculation
         """
         pre_bills = cls.generate_bills(
-            meter_intervalframes=agg_simulation.pre_DER_results,
+            meters=agg_simulation.pre_DER_results,
             rate_plan=rate_plan,
             date_ranges=date_ranges,
             multiprocess=multiprocess,
         )
         post_bills = cls.generate_bills(
-            meter_intervalframes=agg_simulation.post_DER_results,
+            meters=agg_simulation.post_DER_results,
             rate_plan=rate_plan,
             date_ranges=date_ranges,
             multiprocess=multiprocess,
@@ -450,10 +450,10 @@ class AggregateBillCalculation(DERCostCalculation):
 
     @classmethod
     def generate_bills(
-        cls, meter_intervalframes, rate_plan, date_ranges, multiprocess=False
+        cls, meters, rate_plan, date_ranges, multiprocess=False
     ):
         simulation_bills = {}
-        for meter, intervalframe in meter_intervalframes.items():
+        for meter, intervalframe in meters.items():
             results = rate_plan.generate_many_bills(
                 intervalframe=intervalframe,
                 date_ranges=date_ranges,

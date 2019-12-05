@@ -10,41 +10,41 @@
     }
   },
   {
-    "model": "reference_model.meterintervalframe",
-    "pk": 1,
+    "model": "reference_model.meter",
+    "pk": "00000000-0000-0000-0000-000000000001",
     "fields": {
       "polymorphic_ctype": [
         "customer",
-        "meter"
+        "customermeter"
       ],
       "origin_file": 1
     }
   },
   {
-    "model": "reference_model.meterintervalframe",
-    "pk": 2,
+    "model": "reference_model.meter",
+    "pk": "00000000-0000-0000-0000-000000000002",
     "fields": {
       "polymorphic_ctype": [
         "customer",
-        "meter"
+        "customermeter"
       ],
       "origin_file": 1
     }
   },
   {
-    "model": "reference_model.meterintervalframe",
-    "pk": 3,
+    "model": "reference_model.meter",
+    "pk": "00000000-0000-0000-0000-000000000003",
     "fields": {
       "polymorphic_ctype": [
         "customer",
-        "meter"
+        "customermeter"
       ],
       "origin_file": 1
     }
   },
   {
-  "model": "customer.meter",
-  "pk": 1,
+  "model": "customer.customermeter",
+  "pk": "00000000-0000-0000-0000-000000000001",
   "fields": {
     "sa_id": 0,
     "rate_plan_name": "TEST",
@@ -52,8 +52,8 @@
   }
 },
 {
-  "model": "customer.meter",
-  "pk": 2,
+  "model": "customer.customermeter",
+  "pk": "00000000-0000-0000-0000-000000000002",
   "fields": {
     "sa_id": 8943913372,
     "rate_plan_name": "EV, Residential Rates for Electric Vehicle Owners",
@@ -61,8 +61,8 @@
   }
 },
 {
-  "model": "customer.meter",
-  "pk": 3,
+  "model": "customer.customermeter",
+  "pk": "00000000-0000-0000-0000-000000000003",
   "fields": {
     "sa_id": 7720534682,
     "rate_plan_name": "E19, Medium General Service, Primary",
@@ -71,7 +71,7 @@
 },
 {
   "model": "customer.channel",
-  "pk": 1,
+  "pk": "00000000-0000-0000-0000-000000000001",
   "fields": {
     "export": true,
     "data_unit": 2,
@@ -80,7 +80,7 @@
 },
 {
   "model": "customer.channel",
-  "pk": 2,
+  "pk": "00000000-0000-0000-0000-000000000002",
   "fields": {
     "export": false,
     "data_unit": 2,
@@ -89,7 +89,7 @@
 },
 {
   "model": "customer.channel",
-  "pk": 3,
+  "pk": "00000000-0000-0000-0000-000000000003",
   "fields": {
     "export": false,
     "data_unit": 2,
@@ -98,7 +98,7 @@
 },
 {
   "model": "customer.channel",
-  "pk": 4,
+  "pk": "00000000-0000-0000-0000-000000000004",
   "fields": {
     "export": false,
     "data_unit": 2,
