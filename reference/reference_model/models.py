@@ -138,9 +138,23 @@ class MeterIntervalFrame(PolymorphicValidationModel):
         null=True,
     )
 
+    class Meta:
+        ordering = ["id"]
+
+    @property
+    def meter_type(self):
+        """
+        String representation of ctype minus spaces.
+        """
+        return self.polymorphic_ctype.name.replace(" ", "")
+
     @property
     def intervalframe(self):
         raise NotImplementedError()
+
+    @property
+    def dataframe(self):
+        return self.intervalframe.dataframe
 
     @property
     def intervalframe_html_plot(self):

@@ -1,12 +1,22 @@
 [
   {
+    "model": "reference_model.originfile",
+    "pk": 1,
+    "fields": {
+      "uploaded_at": "2020-01-01T10:00:00.000",
+      "file": "origin_files/filename.csv",
+      "owners": []
+    }
+  },
+  {
     "model": "reference_model.meterintervalframe",
     "pk": 1,
     "fields": {
       "polymorphic_ctype": [
         "customer",
         "meter"
-      ]
+      ],
+      "origin_file": 1
     }
   },
   {
@@ -16,7 +26,8 @@
       "polymorphic_ctype": [
         "customer",
         "meter"
-      ]
+      ],
+      "origin_file": 1
     }
   },
   {
@@ -26,7 +37,8 @@
       "polymorphic_ctype": [
         "customer",
         "meter"
-      ]
+      ],
+      "origin_file": 1
     }
   },
   {
