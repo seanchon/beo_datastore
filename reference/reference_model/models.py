@@ -1,11 +1,15 @@
+import hashlib
 from localflavor.us.models import USStateField
 from localflavor.us.us_states import STATE_CHOICES
+import os
 import pandas as pd
 
 from django.contrib.auth.models import User
-from django.db import models
+from django.core.files import File
+from django.db import models, transaction
 from django.utils.functional import cached_property
 
+from beo_datastore.libs.ingest_item_17 import get_item_17_dict
 from beo_datastore.libs.models import (
     PolymorphicValidationModel,
     ValidationModel,
@@ -113,16 +117,65 @@ class OriginFile(ValidationModel):
 
     uploaded_at = models.DateTimeField(auto_now_add=True)
     file = models.FileField(upload_to="origin_files/")
+    md5sum = models.CharField(max_length=32)
     owners = models.ManyToManyField(
         to=User, related_name="origin_files", blank=True
     )
+
+    class Meta:
+        ordering = ["id"]
 
     @cached_property
     def dataframe(self):
         return pd.read_csv(open(self.file.path, "rb"))
 
-    class Meta:
-        ordering = ["id"]
+    @cached_property
+    def item_17_dict(self):
+        """
+        Return Item 17 CSV file as dict in the following format.
+
+        {
+            SA_ID_1: {
+                "rate_plan_name": string,
+                "import": dataframe,
+                "export": dataframe,
+            },
+            ...
+        }
+        """
+        return get_item_17_dict(self.file.path)
+
+    @classmethod
+    def get_or_create(cls, file_path, filename=None, owner=None):
+        """
+        Create OriginFile and assign ownership. If OriginFile already exists,
+        only assign ownership.
+
+        :param file_path: file path
+        :param filename: string
+        :param user: Django User object
+        :return: (OriginFile, created)
+        """
+        if not filename:
+            filename = os.path.basename(file_path)
+
+        with open(file_path, "rb") as f:
+            md5sum = hashlib.md5(f.read()).hexdigest()
+
+        with transaction.atomic():
+            existing_files = cls.objects.filter(md5sum=md5sum)
+            if existing_files:
+                origin_file = existing_files.first()
+                created = False
+            else:
+                origin_file = OriginFile(md5sum=md5sum)
+                with open(file_path) as f:
+                    origin_file.file.save(filename, File(f), save=True)
+                created = True
+            if owner:
+                origin_file.owners.add(owner)
+
+            return (origin_file, created)
 
 
 class MeterIntervalFrame(PolymorphicValidationModel):

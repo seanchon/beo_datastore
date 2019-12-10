@@ -22,10 +22,17 @@ class OriginFileView(views.APIView):
         f = request.data["file"]
         # TODO: add additional file validation
         if f.content_type == "text/csv":
-            origin_file = OriginFile()
-            origin_file.file.save(filename, f, save=True)
-            origin_file.owners.add(request.user)
+            origin_file, _ = OriginFile.get_or_create(
+                filename=filename,
+                file_path=f.temporary_file_path(),
+                owner=request.user,
+            )
             # TODO: async ingest meters
+            # Meter.ingest_meters(
+            #     origin_file=origin_file,
+            #     utility_name=,
+            #     load_serving_entity=
+            # )
             # TODO: return link to asset in response
             return Response(status=204)
         else:
