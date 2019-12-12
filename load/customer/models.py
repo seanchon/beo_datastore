@@ -2,7 +2,7 @@ from functools import reduce
 import os
 import us
 
-from django.db import connection, models
+from django.db import connection, models, transaction
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.clustering import KMeansLoadClustering
@@ -135,6 +135,61 @@ class Meter(MeterIntervalFrame):
             return self.channels.get(export=True)
         except Channel.DoesNotExist:
             return None
+
+    @staticmethod
+    def ingest_meters(origin_file, utility_name, load_serving_entity):
+        """
+        Ingest CSV file into a Meter objects.
+
+        :param origin_file: OriginFile
+        :param utility_name: name of IOU
+        :param load_serving_entity: LoadServingEntity
+        """
+        # TODO: bulk create meters and intervalframes
+        if utility_name == "PG&E":
+            with transaction.atomic():
+                for sa_id, values in origin_file.item_17_dict.items():
+                    rate_plan_name = values["rate_plan_name"]
+                    meter, _ = Meter.objects.get_or_create(
+                        sa_id=sa_id,
+                        rate_plan_name=rate_plan_name,
+                        load_serving_entity=load_serving_entity,
+                        origin_file=origin_file,
+                    )
+                    for (export, dataframe) in [
+                        (False, values["import"]),
+                        (True, values["export"]),
+                    ]:
+                        meter.get_or_create_channel(export, dataframe)
+        elif utility_name == "SCE":
+            pass
+        elif utility_name == "SDG&E":
+            pass
+        else:
+            pass
+
+    def get_or_create_channel(self, export, dataframe, data_unit_name="kw"):
+        """
+        Create a Channel (import or export) associated with a Meter.
+
+        :param export: True or False
+        :param dataframe: dataframe of kW intervals
+        :param data_unit_name: "kw" or "kwh"
+        """
+        if not dataframe.empty:
+            Channel.get_or_create(
+                export=export,
+                data_unit=DataUnit.objects.get(name=data_unit_name),
+                meter=self,
+                dataframe=dataframe,
+            )
+        else:
+            Channel.get_or_create(
+                export=export,
+                data_unit=DataUnit.objects.get(name=data_unit_name),
+                meter=self,
+                dataframe=ValidationIntervalFrame.default_dataframe,
+            )
 
 
 class ChannelIntervalFrame(IntervalFrameFile):

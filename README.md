@@ -174,6 +174,17 @@ python manage.py runscript cost.procurement.scripts.ingest_system_profiles --scr
 
 This project is set up to automatically run the black code-formatting tool as well as running the flake8 linter. More details located at https://ljvmiranda921.github.io/notebook/2018/06/21/precommits-using-black-and-flake8/. The configuration lives in the codebase, but needs to be initialized in the dev environment with `pre-commit install`.
 
+## CODE COVERAGE
+
+Although not enforced, code coverage for Django tests can be viewed by running the following.
+
+```
+coverage run manage.py test
+coverage report -m  # view in terminal
+coverage html -d coverage  # write html report to coverage/
+coverage html -d coverage --skip-covered  # ignore files with 100% coverage
+```
+
 ## UPDATING PIP PACKAGES
 
 This project follows the recommended process outlined in https://www.kennethreitz.org/essays/a-better-pip-workflow.
