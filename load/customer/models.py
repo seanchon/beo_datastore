@@ -36,7 +36,7 @@ class Meter(MeterIntervalFrame):
     identified by a Service Address Identifier (sa_id).
     """
 
-    sa_id = models.IntegerField(db_index=True, unique=True)
+    sa_id = models.BigIntegerField(db_index=True, unique=True)
     rate_plan_name = models.CharField(
         max_length=64, db_index=True, blank=True, null=True
     )
