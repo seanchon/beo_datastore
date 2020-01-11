@@ -4,26 +4,52 @@ A place to store data for use in the CEC BEO project.
 
 # SETUP
 
-The following are the steps to get this project up and running for the first time. These steps should be performed in the directory where this project has been downloaded. The virtual environment (virtualenv) should be built using python3.6 or later. These steps only need to be performed once.
+[Docker](https://docs.docker.com/get-started/) needs to be installed as a first step.
+
+The following steps will replicate a Docker container that is deployed to production. The application server endpoint can be accessed at http://localhost:8000/ and the web server endpoint can be accessed at http://localhost:1337. (Note: `python manage.py collectstatic` needs to be run to populate static files.)
+
+As a minimum, a file called `.env.dev` should be created in the project's root directory containing environment variables necessary to configure Django.
+
+The following will configure a project using PostgreSQL. By omitting lines beginning with `SQL_`, a dev instance using SQLite will be created.
+```
+DEBUG=1
+SECRET_KEY=<secret key>
+DJANGO_ALLOWED_HOSTS=localhost
+SQL_ENGINE=django.db.backends.postgresql
+SQL_DATABASE=<database name>
+SQL_USER=<database user>
+SQL_PASSWORD=<database password>
+SQL_HOST=host.docker.internal
+SQL_PORT=5432
+```
+
+To load the `.env.dev` environment variables for local development. (Note: Change `SQL_HOST` to localhost.)
 
 ```
-$ python -m venv <env_name>
-$ virtualenv <env_name>
-$ source <env_name>/bin/activate
-(<env_name>)$ pip install -r requirements.txt
-(<env_name>)$ jupyter-nbextension install rise --py --sys-prefix
-(<env_name>)$ jupyter-nbextension enable rise --py --sys-prefix
-(<env_name>)$ pre-commit install
+export $(<.env.dev)
 ```
 
-# LAUNCHING THE VIRTUAL ENVIRONMENT
-
-All of the following commands should be run in the virtualenv created in the previous step. The virtualenv can be launched with the following command where <env_name> is the name provided in the previous step. After launching the virtualenv, the terminal should show the name of the virtualenv in the terminal prompt.
+To build and launch a development Docker environment on your local machine.
 
 ```
-source <env_name>/bin/activate
-(<env_name>)$
+docker-compose up -d --build
 ```
+
+To tear down the development Docker container.
+
+```
+docker-compose down
+```
+
+## RUNNING COMMANDS INSIDE A DOCKER CONTAINER
+
+**NOTE: All commands normally run in the terminal will now need to be run in the docker container. This can be done by preceding commands with the following:**
+
+```
+docker-compose exec api <command>
+```
+
+For example, to run migrations, `docker-compose exec api python manage.py migrate` should be run instead of `python manage.py migrate` alone.
 
 ## INITIALIZING DEV ENVIRONMENT
 
@@ -44,22 +70,6 @@ Optional reference building and rate data from OpenEI to be used with demo scrip
 ```
 python scripts/initialize_dev.py --full --demo
 ```
-
-# LAUNCHING THE DEVELOPMENT APPLICATION
-
-After each initialization of the dev environment, you will want to create a superuser for site access.
-
-```
-python manage.py createsuperuser
-```
-
-The following command can be used to launch the application on your local machine.
-
-```
-python manage.py runserver_plus
-```
-
-The application can be accessed at http://localhost:8000/ and the administration portal can be accessed at http://localhost:8000/admin/.
 
 # DEMO NOTEBOOK
 
