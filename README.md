@@ -25,6 +25,32 @@ source <env_name>/bin/activate
 (<env_name>)$
 ```
 
+# SETTING ENVIRONMENT VARIABLES
+
+A handful of environment variables need to be configured on a local machine or in Elastic Beanstalk in order for the application to run. On a personal computer, the following should be put into a file called `.env.dev`. The command `export $(<.env.dev)` will export the environment variables to your local machine.
+
+The following can be used with SQLite.
+
+```
+DEBUG=1
+SECRET_KEY=<SECRET_KEY>
+DJANGO_ALLOWED_HOSTS=localhost
+```
+
+The following can be used with PostgreSQL.
+
+```
+DEBUG=1
+SECRET_KEY=<SECRET_KEY>
+DJANGO_ALLOWED_HOSTS=localhost
+SQL_ENGINE=django.db.backends.postgresql
+SQL_DATABASE=<SQL_DATABASE>
+SQL_USER=<SQL_USER>
+SQL_PASSWORD=<SQL_PASSWORD>
+SQL_HOST=localhost
+SQL_PORT=5432
+```
+
 ## INITIALIZING DEV ENVIRONMENT
 
 A script is available to initialize a dev environment. This script can be run anytime to reinitialize the dev environment. (__Note: Any local changes to the code base will be moved into a [git stash](https://git-scm.com/docs/git-stash) and all application data will be destroyed and recreated.__)

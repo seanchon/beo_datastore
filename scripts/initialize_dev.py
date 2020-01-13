@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
     # reset database
     if args.full:
-        call_command("reset_db")
+        call_command("reset_db", "-c")
     else:
         call_command("flush")
 

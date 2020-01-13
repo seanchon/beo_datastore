@@ -34,6 +34,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+.env*
 env/
 build/
 develop-eggs/
@@ -93,3 +94,8 @@ db.sqlite3
 
 # Project Specific
 media_root/*/
+
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
