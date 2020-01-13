@@ -1,5 +1,6 @@
 # see https://www.kennethreitz.org/essays/a-better-pip-workflow
 black
+boto3
 bs4
 cached-property
 coverage
@@ -12,6 +13,7 @@ django-localflavor
 django-polymorphic
 django-rest-auth
 django-rest-swagger
+django-storages
 djangorestframework
 Faker
 ipdb
