@@ -8,21 +8,11 @@ The following are the steps to get this project up and running for the first tim
 
 ```
 $ python -m venv <env_name>
-$ virtualenv <env_name>
 $ source <env_name>/bin/activate
 (<env_name>)$ pip install -r requirements.txt
 (<env_name>)$ jupyter-nbextension install rise --py --sys-prefix
 (<env_name>)$ jupyter-nbextension enable rise --py --sys-prefix
 (<env_name>)$ pre-commit install
-```
-
-# LAUNCHING THE VIRTUAL ENVIRONMENT
-
-All of the following commands should be run in the virtualenv created in the previous step. The virtualenv can be launched with the following command where <env_name> is the name provided in the previous step. After launching the virtualenv, the terminal should show the name of the virtualenv in the terminal prompt.
-
-```
-source <env_name>/bin/activate
-(<env_name>)$
 ```
 
 # SETTING ENVIRONMENT VARIABLES
@@ -51,9 +41,30 @@ SQL_HOST=localhost
 SQL_PORT=5432
 ```
 
+Additional environment variables will need to be set in AWS Elastic Beanstalk environments.
+
+```
+AWS_ACCESS_KEY_ID=<FROM IAM ROLE>
+AWS_MEDIA_BUCKET_NAME=<FROM S3>
+AWS_SECRET_ACCESS_KEY=<FROM IAM ROLE>
+AWS_STORAGE_BUCKET_NAME=<FROM S3>
+MEDIA_ROOT=<FROM S3>
+STATIC_ROOT=<FROM S3>
+```
+
+# LAUNCHING THE VIRTUAL ENVIRONMENT
+
+All of the following commands should be run in the virtualenv created in the previous step. The virtualenv can be launched with the following command where <env_name> is the name provided in the previous step. After launching the virtualenv, the terminal should show the name of the virtualenv in the terminal prompt.
+
+```
+export $(<.env.dev)
+source <env_name>/bin/activate
+(<env_name>)$
+```
+
 ## INITIALIZING DEV ENVIRONMENT
 
-A script is available to initialize a dev environment. This script can be run anytime to reinitialize the dev environment. (__Note: Any local changes to the code base will be moved into a [git stash](https://git-scm.com/docs/git-stash) and all application data will be destroyed and recreated.__)
+A script is available to initialize a dev environment, which will destroy all existing data and populate data from scratch.
 
 ```
 python scripts/initialize_dev.py --full

@@ -16,6 +16,7 @@ django-rest-swagger
 django-storages
 djangorestframework
 Faker
+ijson
 ipdb
 ipython
 jsonfield
@@ -27,6 +28,7 @@ pyarrow
 psycopg2-binary
 requests
 rise
+s3fs
 scipy
 simple-terminal
 sklearn

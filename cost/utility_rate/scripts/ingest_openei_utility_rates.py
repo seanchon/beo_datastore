@@ -1,6 +1,6 @@
 from datetime import datetime
 import gzip
-import json
+import ijson
 import os
 import urllib
 
@@ -13,6 +13,7 @@ from reference.reference_model.models import (
 
 
 SOURCE_FILE_URL = "https://openei.org/apps/USURDB/download/usurdb.json.gz"
+DESTINATION_DIR = "/tmp/"
 
 
 def retrieve_full_utility_rates():
@@ -22,23 +23,11 @@ def retrieve_full_utility_rates():
     Source: https://openei.org/wiki/Utility_Rate_Database
     :return: list of rates dictionaries
     """
-    json_file = os.path.basename(SOURCE_FILE_URL)
+    json_file = os.path.join(
+        DESTINATION_DIR, os.path.basename(SOURCE_FILE_URL)
+    )
     if not os.path.exists(json_file):
         urllib.request.urlretrieve(SOURCE_FILE_URL, json_file)
-
-    with gzip.open(json_file, "rb") as f:
-        return json.load(f)
-
-
-def load_utility_rates(file_location):
-    """
-    Loads OpenEI formatted rates from file.
-
-    :param file_location: file location
-    :return: list of rates dictionaries
-    """
-    with open(file_location, "rb") as f:
-        return json.load(f)
 
 
 def convert_epoch_to_datetime(epoch_milliseconds):
@@ -69,10 +58,14 @@ def run(*args):
     else:
         source_file = None
 
-    if source_file:
-        full_utility_rates = load_utility_rates(args[1])
-    else:
-        full_utility_rates = retrieve_full_utility_rates()
+    if not source_file:
+        source_file = os.path.join(
+            DESTINATION_DIR, os.path.basename(SOURCE_FILE_URL)
+        )
+        retrieve_full_utility_rates()
+
+    f = gzip.open(source_file, "rb")
+    full_utility_rates = ijson.items(f, "item")
 
     # return all possible utility names
     if args[0] == "help":
@@ -83,15 +76,16 @@ def run(*args):
                 )
             )
         )
+        f.close()
         return
 
     # filter rates based on provided utility and approved
-    rates = [
+    rates = (
         x
         for x in full_utility_rates
         if args[0].replace("\\", "") == x["utilityName"]
         and x["approved"] is True
-    ]
+    )
 
     # ingest rates
     for rate_data in rates:
@@ -138,3 +132,5 @@ def run(*args):
             effective_date=convert_epoch_to_datetime(effective_date_epoch),
             rate_plan=rate_plan,
         )
+
+    f.close()

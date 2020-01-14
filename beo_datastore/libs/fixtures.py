@@ -1,5 +1,5 @@
 import os
-from shutil import copyfile, rmtree
+from shutil import rmtree
 
 from django.core.management import call_command
 
@@ -46,8 +46,10 @@ def load_intervalframe_files():
             intervalframe_file = os.path.join(
                 fixture_dir, frame_model.get_filename(object)
             )
-            if os.path.exists(intervalframe_file):
-                copyfile(intervalframe_file, frame_model.get_file_path(object))
+            object.frame = frame_model.get_frame_from_file(
+                reference_object=object, file_path=intervalframe_file
+            )
+            object.save()
 
 
 def flush_intervalframe_files():
@@ -55,5 +57,8 @@ def flush_intervalframe_files():
     Deletes parquet fixtures from MEDIA_ROOT.
     """
     # remove empty MEDIA_ROOT
-    if os.path.exists(MEDIA_ROOT) and "media_root_test" in MEDIA_ROOT:
-        rmtree(MEDIA_ROOT)
+    if "media_root_test" in MEDIA_ROOT:
+        try:
+            rmtree(MEDIA_ROOT)
+        except OSError:
+            pass

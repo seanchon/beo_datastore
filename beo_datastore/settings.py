@@ -152,9 +152,18 @@ AWS_DEFAULT_ACL = os.environ.get("AWS_DEFAULT_ACL")
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.11/howto/static-files/
 
-STATIC_ROOT = STATIC_URL = os.environ.get("STATIC_ROOT", default="/static/")
 STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+STATIC_ROOT = STATIC_URL = os.environ.get("STATIC_ROOT", default="/static/")
 AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME")
+
+# Media files (Uploads)
+DEFAULT_FILE_STORAGE = "beo_datastore.libs.storages.MediaStorage"
+TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
+media_root_dir = "media_root_test/" if TESTING else "media_root/"
+MEDIA_ROOT = MEDIA_URL = os.path.join(
+    os.environ.get("MEDIA_ROOT", BASE_DIR), media_root_dir
+)
+AWS_MEDIA_BUCKET_NAME = os.environ.get("AWS_MEDIA_BUCKET_NAME")
 
 # Override Swagger's 'Django Login' Button to use DRF login page
 LOGIN_URL = "rest_framework:login"
@@ -186,12 +195,3 @@ SWAGGER_SETTINGS = {
         "api_key": {"type": "apiKey", "in": "header", "name": "Authorization"}
     },
 }
-
-# testing flag
-TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
-
-# MEDIA_ROOT
-if not TESTING:
-    MEDIA_ROOT = os.path.join(BASE_DIR, "media_root")
-else:
-    MEDIA_ROOT = os.path.join(BASE_DIR, "media_root_test")
