@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "allauth.account",
     "rest_framework_swagger",
     "polymorphic",
+    "storages",
     # apps
     "cost.ghg.apps.GhgConfig",
     "cost.optimization.apps.OptimizationConfig",
@@ -142,12 +143,18 @@ USE_L10N = True
 # TODO: Set USE_TZ to True. Data ingest needs to be corrected first.
 USE_TZ = False
 
+# AWS Credentials
+
+AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+AWS_DEFAULT_ACL = os.environ.get("AWS_DEFAULT_ACL")
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.11/howto/static-files/
 
-STATIC_URL = "/staticfiles/"
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_ROOT = STATIC_URL = os.environ.get("STATIC_ROOT", default="/static/")
+STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME")
 
 # Override Swagger's 'Django Login' Button to use DRF login page
 LOGIN_URL = "rest_framework:login"
