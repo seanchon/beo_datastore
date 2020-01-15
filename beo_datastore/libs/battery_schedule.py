@@ -247,9 +247,10 @@ class PeakShavingScheduleOptimizer(object):
         results = {"charge_threshold": {}, "discharge_threshold": {}}
         for month in set(load_intervalframe.dataframe.index.month):
             results["charge_threshold"][month] = 0
-            results["discharge_threshold"][
-                month
-            ], _ = cls._optimize_discharge_threshold(
+            (
+                results["discharge_threshold"][month],
+                _,
+            ) = cls._optimize_discharge_threshold(
                 battery=battery,
                 load_intervalframe=load_intervalframe,
                 month=month,

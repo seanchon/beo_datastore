@@ -85,18 +85,22 @@ class DataFrameFile(ValidationDataFrame):
         )
 
     @classmethod
-    def get_frame_from_file(cls, reference_object):
+    def get_frame_from_file(
+        cls, reference_object, file_path=None, *args, **kwargs
+    ):
         """
         Return DataFrameFile based on reference_object.id if it exists.
 
         :param reference_object: reference object IntervalFrameFile belongs to
+        :param file_path: location of parquet file
         :return: cls instance
         """
-        file_path = cls.get_file_path(reference_object)
+        if file_path is None:
+            file_path = cls.get_file_path(reference_object)
 
-        if os.path.exists(file_path):
+        try:
             return cls(reference_object, pd.read_parquet(file_path))
-        else:
+        except OSError:
             return cls(reference_object, cls.default_dataframe)
 
 
@@ -125,21 +129,25 @@ class Frame288File(ValidationFrame288, DataFrameFile):
             dataframe.to_parquet(self.file_path)
 
     @classmethod
-    def get_frame_from_file(cls, reference_object, *args, **kwargs):
+    def get_frame_from_file(
+        cls, reference_object, file_path=None, *args, **kwargs
+    ):
         """
         Return Frame288File based on reference_object.id if it exists. Convert
         columns to Int64 on get_frame_from_file().
 
         :param reference_object: reference object IntervalFrameFile belongs to
+        :param file_path: location of parquet file
         :return: pandas Frame288File
         """
-        file_path = cls.get_file_path(reference_object)
+        if file_path is None:
+            file_path = cls.get_file_path(reference_object)
 
-        if os.path.exists(file_path):
+        try:
             dataframe = pd.read_parquet(file_path)
             dataframe = convert_columns_type(dataframe, np.int64)
             return cls(reference_object, dataframe)
-        else:
+        except OSError:
             return cls(reference_object, cls.default_dataframe)
 
 

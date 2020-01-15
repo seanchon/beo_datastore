@@ -1,7 +1,6 @@
 import argparse
 import django
 import os
-from simple_terminal import Terminal
 import sys
 
 from django.core.management import call_command
@@ -53,15 +52,6 @@ def parse_arguments():
 if __name__ == "__main__":
 
     args = parse_arguments()
-
-    # stash local changes
-    with Terminal() as t:
-        t.command("git stash")
-
-    # upgrade pip packages
-    with Terminal() as t:
-        t.command("pip install -r requirements.txt")
-        t.command("pip install --upgrade pip")
 
     # reset database
     if args.full:
