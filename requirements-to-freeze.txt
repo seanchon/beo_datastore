@@ -3,11 +3,14 @@ black
 boto3
 bs4
 cached-property
+celery
 coverage
 docutils
 Django
 django-allauth
 django-auto-repr
+django-celery-beat
+django-celery-results
 django-extensions
 django-localflavor
 django-polymorphic
@@ -25,6 +28,7 @@ notebook
 pandas
 pre-commit
 pyarrow
+pycurl
 psycopg2-binary
 requests
 rise

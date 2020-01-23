@@ -44,10 +44,12 @@ SQL_PORT=5432
 Additional environment variables will need to be set in AWS Elastic Beanstalk environments.
 
 ```
+APP_ENV=<dev, staging, prod>
 AWS_ACCESS_KEY_ID=<FROM IAM ROLE>
 AWS_MEDIA_BUCKET_NAME=<FROM S3>
 AWS_SECRET_ACCESS_KEY=<FROM IAM ROLE>
 AWS_STORAGE_BUCKET_NAME=<FROM S3>
+CELERY_DEFAULT_QUEUE=<FROM SQS>
 MEDIA_ROOT=<FROM S3>
 STATIC_ROOT=<FROM S3>
 ```

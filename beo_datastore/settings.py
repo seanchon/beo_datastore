@@ -42,17 +42,20 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.sites",
-    "django_extensions",
-    "rest_framework",
-    "rest_framework.authtoken",
-    "rest_auth",
-    "rest_auth.registration",
     "allauth",
     "allauth.account",
-    "rest_framework_swagger",
+    "django_celery_beat",
+    "django_celery_results",
+    "django_extensions",
     "polymorphic",
+    "rest_auth",
+    "rest_auth.registration",
+    "rest_framework",
+    "rest_framework.authtoken",
+    "rest_framework_swagger",
     "storages",
     # apps
+    "beo_datastore",
     "cost.ghg.apps.GhgConfig",
     "cost.optimization.apps.OptimizationConfig",
     "cost.procurement.apps.ProcurementConfig",
@@ -152,9 +155,10 @@ AWS_DEFAULT_ACL = os.environ.get("AWS_DEFAULT_ACL")
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.11/howto/static-files/
 
-STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 STATIC_ROOT = STATIC_URL = os.environ.get("STATIC_ROOT", default="/static/")
-AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME")
+if os.environ.get("AWS_STORAGE_BUCKET_NAME"):
+    STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME")
 
 # Media files (Uploads)
 DEFAULT_FILE_STORAGE = "beo_datastore.libs.storages.MediaStorage"
@@ -163,7 +167,7 @@ media_root_dir = "media_root_test/" if TESTING else "media_root/"
 MEDIA_ROOT = MEDIA_URL = os.path.join(
     os.environ.get("MEDIA_ROOT", BASE_DIR), media_root_dir
 )
-AWS_MEDIA_BUCKET_NAME = os.environ.get("AWS_MEDIA_BUCKET_NAME")
+AWS_MEDIA_BUCKET_NAME = os.environ.get("AWS_MEDIA_BUCKET_NAME", "")
 
 # Override Swagger's 'Django Login' Button to use DRF login page
 LOGIN_URL = "rest_framework:login"
@@ -195,3 +199,13 @@ SWAGGER_SETTINGS = {
         "api_key": {"type": "apiKey", "in": "header", "name": "Authorization"}
     },
 }
+
+# Celery
+CELERY_RESULT_BACKEND = "django-db"
+
+BROKER_URL = "sqs://%s:%s@" % (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+CELERY_ACCEPT_CONTENT = ["application/json"]
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TASK_SERIALIZER = "json"
+CELERY_DEFAULT_QUEUE = os.environ.get("CELERY_DEFAULT_QUEUE")
+BROKER_TRANSPORT_OPTIONS = {"region": "us-west-1", "polling_interval": 20}
