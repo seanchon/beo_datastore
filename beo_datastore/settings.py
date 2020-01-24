@@ -25,6 +25,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = int(os.environ.get("DEBUG", default=0))
+APP_ENV = os.environ.get("APP_ENV")
 
 try:
     ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS").split(" ")
@@ -156,18 +157,19 @@ AWS_DEFAULT_ACL = os.environ.get("AWS_DEFAULT_ACL")
 # https://docs.djangoproject.com/en/1.11/howto/static-files/
 
 STATIC_ROOT = STATIC_URL = os.environ.get("STATIC_ROOT", default="/static/")
-if os.environ.get("AWS_STORAGE_BUCKET_NAME"):
+AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME")
+if AWS_STORAGE_BUCKET_NAME:
     STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-    AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME")
 
 # Media files (Uploads)
-DEFAULT_FILE_STORAGE = "beo_datastore.libs.storages.MediaStorage"
 TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
 media_root_dir = "media_root_test/" if TESTING else "media_root/"
 MEDIA_ROOT = MEDIA_URL = os.path.join(
     os.environ.get("MEDIA_ROOT", BASE_DIR), media_root_dir
 )
 AWS_MEDIA_BUCKET_NAME = os.environ.get("AWS_MEDIA_BUCKET_NAME", "")
+if AWS_MEDIA_BUCKET_NAME:
+    DEFAULT_FILE_STORAGE = "beo_datastore.libs.storages.MediaStorage"
 
 # Override Swagger's 'Django Login' Button to use DRF login page
 LOGIN_URL = "rest_framework:login"
@@ -203,9 +205,12 @@ SWAGGER_SETTINGS = {
 # Celery
 CELERY_RESULT_BACKEND = "django-db"
 
-BROKER_URL = "sqs://%s:%s@" % (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+CELERY_TASK_ALWAYS_EAGER = False
+BROKER_URL = os.environ.get(
+    "BROKER_URL", "sqs://%s:%s@" % (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+)
 CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TASK_SERIALIZER = "json"
-CELERY_DEFAULT_QUEUE = os.environ.get("CELERY_DEFAULT_QUEUE")
+CELERY_DEFAULT_QUEUE = os.environ.get("CELERY_DEFAULT_QUEUE", "beo_datastore")
 BROKER_TRANSPORT_OPTIONS = {"region": "us-west-1", "polling_interval": 20}

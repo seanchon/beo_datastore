@@ -2,7 +2,12 @@
 import os
 import sys
 
+import dotenv
+
 if __name__ == "__main__":
+    dotenv_file = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(dotenv_file):
+        dotenv.read_dotenv(dotenv_file)
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "beo_datastore.settings")
     try:
         from django.core.management import execute_from_command_line
@@ -12,6 +17,8 @@ if __name__ == "__main__":
         # exceptions on Python 2.
         try:
             import django
+
+            django
         except ImportError:
             raise ImportError(
                 "Couldn't import Django. Are you sure it's installed and "
