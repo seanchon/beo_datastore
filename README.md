@@ -13,26 +13,31 @@ $ source <env_name>/bin/activate
 (<env_name>)$ jupyter-nbextension install rise --py --sys-prefix
 (<env_name>)$ jupyter-nbextension enable rise --py --sys-prefix
 (<env_name>)$ pre-commit install
+(<env_name>)$ brew install redis
 ```
 
 # SETTING ENVIRONMENT VARIABLES
 
-A handful of environment variables need to be configured on a local machine or in Elastic Beanstalk in order for the application to run. On a personal computer, the following should be put into a file called `.env.dev`. The command `export $(<.env.dev)` will export the environment variables to your local machine.
+A handful of environment variables need to be configured on a local machine or in Elastic Beanstalk in order for the application to run. On a personal computer, the following should be put into a file called `.env`. The environment variables will be automatically loaded, but the command `export $(<.env)` can be used to export the environment variables to your local machine.
 
 The following can be used with SQLite.
 
 ```
+APP_ENV=local
+BROKER_URL=redis://localhost
 DEBUG=1
-SECRET_KEY=<SECRET_KEY>
 DJANGO_ALLOWED_HOSTS=localhost
+SECRET_KEY=<SECRET_KEY>
 ```
 
 The following can be used with PostgreSQL.
 
 ```
+APP_ENV=local
+BROKER_URL=redis://localhost
 DEBUG=1
-SECRET_KEY=<SECRET_KEY>
 DJANGO_ALLOWED_HOSTS=localhost
+SECRET_KEY=<SECRET_KEY>
 SQL_ENGINE=django.db.backends.postgresql
 SQL_DATABASE=<SQL_DATABASE>
 SQL_USER=<SQL_USER>
@@ -59,7 +64,6 @@ STATIC_ROOT=<FROM S3>
 All of the following commands should be run in the virtualenv created in the previous step. The virtualenv can be launched with the following command where <env_name> is the name provided in the previous step. After launching the virtualenv, the terminal should show the name of the virtualenv in the terminal prompt.
 
 ```
-export $(<.env.dev)
 source <env_name>/bin/activate
 (<env_name>)$
 ```
@@ -99,6 +103,15 @@ python manage.py runserver_plus
 ```
 
 The application can be accessed at http://localhost:8000/ and the administration portal can be accessed at http://localhost:8000/admin/.
+
+# LAUNCHING THE MESSAGE BROKER
+
+In order to run celery tasks on a development machine, redis and celery must be launched either in separate windows or as background processes.
+
+```
+redis-server
+celery worker -A beo_datastore --loglevel=info
+```
 
 # DEMO NOTEBOOK
 

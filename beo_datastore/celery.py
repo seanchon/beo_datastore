@@ -3,8 +3,12 @@ from __future__ import absolute_import, unicode_literals
 import os
 
 from celery import Celery
+import dotenv
 
 # set the default Django settings module for the 'celery' program.
+dotenv_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+if os.path.exists(dotenv_file):
+    dotenv.read_dotenv(dotenv_file)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "beo_datastore.settings")
 
 app = Celery("beo_datastore")
