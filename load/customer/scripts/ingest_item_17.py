@@ -1,4 +1,4 @@
-from load.customer.models import Meter
+from load.tasks import ingest_meters_from_file
 from reference.reference_model.models import LoadServingEntity, OriginFile
 
 
@@ -25,5 +25,8 @@ def run(*args):
         )
         return
 
-    origin_file, _ = OriginFile.get_or_create(file_path=args[1])
-    Meter.ingest_meters(origin_file, "PG&E", load_serving_entity)
+    with open(args[1], "rb") as file:
+        origin_file, _ = OriginFile.get_or_create(
+            load_serving_entity=load_serving_entity, file=file
+        )
+        ingest_meters_from_file(origin_file.id)

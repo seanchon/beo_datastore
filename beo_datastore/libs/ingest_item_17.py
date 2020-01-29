@@ -92,7 +92,7 @@ def stack_dataframe(dataframe):
     return df
 
 
-def get_item_17_dict(csv_path):
+def get_item_17_dict(dataframe):
     """
     Return a dictionary of dataframes identified by SA ID and channel
     (import/export).
@@ -107,10 +107,9 @@ def get_item_17_dict(csv_path):
         ...
     }
 
-    :param csv_path: CSV file path
+    :param dataframe: pandas DataFrame
     :return: dict
     """
-    dataframe = pd.read_csv(open(csv_path, "rb"))
     dataframe = reformat_timestamp_columns(dataframe)
     sa_column = get_sa_id_column(dataframe)
 

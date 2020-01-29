@@ -1,3 +1,4 @@
+import hashlib
 import os
 from pathlib import Path
 
@@ -19,3 +20,17 @@ def mkdir_p(path):
     if not AWS_MEDIA_BUCKET_NAME and not os.path.exists(path):
         with Path(path) as p:
             p.mkdir(parents=True)
+
+
+def file_md5sum(file, chunk_size=65536):
+    """
+    Return md5sum of Django UploadedFile.
+
+    :param file: Django UploadedFile
+    :return: md5sum
+    """
+    hasher = hashlib.md5()
+    for buf in file.chunks(chunk_size=chunk_size):
+        hasher.update(buf)
+
+    return hasher.hexdigest()

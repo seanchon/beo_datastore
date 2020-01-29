@@ -185,9 +185,9 @@ if AWS_STORAGE_BUCKET_NAME:
 
 # Media files (Uploads)
 TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
-media_root_dir = "media_root_test/" if TESTING else "media_root/"
+MEDIA_ROOT_DIR = "media_root_test/" if TESTING else "media_root/"
 MEDIA_ROOT = MEDIA_URL = os.path.join(
-    os.environ.get("MEDIA_ROOT", BASE_DIR), media_root_dir
+    os.environ.get("MEDIA_ROOT", BASE_DIR), MEDIA_ROOT_DIR
 )
 AWS_MEDIA_BUCKET_NAME = os.environ.get("AWS_MEDIA_BUCKET_NAME", "")
 if AWS_MEDIA_BUCKET_NAME:
