@@ -147,6 +147,27 @@ USE_L10N = True
 # TODO: Set USE_TZ to True. Data ingest needs to be corrected first.
 USE_TZ = False
 
+# Logging
+logging_level = "DEBUG" if APP_ENV == "dev" else "INFO"
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "file": {
+            "level": logging_level,
+            "class": "logging.FileHandler",
+            "filename": "/var/log/django/django.log",
+        }
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["file"],
+            "level": logging_level,
+            "propagate": True,
+        }
+    },
+}
+
 # AWS Credentials
 
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
@@ -174,6 +195,7 @@ if AWS_MEDIA_BUCKET_NAME:
 # Override Swagger's 'Django Login' Button to use DRF login page
 LOGIN_URL = "rest_framework:login"
 LOGOUT_URL = "rest_framework:logout"
+ACCOUNT_LOGOUT_ON_GET = True
 
 # DRF Settings
 REST_FRAMEWORK = {
