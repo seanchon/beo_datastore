@@ -148,25 +148,26 @@ USE_L10N = True
 USE_TZ = False
 
 # Logging
-logging_level = "DEBUG" if APP_ENV == "dev" else "INFO"
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "file": {
-            "level": logging_level,
-            "class": "logging.FileHandler",
-            "filename": "/var/log/django/django.log",
-        }
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["file"],
-            "level": logging_level,
-            "propagate": True,
-        }
-    },
-}
+if APP_ENV != "local":
+    logging_level = "DEBUG" if APP_ENV == "dev" else "INFO"
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "handlers": {
+            "file": {
+                "level": logging_level,
+                "class": "logging.FileHandler",
+                "filename": "/var/log/django/django.log",
+            }
+        },
+        "loggers": {
+            "django": {
+                "handlers": ["file"],
+                "level": logging_level,
+                "propagate": True,
+            }
+        },
+    }
 
 # AWS Credentials
 
