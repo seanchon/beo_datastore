@@ -64,7 +64,11 @@ def run(*args):
         )
         retrieve_full_utility_rates()
 
-    f = gzip.open(source_file, "rb")
+    extenstion = source_file.split(".")[-1]
+    if extenstion == "gz":
+        f = gzip.open(source_file, "rb")
+    else:  # .json
+        f = open(source_file, "rb")
     full_utility_rates = ijson.items(f, "item")
 
     # return all possible utility names
