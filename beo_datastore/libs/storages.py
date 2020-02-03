@@ -10,3 +10,4 @@ class MediaStorage(S3Boto3Storage):
     """
 
     bucket_name = settings.AWS_MEDIA_BUCKET_NAME
+    location = settings.MEDIA_ROOT_DIR

@@ -1,42 +1,17 @@
-from rest_framework import views
+from rest_framework import status
 from rest_framework.exceptions import UnsupportedMediaType
-from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 
 from beo_datastore.libs.api.viewsets import ListRetrieveDestroyViewSet
 
-from reference.reference_model.models import OriginFile, MeterIntervalFrame
+# from load.tasks import ingest_meters_from_file
+from reference.reference_model.models import (
+    LoadServingEntity,
+    OriginFile,
+    MeterIntervalFrame,
+)
 
 from .serializers import MeterIntervalFrameSerializer, OriginFileSerializer
-
-
-class OriginFileView(views.APIView):
-    """
-    Files containing customer Meter data. A "file" must be provided in the
-    payload.
-    """
-
-    parser_classes = [MultiPartParser]
-
-    def post(self, request, filename, format=None):
-        f = request.data["file"]
-        # TODO: add additional file validation
-        if f.content_type == "text/csv":
-            origin_file, _ = OriginFile.get_or_create(
-                filename=filename,
-                file_path=f.temporary_file_path(),
-                owner=request.user,
-            )
-            # TODO: async ingest meters
-            # Meter.ingest_meters(
-            #     origin_file=origin_file,
-            #     utility_name=,
-            #     load_serving_entity=
-            # )
-            # TODO: return link to asset in response
-            return Response(status=204)
-        else:
-            raise UnsupportedMediaType("Upload must be a .csv file.")
 
 
 class OriginFileViewSet(ListRetrieveDestroyViewSet):
@@ -46,6 +21,24 @@ class OriginFileViewSet(ListRetrieveDestroyViewSet):
 
     queryset = OriginFile.objects.all()
     serializer_class = OriginFileSerializer
+
+    def create(self, request):
+        file = request.data["file"]
+        # TODO: add additional file validation
+        if file.content_type == "text/csv":
+            origin_file, _ = OriginFile.get_or_create(
+                file=file,
+                load_serving_entity=LoadServingEntity.objects.get(
+                    id=request.data["load_serving_entity_id"]
+                ),
+                owner=request.user,
+            )
+            # TODO: ingest meters on EC2 instance
+            # ingest_meters_from_file.delay(origin_file.id)
+            # TODO: return link to asset in response
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            raise UnsupportedMediaType("Upload must be a .csv file.")
 
 
 class MeterViewSet(ListRetrieveDestroyViewSet):

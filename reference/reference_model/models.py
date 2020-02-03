@@ -1,11 +1,9 @@
-import hashlib
 from localflavor.us.models import USStateField
 from localflavor.us.us_states import STATE_CHOICES
 import os
 import pandas as pd
 
 from django.contrib.auth.models import User
-from django.core.files import File
 from django.db import models, transaction
 from django.utils.functional import cached_property
 
@@ -18,6 +16,8 @@ from beo_datastore.libs.plot_intervalframe import (
     plot_intervalframe,
     plot_frame288_monthly_comparison,
 )
+from beo_datastore.libs.utils import file_md5sum
+from beo_datastore.settings import MEDIA_ROOT
 
 
 class BuildingType(ValidationModel):
@@ -87,7 +87,15 @@ class LoadServingEntity(ValidationModel):
     """
 
     name = models.CharField(max_length=32, unique=True)
+    short_name = models.CharField(max_length=8, unique=False)
     state = USStateField(choices=STATE_CHOICES)
+    _parent_utility = models.ForeignKey(
+        to="LoadServingEntity",
+        related_name="load_serving_entities",
+        on_delete=models.PROTECT,
+        blank=True,
+        null=True,
+    )
 
     class Meta:
         ordering = ["id"]
@@ -95,6 +103,17 @@ class LoadServingEntity(ValidationModel):
 
     def __str__(self):
         return self.name
+
+    @property
+    def parent_utility(self):
+        if self._parent_utility:
+            return self._parent_utility
+        else:
+            return self
+
+    @parent_utility.setter
+    def parent_utility(self, parent_utility):
+        self._parent_utility = parent_utility
 
     @classmethod
     def menu(cls):
@@ -116,8 +135,15 @@ class OriginFile(ValidationModel):
     """
 
     uploaded_at = models.DateTimeField(auto_now_add=True)
-    file = models.FileField(upload_to="origin_files/")
+    file = models.FileField(upload_to="origin_files")
     md5sum = models.CharField(max_length=32)
+    load_serving_entity = models.ForeignKey(
+        to=LoadServingEntity,
+        related_name="origin_files",
+        on_delete=models.PROTECT,
+        blank=False,
+        null=False,
+    )
     owners = models.ManyToManyField(
         to=User, related_name="origin_files", blank=True
     )
@@ -125,14 +151,21 @@ class OriginFile(ValidationModel):
     class Meta:
         ordering = ["id"]
 
-    @cached_property
-    def dataframe(self):
-        return pd.read_csv(open(self.file.path, "rb"))
+    @property
+    def file_path(self):
+        try:
+            return self.file.path
+        except NotImplementedError:  # S3Boto3StorageFile
+            return os.path.join(MEDIA_ROOT, str(self.file))
 
     @cached_property
-    def item_17_dict(self):
+    def dataframe(self):
+        return pd.read_csv(self.file_path)
+
+    @cached_property
+    def meter_data_dict(self):
         """
-        Return Item 17 CSV file as dict in the following format.
+        Return CSV file as dict in the following format.
 
         {
             SA_ID_1: {
@@ -143,39 +176,51 @@ class OriginFile(ValidationModel):
             ...
         }
         """
-        return get_item_17_dict(self.file.path)
+        if self.load_serving_entity:
+            if (
+                self.load_serving_entity.name
+                == "Southern California Edison Co"
+            ):
+                # TODO: parse SCE data
+                pass
+            elif (
+                self.load_serving_entity.name == "San Diego Gas & Electric Co"
+            ):
+                # TODO: parse SDG&E data
+                pass
+            else:  # "Pacific Gas & Electric Co"
+                return get_item_17_dict(self.dataframe)
 
     @classmethod
-    def get_or_create(cls, file_path, filename=None, owner=None):
+    def get_or_create(cls, file, load_serving_entity, owner=None):
         """
         Create OriginFile and assign ownership. If OriginFile already exists,
         only assign ownership.
 
-        :param file_path: file path
-        :param filename: string
+        :param file: file path
+        :param load_serving_entity: LoadServingEntity
         :param user: Django User object
         :return: (OriginFile, created)
         """
-        if not filename:
-            filename = os.path.basename(file_path)
-
-        with open(file_path, "rb") as f:
-            md5sum = hashlib.md5(f.read()).hexdigest()
-
         with transaction.atomic():
-            existing_files = cls.objects.filter(md5sum=md5sum)
-            if existing_files:
-                origin_file = existing_files.first()
-                created = False
-            else:
-                origin_file = OriginFile(md5sum=md5sum)
-                with open(file_path) as f:
-                    origin_file.file.save(filename, File(f), save=True)
-                created = True
-            if owner:
-                origin_file.owners.add(owner)
+            origin_file = OriginFile(
+                load_serving_entity=load_serving_entity, md5sum="0"
+            )
+            origin_file.file.save(os.path.basename(file.name), file, save=True)
+            origin_file.md5sum = file_md5sum(origin_file.file.file)
+            origin_file.save()
+            origin_file.owners.add(owner)
 
-            return (origin_file, created)
+            # TODO: delete duplicate files
+            existing_files = OriginFile.objects.filter(
+                md5sum=origin_file.md5sum
+            ).exclude(id=origin_file.id)
+
+            if not existing_files:
+                return (origin_file, True)
+            else:
+                origin_file.delete()
+                return (existing_files.first(), False)
 
 
 class MeterIntervalFrame(PolymorphicValidationModel):

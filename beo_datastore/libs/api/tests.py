@@ -12,7 +12,9 @@ class BasicAuthenticationTestMixin(object):
         """
         for endpoint in self.endpoints:
             response = self.client.get(endpoint, format="json")
-            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+            self.assertEqual(
+                response.status_code, status.HTTP_403_FORBIDDEN, msg=endpoint
+            )
 
     def test_user_access_ok(self):
         """
@@ -22,7 +24,9 @@ class BasicAuthenticationTestMixin(object):
 
         for endpoint in self.endpoints:
             response = self.client.get(endpoint, format="json")
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertEqual(
+                response.status_code, status.HTTP_200_OK, msg=endpoint
+            )
 
     def test_endpoint_contains_objects(self):
         """
@@ -35,4 +39,4 @@ class BasicAuthenticationTestMixin(object):
 
         for endpoint in self.endpoints:
             response = self.client.get(endpoint, format="json")
-            self.assertNotEqual(response.data["results"], [])
+            self.assertNotEqual(response.data.get("results"), [], msg=endpoint)

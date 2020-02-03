@@ -85,7 +85,7 @@ class BatteryStrategy(ValidationModel):
     Container for storing a combination of charge and discharge schedules.
     """
 
-    name = models.CharField(max_length=88, blank=True, null=True)
+    name = models.CharField(max_length=128, blank=True, null=True)
     charge_schedule = models.ForeignKey(
         to=BatterySchedule,
         related_name="charge_schedule_battery_strategies",

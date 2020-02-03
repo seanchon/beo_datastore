@@ -237,7 +237,9 @@
   "pk": 1,
   "fields": {
     "name": "Pacific Gas & Electric Co",
-    "state": "CA"
+    "short_name": "PG&E",
+    "state": "CA",
+    "_parent_utility": null
   }
 },
 {
@@ -245,7 +247,29 @@
   "pk": 2,
   "fields": {
     "name": "MCE Clean Energy",
-    "state": "CA"
+    "short_name": "MCE",
+    "state": "CA",
+    "_parent_utility": 1
+  }
+},
+{
+  "model": "reference_model.loadservingentity",
+  "pk": 3,
+  "fields": {
+    "name": "Southern California Edison Co",
+    "short_name": "SCE",
+    "state": "CA",
+    "_parent_utility": null
+  }
+},
+{
+  "model": "reference_model.loadservingentity",
+  "pk": 4,
+  "fields": {
+    "name": "San Diego Gas & Electric Co",
+    "short_name": "SDG&E",
+    "state": "CA",
+    "_parent_utility": null
   }
 },
 {

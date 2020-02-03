@@ -14,6 +14,8 @@ $ source <env_name>/bin/activate
 (<env_name>)$ jupyter-nbextension enable rise --py --sys-prefix
 (<env_name>)$ pre-commit install
 (<env_name>)$ brew install redis
+(<env_name>)$ pip install redis
+
 ```
 
 # SETTING ENVIRONMENT VARIABLES
