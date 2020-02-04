@@ -57,13 +57,17 @@ INSTALLED_APPS = [
     "storages",
     # apps
     "beo_datastore",
+    "cost",
     "cost.ghg.apps.GhgConfig",
     "cost.optimization.apps.OptimizationConfig",
     "cost.procurement.apps.ProcurementConfig",
     "cost.utility_rate.apps.UtilityRateConfig",
+    "der",
     "der.simulation.apps.SimulationConfig",
+    "load",
     "load.customer.apps.CustomerConfig",
     "load.openei.apps.OpenEIConfig",
+    "reference",
     "reference.reference_model.apps.ReferenceModelConfig",
 ]
 
