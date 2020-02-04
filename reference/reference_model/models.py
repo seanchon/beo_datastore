@@ -7,7 +7,7 @@ from django.contrib.auth.models import User
 from django.db import models, transaction
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.ingest_item_17 import get_item_17_dict
+from beo_datastore.libs.ingest import get_item_17_dict
 from beo_datastore.libs.models import (
     PolymorphicValidationModel,
     ValidationModel,
@@ -209,11 +209,13 @@ class OriginFile(ValidationModel):
             origin_file.file.save(os.path.basename(file.name), file, save=True)
             origin_file.md5sum = file_md5sum(origin_file.file.file)
             origin_file.save()
-            origin_file.owners.add(owner)
+            if owner:
+                origin_file.owners.add(owner)
 
             # TODO: delete duplicate files
             existing_files = OriginFile.objects.filter(
-                md5sum=origin_file.md5sum
+                load_serving_entity=load_serving_entity,
+                md5sum=origin_file.md5sum,
             ).exclude(id=origin_file.id)
 
             if not existing_files:

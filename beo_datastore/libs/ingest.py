@@ -125,6 +125,12 @@ def get_item_17_dict(dataframe):
             "rate_plan_name": get_rate_plan_name(dataframe, sa_column, said)
         }
         for export in [True, False]:
+            dir = "D" if export else "R"
+            unit_of_measure = set(
+                dataframe[
+                    (dataframe[sa_column] == said) & (dataframe["DIR"] == dir)
+                ]["UOM"]
+            )
             df = filter_dataframe(dataframe, sa_column, said, export, columns)
 
             df.set_index("DATE", inplace=True)
@@ -138,9 +144,9 @@ def get_item_17_dict(dataframe):
                 df["kw"] = df["kw"] * -1.0
 
             # convert from kwh to kw
-            if not df.empty:
+            if not df.empty and unit_of_measure == {"KWH"}:
                 dataframe_period = get_dataframe_period(df)
-                multiplier = timedelta(3600, 0) / dataframe_period
+                multiplier = timedelta(0, 3600) / dataframe_period
                 if multiplier != 1:
                     df["kw"] = df["kw"] * multiplier
 
