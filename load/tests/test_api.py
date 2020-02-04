@@ -1,5 +1,6 @@
 from faker import Factory
 import os
+import pandas as pd
 
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -41,6 +42,77 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
 
     def tearDown(self):
         flush_intervalframe_files()
+
+    def test_meter_data_exists(self):
+        """
+        Test that all formats of meter data are served properly when requesting
+        a single data type.
+        """
+        self.client.force_authenticate(user=self.user)
+
+        base_endpoint = (
+            "/v1/load/meter/?start=2018-01-01T00:00:00"
+            "&end_limit=2018-01-02T00:00:00&data_types="
+        )
+        data_types = ["default", "total", "average", "maximum", "minimum"]
+
+        for data_type in data_types:
+            endpoint = base_endpoint + data_type
+            response = self.client.get(endpoint, format="json")
+            self.assertEqual(
+                response.status_code, status.HTTP_200_OK, msg=endpoint
+            )
+            self.assertEqual(
+                type(response.data["results"][0]["data"][data_type]),
+                pd.DataFrame,
+                msg=endpoint,
+            )
+            self.assertFalse(
+                response.data["results"][0]["data"][data_type].empty,
+                msg=endpoint,
+            )
+
+    def test_meter_multiple_data_exists(self):
+        """
+        Test that all formats of meter data are served properly when requesting
+        multiple data types.
+        """
+        self.client.force_authenticate(user=self.user)
+
+        base_endpoint = (
+            "/v1/load/meter/?start=2018-01-01T00:00:00"
+            "&end_limit=2018-01-02T00:00:00&data_types="
+        )
+        data_types = ["default", "total", "average", "maximum", "minimum"]
+
+        endpoint = base_endpoint + ",".join(data_types)
+        response = self.client.get(endpoint, format="json")
+        self.assertEqual(
+            response.status_code, status.HTTP_200_OK, msg=endpoint
+        )
+        for data_type in data_types:
+            self.assertEqual(
+                type(response.data["results"][0]["data"][data_type]),
+                pd.DataFrame,
+                msg=endpoint,
+            )
+            self.assertFalse(
+                response.data["results"][0]["data"][data_type].empty,
+                msg=endpoint,
+            )
+
+    def test_meter_data_does_not_exists(self):
+        """
+        Test that no meter data is served by default.
+        """
+        self.client.force_authenticate(user=self.user)
+
+        endpoint = "/v1/load/meter/"
+        response = self.client.get(endpoint, format="json")
+        self.assertEqual(
+            response.status_code, status.HTTP_200_OK, msg=endpoint
+        )
+        self.assertEqual(response.data["results"][0]["data"], {}, msg=endpoint)
 
 
 class TestFileUpload(APITestCase):
