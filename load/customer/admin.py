@@ -33,7 +33,7 @@ class MeterAdmin(admin.ModelAdmin):
     readonly_fields = [
         "sa_id",
         "rate_plan_name",
-        "load_serving_entity",
+        "_load_serving_entity",
         "intervalframe_html_plot",
         "average_vs_maximum_html_plot",
     ]
@@ -42,7 +42,7 @@ class MeterAdmin(admin.ModelAdmin):
         "id",
         "sa_id",
         "rate_plan_name",
-        "load_serving_entity__name",
+        "_load_serving_entity__name",
     ]
 
 
@@ -59,7 +59,7 @@ class ChannelAdmin(admin.ModelAdmin):
         "meter__id",
         "meter__sa_id",
         "meter__rate_plan_name",
-        "meter__load_serving_entity__name",
+        "meter___load_serving_entity__name",
     ]
 
 
@@ -77,7 +77,7 @@ class CustomerPopulationAdmin(admin.ModelAdmin):
         "id",
         "name",
         "frame288_type",
-        "load_serving_entity__name",
+        "_load_serving_entity__name",
     ]
 
 
@@ -88,5 +88,5 @@ class CustomerClusterAdmin(admin.ModelAdmin):
         "customer_population__id",
         "customer_population__name",
         "customer_population__frame288_type",
-        "customer_population__load_serving_entity__name",
+        "customer_population___load_serving_entity__name",
     ]
