@@ -48,7 +48,7 @@
   "fields": {
     "sa_id": 0,
     "rate_plan_name": "TEST",
-    "_load_serving_entity": 2
+    "load_serving_entity": 2
   }
 },
 {
@@ -57,7 +57,7 @@
   "fields": {
     "sa_id": 8943913372,
     "rate_plan_name": "EV, Residential Rates for Electric Vehicle Owners",
-    "_load_serving_entity": 2
+    "load_serving_entity": 2
   }
 },
 {
@@ -66,7 +66,7 @@
   "fields": {
     "sa_id": 7720534682,
     "rate_plan_name": "E19, Medium General Service, Primary",
-    "_load_serving_entity": 2
+    "load_serving_entity": 2
   }
 },
 {

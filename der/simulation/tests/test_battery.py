@@ -51,7 +51,7 @@ class TestBattery(TestCase):
         self.meter = Meter.objects.create(
             sa_id="123",
             rate_plan_name=None,
-            _load_serving_entity=LoadServingEntity.objects.first(),
+            load_serving_entity=LoadServingEntity.objects.first(),
         )
         Channel.create(
             export=False,

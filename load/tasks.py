@@ -20,6 +20,7 @@ def ingest_meters_from_file(origin_file_id):
                 sa_id=sa_id,
                 rate_plan_name=meter_data["rate_plan_name"],
                 origin_file=OriginFile(id=origin_file_id),
+                load_serving_entity=origin_file.load_serving_entity,
             )
             for (export, dataframe) in [
                 (False, meter_data["import"]),
