@@ -10,7 +10,7 @@ from load.openei.models import ReferenceBuilding
 from reference.reference_model.models import MeterIntervalFrame, OriginFile
 
 
-class OriginFileSerializer(serializers.HyperlinkedModelSerializer):
+class OriginFileSerializer(serializers.ModelSerializer):
     filename = serializers.CharField(source="file.name")
     owners = serializers.StringRelatedField(many=True)
 
@@ -25,19 +25,19 @@ class OriginFileSerializer(serializers.HyperlinkedModelSerializer):
         )
 
 
-class MeterSerializer(serializers.HyperlinkedModelSerializer):
+class MeterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Meter
         fields = ("id", "sa_id", "rate_plan_name", "state")
 
 
-class ReferenceBuildingSerializer(serializers.HyperlinkedModelSerializer):
+class ReferenceBuildingSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReferenceBuilding
         fields = ("id", "location", "state", "source_file_url")
 
 
-class MeterIntervalFrameSerializer(serializers.HyperlinkedModelSerializer):
+class MeterIntervalFrameSerializer(serializers.ModelSerializer):
     meter = MeterSerializer(many=False, read_only=True)
     referencebuilding = ReferenceBuildingSerializer(many=False, read_only=True)
     data = serializers.SerializerMethodField()

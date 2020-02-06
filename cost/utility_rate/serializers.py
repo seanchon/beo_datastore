@@ -3,7 +3,7 @@ from rest_framework import serializers
 from cost.utility_rate.models import RateCollection, RatePlan
 
 
-class RatePlanSerializer(serializers.HyperlinkedModelSerializer):
+class RatePlanSerializer(serializers.ModelSerializer):
     load_serving_entity = serializers.CharField(
         source="load_serving_entity.name"
     )
@@ -26,7 +26,7 @@ class RatePlanSerializer(serializers.HyperlinkedModelSerializer):
         )
 
 
-class RateCollectionSerializer(serializers.HyperlinkedModelSerializer):
+class RateCollectionSerializer(serializers.ModelSerializer):
     rate_plan_name = serializers.CharField(source="rate_plan.name")
 
     class Meta:
