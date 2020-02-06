@@ -439,6 +439,8 @@ class ValidationIntervalFrame(ValidationDataFrame):
         :return: ValidationFrame288
         """
 
+        # TODO: Validate data does not exceed one year
+
         # create a default 288
         results_288 = pd.DataFrame(
             default_value,
