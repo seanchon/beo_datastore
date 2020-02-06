@@ -40,7 +40,7 @@ class Meter(MeterIntervalFrame):
     rate_plan_name = models.CharField(
         max_length=64, db_index=True, blank=True, null=True
     )
-    _load_serving_entity = models.ForeignKey(
+    load_serving_entity = models.ForeignKey(
         to=LoadServingEntity,
         related_name="meters",
         on_delete=models.PROTECT,
@@ -55,13 +55,6 @@ class Meter(MeterIntervalFrame):
         return "{} ({}: {})".format(
             self.sa_id, self.load_serving_entity, self.rate_plan_name
         )
-
-    @property
-    def load_serving_entity(self):
-        if self.origin_file:
-            return self.origin_file.load_serving_entity
-        else:
-            return self._load_serving_entity
 
     @property
     def state(self):
