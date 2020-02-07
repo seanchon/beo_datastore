@@ -9,7 +9,7 @@ from beo_datastore.libs.fixtures import (
 )
 
 from cost.utility_rate.models import RatePlan
-from load.customer.models import Meter
+from load.customer.models import CustomerMeter
 
 
 RESIDENTIAL_COUNT_ERROR_RATE = 0.005  # allow 0.5% count error rate
@@ -115,7 +115,7 @@ class TestMCEResidentialBill(TestBill):
         calendar year.
         """
         load_intervalframe_files()
-        self.meter = Meter.objects.get(sa_id=8943913372)
+        self.meter = CustomerMeter.objects.get(sa_id=8943913372)
 
         date_ranges = [
             (datetime(2018, 1, 2), datetime(2018, 1, 31)),
@@ -239,7 +239,7 @@ class TestMCECommercialBill(TestBill):
         calendar year.
         """
         load_intervalframe_files()
-        self.meter = Meter.objects.get(sa_id=7720534682)
+        self.meter = CustomerMeter.objects.get(sa_id=7720534682)
 
         date_ranges = [
             (datetime(2018, 11, 5), datetime(2018, 12, 5)),

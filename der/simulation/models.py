@@ -22,7 +22,7 @@ from beo_datastore.libs.plot_intervalframe import (
     plot_frame288,
     plot_frame288_monthly_comparison,
 )
-from reference.reference_model.models import MeterIntervalFrame
+from reference.reference_model.models import Meter
 
 
 class BatteryScheduleFrame288(Frame288File):
@@ -292,10 +292,8 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
 
     start = models.DateTimeField()
     end_limit = models.DateTimeField()
-    meter_intervalframe = models.ForeignKey(
-        to=MeterIntervalFrame,
-        on_delete=models.CASCADE,
-        related_name="battery_simulations",
+    meter = models.ForeignKey(
+        to=Meter, on_delete=models.CASCADE, related_name="battery_simulations"
     )
     battery_configuration = models.ForeignKey(
         to=BatteryConfiguration,
@@ -316,7 +314,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
     class Meta:
         ordering = ["id"]
         unique_together = (
-            "meter_intervalframe",
+            "meter",
             "battery_configuration",
             "battery_strategy",
             "start",
@@ -404,7 +402,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         """
         return FixedScheduleBatterySimulation(
             battery=self.battery_configuration.battery,
-            load_intervalframe=self.meter_intervalframe.intervalframe.filter_by_datetime(
+            load_intervalframe=self.meter.intervalframe.filter_by_datetime(
                 start=self.start, end_limit=self.end_limit
             ),
             charge_schedule=self.charge_schedule.frame288,
@@ -427,19 +425,19 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
             end_limit=self.end_limit,
             charge_schedule=self.charge_schedule.frame288,
             discharge_schedule=self.discharge_schedule.frame288,
-            results={self.meter_intervalframe: self.simulation},
+            results={self.meter: self.simulation},
         )
 
     @classmethod
     def get_or_create_from_objects(
-        cls, meter_intervalframe, simulation, start=None, end_limit=None
+        cls, meter, simulation, start=None, end_limit=None
     ):
         """
-        Get existing or create new StoredBatterySimulation from a MeterIntervalFrame and
+        Get existing or create new StoredBatterySimulation from a Meter and
         Simulation. Creates necessary BatteryConfiguration and charge and
         discharge BatterySchedule objects.
 
-        :param meter_intervalframe: MeterIntervalFrame
+        :param meter: Meter
         :param simulation: FixedScheduleBatterySimulation
         :param start: datetime
         :param end_limit: datetime
@@ -480,7 +478,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
             return cls.get_or_create(
                 start=start,
                 end_limit=end_limit,
-                meter_intervalframe=meter_intervalframe,
+                meter=meter,
                 battery_configuration=configuration,
                 battery_strategy=battery_strategy,
                 pre_DER_total=pre_DER_total,
@@ -494,7 +492,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         battery,
         start,
         end_limit,
-        meter_intervalframe_set,
+        meter_set,
         charge_schedule,
         discharge_schedule,
         multiprocess=False,
@@ -507,7 +505,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         :param battery: Battery
         :param start: datetime
         :param end_limit: datetime
-        :param meter_intervalframe_set: QuerySet or set of MeterIntervalFrames
+        :param meter_set: QuerySet or set of Meters
         :param charge_schedule: ValidationFrame288
         :param discharge_schedule: ValidationFrame288
         :param multiprocess: True or False
@@ -534,9 +532,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
 
             # get existing aggregate simulation
             stored_simulations = cls.objects.filter(
-                meter_intervalframe__id__in=[
-                    x.id for x in meter_intervalframe_set
-                ],
+                meter__id__in=[x.id for x in meter_set],
                 battery_configuration=configuration,
                 battery_strategy=battery_strategy,
                 start=start,
@@ -544,33 +540,28 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
             )
 
             # generate new aggregate simulation for remaining meters
-            new_meter_intervalframes = set(meter_intervalframe_set) - {
-                x.meter_intervalframe for x in stored_simulations
-            }
+            new_meters = set(meter_set) - {x.meter for x in stored_simulations}
             new_simulation = AggregateBatterySimulation.create(
                 battery=battery,
                 start=start,
                 end_limit=end_limit,
-                meter_set=new_meter_intervalframes,
+                meter_set=new_meters,
                 charge_schedule=charge_schedule.frame288,
                 discharge_schedule=discharge_schedule.frame288,
                 multiprocess=multiprocess,
             )
 
             # store new simulations
-            for (
-                meter_intervalframe,
-                battery_simulation,
-            ) in new_simulation.results.items():
+            for (meter, battery_simulation) in new_simulation.results.items():
                 cls.get_or_create_from_objects(
-                    meter_intervalframe=meter_intervalframe,
+                    meter=meter,
                     simulation=battery_simulation,
                     start=start,
                     end_limit=end_limit,
                 )
 
             return cls.objects.filter(
-                meter_intervalframe__in=meter_intervalframe_set,
+                meter__in=meter_set,
                 battery_configuration=configuration,
                 battery_strategy=battery_strategy,
                 start=start,

@@ -5,9 +5,9 @@ import pandas as pd
 
 from rest_framework import serializers
 
-from load.customer.models import Meter
-from load.openei.models import ReferenceBuilding
-from reference.reference_model.models import MeterIntervalFrame, OriginFile
+from load.customer.models import CustomerMeter
+from load.openei.models import ReferenceMeter
+from reference.reference_model.models import Meter, OriginFile
 
 
 class OriginFileSerializer(serializers.ModelSerializer):
@@ -16,40 +16,34 @@ class OriginFileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OriginFile
-        fields = (
-            "id",
-            "uploaded_at",
-            "filename",
-            "owners",
-            "meter_intervalframes",
-        )
+        fields = ("id", "uploaded_at", "filename", "owners", "meters")
+
+
+class CustomerMeterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomerMeter
+        fields = ("sa_id", "rate_plan_name", "state")
+
+
+class ReferenceMeterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReferenceMeter
+        fields = ("location", "state", "source_file_url")
 
 
 class MeterSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Meter
-        fields = ("id", "sa_id", "rate_plan_name", "state")
-
-
-class ReferenceBuildingSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ReferenceBuilding
-        fields = ("id", "location", "state", "source_file_url")
-
-
-class MeterIntervalFrameSerializer(serializers.ModelSerializer):
-    meter = MeterSerializer(many=False, read_only=True)
-    referencebuilding = ReferenceBuildingSerializer(many=False, read_only=True)
+    customermeter = CustomerMeterSerializer(many=False, read_only=True)
+    referencemeter = ReferenceMeterSerializer(many=False, read_only=True)
     data = serializers.SerializerMethodField()
 
     class Meta:
-        model = MeterIntervalFrame
+        model = Meter
         fields = (
             "id",
             "meter_type",
             "origin_file",
-            "meter",
-            "referencebuilding",
+            "customermeter",
+            "referencemeter",
             "data",
         )
 

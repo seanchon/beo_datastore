@@ -2,6 +2,7 @@ from localflavor.us.models import USStateField
 from localflavor.us.us_states import STATE_CHOICES
 import os
 import pandas as pd
+import uuid
 
 from django.contrib.auth.models import User
 from django.db import models, transaction
@@ -225,14 +226,15 @@ class OriginFile(ValidationModel):
                 return (existing_files.first(), False)
 
 
-class MeterIntervalFrame(PolymorphicValidationModel):
+class Meter(PolymorphicValidationModel):
     """
     Model containing a linked intervalframe with time-stamped power readings.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     origin_file = models.ForeignKey(
         to=OriginFile,
-        related_name="meter_intervalframes",
+        related_name="meters",
         on_delete=models.CASCADE,
         blank=True,
         null=True,

@@ -20,7 +20,7 @@ def run(*args):
             load_test_fixtures()
             call_command(
                 "runscript",
-                "load.openei.scripts.ingest_reference_buildings",
+                "load.openei.scripts.ingest_reference_meters",
                 "--script-args",
                 "CA",
             )

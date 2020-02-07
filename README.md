@@ -156,7 +156,7 @@ python manage.py runscript beo_datastore.scripts.load_data --script-args demo
 The following script will prime the database with all OpenEI reference buildings located in a particular state. It reaches out to the OpenEI website and scrapes the site's content.
 
 ```
-python manage.py runscript load.openei.scripts.ingest_reference_buildings --script-args <STATE>
+python manage.py runscript load.openei.scripts.ingest_reference_meters --script-args <STATE>
 ```
 
 * Where STATE is the two-letter abbreviation of a state (ex. CA).

@@ -9,7 +9,7 @@ from beo_datastore.libs.fixtures import (
 )
 from beo_datastore.settings import BASE_DIR
 
-from load.customer.models import Meter
+from load.customer.models import CustomerMeter
 from load.customer.scripts import ingest_item_17
 from reference.reference_model.models import LoadServingEntity, OriginFile
 
@@ -46,7 +46,7 @@ class TestItem17Ingest(TestCase):
 
         # test value ingest/conversion
         # 1.0 kw - 0.5 kw @ 15 minutes = 0.5 kw
-        meter = Meter.objects.last()
+        meter = CustomerMeter.objects.last()
         self.assertEqual(
             meter.intervalframe.dataframe.loc[MIDNIGHT_2018]["kw"], 0.5
         )
@@ -65,7 +65,7 @@ class TestItem17Ingest(TestCase):
 
         # test value ingest/conversion
         # 1.0 kwh - 0.5 kwh @ 15 minutes = 2 kw
-        meter = Meter.objects.last()
+        meter = CustomerMeter.objects.last()
         self.assertEqual(
             meter.intervalframe.dataframe.loc[MIDNIGHT_2018]["kw"], 2
         )
@@ -84,7 +84,7 @@ class TestItem17Ingest(TestCase):
 
         # test value ingest/conversion
         # 1.0 kw - 0.5 kw @ 60 minutes = 0.5 kw
-        meter = Meter.objects.last()
+        meter = CustomerMeter.objects.last()
         self.assertEqual(
             meter.intervalframe.dataframe.loc[MIDNIGHT_2018]["kw"], 0.5
         )
@@ -103,7 +103,7 @@ class TestItem17Ingest(TestCase):
 
         # test value ingest/conversion
         # 1.0 kwh - 0.5 kwh @ 60 minutes = 0.5 kw
-        meter = Meter.objects.last()
+        meter = CustomerMeter.objects.last()
         self.assertEqual(
             meter.intervalframe.dataframe.loc[MIDNIGHT_2018]["kw"], 0.5
         )

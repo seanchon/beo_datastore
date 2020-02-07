@@ -8,10 +8,7 @@ from beo_datastore.libs.utils import mkdir_p
 
 from cost.ghg.models import GHGRate, GHGRateFrame288
 from load.customer.models import Channel, ChannelIntervalFrame
-from load.openei.models import (
-    ReferenceBuilding,
-    ReferenceBuildingIntervalFrame,
-)
+from load.openei.models import ReferenceMeter, ReferenceMeterIntervalFrame
 
 
 def load_base_fixtures():
@@ -35,11 +32,7 @@ def load_intervalframe_files():
     for (reference_model, frame_model, fixture_dir) in [
         (GHGRate, GHGRateFrame288, "cost/ghg/fixtures/"),
         (Channel, ChannelIntervalFrame, "load/customer/fixtures/"),
-        (
-            ReferenceBuilding,
-            ReferenceBuildingIntervalFrame,
-            "load/openei/fixtures/",
-        ),
+        (ReferenceMeter, ReferenceMeterIntervalFrame, "load/openei/fixtures/"),
     ]:
         for object in reference_model.objects.all():
             mkdir_p(frame_model.file_directory)

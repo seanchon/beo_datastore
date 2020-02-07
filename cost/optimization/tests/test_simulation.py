@@ -15,7 +15,7 @@ from cost.optimization.models import (
 )
 from cost.utility_rate.models import RatePlan
 from der.simulation.models import BatteryConfiguration, BatteryStrategy
-from load.customer.models import CustomerPopulation, Meter
+from load.customer.models import CustomerPopulation, CustomerMeter
 
 
 class TestSimulation(TestCase):
@@ -47,13 +47,13 @@ class TestSimulation(TestCase):
         flush_intervalframe_files()
 
     def test_simulation(self):
-        meters = Meter.objects.filter(rate_plan_name__contains="EV")
+        meters = CustomerMeter.objects.filter(rate_plan_name__contains="EV")
 
         # 1. Create and choose k-means clusters (load)
         number_of_clusters = 1
         customer_population = CustomerPopulation.generate(
             name="Django Test",
-            meter_intervalframes=meters,
+            meters=meters,
             frame288_type="average_frame288",
             number_of_clusters=number_of_clusters,
             normalize=True,

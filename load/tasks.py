@@ -2,7 +2,7 @@ from django.db import transaction
 
 from beo_datastore.celery import app
 
-from load.customer.models import Meter
+from load.customer.models import CustomerMeter
 from reference.reference_model.models import OriginFile
 
 
@@ -16,7 +16,7 @@ def ingest_meters_from_file(origin_file_id):
     origin_file = OriginFile.objects.get(id=origin_file_id)
     for sa_id, meter_data in origin_file.meter_data_dict.items():
         with transaction.atomic():
-            meter, _ = Meter.objects.get_or_create(
+            meter, _ = CustomerMeter.objects.get_or_create(
                 sa_id=sa_id,
                 rate_plan_name=meter_data["rate_plan_name"],
                 origin_file=OriginFile(id=origin_file_id),
