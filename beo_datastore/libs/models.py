@@ -159,7 +159,9 @@ class Frame288FileMixin(FrameFileMixin):
 
     @frame288.setter
     def frame288(self, frame288):
-        self.frame = frame288
+        self.frame = self.frame_file_class(
+            dataframe=frame288.dataframe, reference_object=self
+        )
 
 
 class IntervalFrameFileMixin(FrameFileMixin):
@@ -174,4 +176,6 @@ class IntervalFrameFileMixin(FrameFileMixin):
 
     @intervalframe.setter
     def intervalframe(self, intervalframe):
-        self.frame = intervalframe
+        self.frame = self.frame_file_class(
+            dataframe=intervalframe.dataframe, reference_object=self
+        )

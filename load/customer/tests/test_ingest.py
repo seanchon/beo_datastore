@@ -9,9 +9,9 @@ from beo_datastore.libs.fixtures import (
 )
 from beo_datastore.settings import BASE_DIR
 
-from load.customer.models import CustomerMeter
+from load.customer.models import CustomerMeter, OriginFile
 from load.customer.scripts import ingest_item_17
-from reference.reference_model.models import LoadServingEntity, OriginFile
+from reference.reference_model.models import LoadServingEntity
 
 
 MIDNIGHT_2018 = datetime(2018, 1, 1, 0, 0)

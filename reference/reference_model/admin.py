@@ -6,8 +6,8 @@ from django.contrib import admin
 
 from reference.reference_model.models import (
     LoadServingEntity,
-    OriginFile,
     Meter,
+    MeterGroup,
 )
 
 
@@ -24,6 +24,6 @@ class MeterAdmin(admin.ModelAdmin):
     ]
 
 
-@admin.register(OriginFile)
-class OriginFileAdmin(admin.ModelAdmin):
+@admin.register(MeterGroup)
+class MeterGroupAdmin(admin.ModelAdmin):
     pass

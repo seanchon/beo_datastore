@@ -1,12 +1,15 @@
 from functools import reduce
 import os
+import pandas as pd
 import us
 import uuid
 
-from django.db import connection, models
+from django.contrib.auth.models import User
+from django.db import connection, models, transaction
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.clustering import KMeansLoadClustering
+from beo_datastore.libs.ingest import get_item_17_dict
 from beo_datastore.libs.intervalframe import ValidationIntervalFrame
 from beo_datastore.libs.intervalframe_file import (
     Frame288File,
@@ -23,8 +26,122 @@ from beo_datastore.libs.plot_intervalframe import (
     plot_frame288_monthly_comparison,
 )
 from beo_datastore.settings import MEDIA_ROOT
+from beo_datastore.libs.utils import file_md5sum
 
-from reference.reference_model.models import DataUnit, LoadServingEntity, Meter
+from reference.reference_model.models import (
+    DataUnit,
+    LoadServingEntity,
+    Meter,
+    MeterGroup,
+)
+
+
+class OriginFileIntervalFrame(IntervalFrameFile):
+    """
+    Model for handling OriginFile IntervalFrameFiles, which have timestamps and
+    values.
+    """
+
+    # directory for parquet file storage
+    file_directory = os.path.join(MEDIA_ROOT, "origin_files")
+
+
+class OriginFile(IntervalFrameFileMixin, MeterGroup):
+    """
+    File containing customer Meter and Channel data.
+    """
+
+    file = models.FileField(upload_to="origin_files")
+    md5sum = models.CharField(max_length=32)
+    load_serving_entity = models.ForeignKey(
+        to=LoadServingEntity,
+        related_name="origin_files",
+        on_delete=models.PROTECT,
+        blank=False,
+        null=False,
+    )
+    owners = models.ManyToManyField(
+        to=User, related_name="origin_files", blank=True
+    )
+
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = OriginFileIntervalFrame
+
+    class Meta:
+        ordering = ["id"]
+
+    @property
+    def file_path(self):
+        try:
+            return self.file.path
+        except NotImplementedError:  # S3Boto3StorageFile
+            return os.path.join(MEDIA_ROOT, str(self.file))
+
+    @cached_property
+    def file_dataframe(self):
+        return pd.read_csv(self.file_path)
+
+    @cached_property
+    def meter_data_dict(self):
+        """
+        Return CSV file as dict in the following format.
+
+        {
+            SA_ID_1: {
+                "rate_plan_name": string,
+                "import": dataframe,
+                "export": dataframe,
+            },
+            ...
+        }
+        """
+        if self.load_serving_entity:
+            if (
+                self.load_serving_entity.name
+                == "Southern California Edison Co"
+            ):
+                # TODO: parse SCE data
+                pass
+            elif (
+                self.load_serving_entity.name == "San Diego Gas & Electric Co"
+            ):
+                # TODO: parse SDG&E data
+                pass
+            else:  # "Pacific Gas & Electric Co"
+                return get_item_17_dict(self.file_dataframe)
+
+    @classmethod
+    def get_or_create(cls, file, load_serving_entity, owner=None):
+        """
+        Create OriginFile and assign ownership. If OriginFile already exists,
+        only assign ownership.
+
+        :param file: file path
+        :param load_serving_entity: LoadServingEntity
+        :param user: Django User object
+        :return: (OriginFile, created)
+        """
+        with transaction.atomic():
+            origin_file = OriginFile(
+                load_serving_entity=load_serving_entity, md5sum="0"
+            )
+            origin_file.file.save(os.path.basename(file.name), file, save=True)
+            origin_file.md5sum = file_md5sum(origin_file.file.file)
+            origin_file.save()
+            if owner:
+                origin_file.owners.add(owner)
+
+            # TODO: delete duplicate files
+            existing_files = OriginFile.objects.filter(
+                load_serving_entity=load_serving_entity,
+                md5sum=origin_file.md5sum,
+            ).exclude(id=origin_file.id)
+
+            if not existing_files:
+                return (origin_file, True)
+            else:
+                origin_file.delete()
+                return (existing_files.first(), False)
 
 
 class CustomerMeter(Meter):
@@ -33,7 +150,7 @@ class CustomerMeter(Meter):
     identified by a Service Address Identifier (sa_id).
     """
 
-    sa_id = models.BigIntegerField(db_index=True, unique=True)
+    sa_id = models.BigIntegerField(db_index=True)
     rate_plan_name = models.CharField(
         max_length=64, db_index=True, blank=True, null=True
     )

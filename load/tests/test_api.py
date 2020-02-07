@@ -14,7 +14,8 @@ from beo_datastore.libs.fixtures import (
 )
 from beo_datastore.settings import BASE_DIR
 
-from reference.reference_model.models import OriginFile
+from load.customer.models import OriginFile
+from load.tasks import aggregate_meter_group_intervalframes
 
 
 class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
@@ -37,8 +38,12 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
             username=faker.user_name(), email=faker.email(), is_superuser=False
         )
 
-        # test following endpoints
+        # test following endpoints using BasicAuthenticationTestMixin
         self.endpoints = ["/v1/load/meter/"]
+
+        # aggregate Meter data in OriginFile
+        for origin_file in OriginFile.objects.all():
+            aggregate_meter_group_intervalframes(origin_file.id)
 
     def tearDown(self):
         flush_intervalframe_files()
@@ -50,27 +55,34 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
         """
         self.client.force_authenticate(user=self.user)
 
-        base_endpoint = (
-            "/v1/load/meter/?start=2018-01-01T00:00:00"
-            "&end_limit=2018-01-02T00:00:00&data_types="
-        )
+        base_endpoints = [
+            (
+                "/v1/load/meter/?start=2018-01-01T00:00:00"
+                "&end_limit=2018-01-02T00:00:00&data_types="
+            ),
+            (
+                "/v1/load/meter_group/?start=2018-01-01T00:00:00"
+                "&end_limit=2018-01-02T00:00:00&data_types="
+            ),
+        ]
         data_types = ["default", "total", "average", "maximum", "minimum"]
 
         for data_type in data_types:
-            endpoint = base_endpoint + data_type
-            response = self.client.get(endpoint, format="json")
-            self.assertEqual(
-                response.status_code, status.HTTP_200_OK, msg=endpoint
-            )
-            self.assertEqual(
-                type(response.data["results"][0]["data"][data_type]),
-                pd.DataFrame,
-                msg=endpoint,
-            )
-            self.assertFalse(
-                response.data["results"][0]["data"][data_type].empty,
-                msg=endpoint,
-            )
+            for base_endpoint in base_endpoints:
+                endpoint = base_endpoint + data_type
+                response = self.client.get(endpoint, format="json")
+                self.assertEqual(
+                    response.status_code, status.HTTP_200_OK, msg=endpoint
+                )
+                self.assertEqual(
+                    type(response.data["results"][0]["data"][data_type]),
+                    pd.DataFrame,
+                    msg=endpoint,
+                )
+                self.assertFalse(
+                    response.data["results"][0]["data"][data_type].empty,
+                    msg=endpoint,
+                )
 
     def test_meter_multiple_data_exists(self):
         """
@@ -79,27 +91,34 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
         """
         self.client.force_authenticate(user=self.user)
 
-        base_endpoint = (
-            "/v1/load/meter/?start=2018-01-01T00:00:00"
-            "&end_limit=2018-01-02T00:00:00&data_types="
-        )
+        base_endpoints = [
+            (
+                "/v1/load/meter/?start=2018-01-01T00:00:00"
+                "&end_limit=2018-01-02T00:00:00&data_types="
+            ),
+            (
+                "/v1/load/meter_group/?start=2018-01-01T00:00:00"
+                "&end_limit=2018-01-02T00:00:00&data_types="
+            ),
+        ]
         data_types = ["default", "total", "average", "maximum", "minimum"]
 
-        endpoint = base_endpoint + ",".join(data_types)
-        response = self.client.get(endpoint, format="json")
-        self.assertEqual(
-            response.status_code, status.HTTP_200_OK, msg=endpoint
-        )
-        for data_type in data_types:
+        for base_endpoint in base_endpoints:
+            endpoint = base_endpoint + ",".join(data_types)
+            response = self.client.get(endpoint, format="json")
             self.assertEqual(
-                type(response.data["results"][0]["data"][data_type]),
-                pd.DataFrame,
-                msg=endpoint,
+                response.status_code, status.HTTP_200_OK, msg=endpoint
             )
-            self.assertFalse(
-                response.data["results"][0]["data"][data_type].empty,
-                msg=endpoint,
-            )
+            for data_type in data_types:
+                self.assertEqual(
+                    type(response.data["results"][0]["data"][data_type]),
+                    pd.DataFrame,
+                    msg=endpoint,
+                )
+                self.assertFalse(
+                    response.data["results"][0]["data"][data_type].empty,
+                    msg=endpoint,
+                )
 
     def test_meter_data_does_not_exists(self):
         """
@@ -107,12 +126,16 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
         """
         self.client.force_authenticate(user=self.user)
 
-        endpoint = "/v1/load/meter/"
-        response = self.client.get(endpoint, format="json")
-        self.assertEqual(
-            response.status_code, status.HTTP_200_OK, msg=endpoint
-        )
-        self.assertEqual(response.data["results"][0]["data"], {}, msg=endpoint)
+        endpoints = ["/v1/load/meter/", "/v1/load/meter_group/"]
+
+        for endpoint in endpoints:
+            response = self.client.get(endpoint, format="json")
+            self.assertEqual(
+                response.status_code, status.HTTP_200_OK, msg=endpoint
+            )
+            self.assertEqual(
+                response.data["results"][0]["data"], {}, msg=endpoint
+            )
 
 
 class TestFileUpload(APITestCase):
@@ -148,37 +171,38 @@ class TestFileUpload(APITestCase):
         """
         Test only one file is uploaded per md5sum.
         """
-        endpoint = "/v1/load/origin_file/"
+        get_endpoint = "/v1/load/meter_group/"
+        post_endpoint = "/v1/load/origin_file/"
         file_location = "load/tests/files/test.csv"
         self.client.force_authenticate(user=self.user)
 
         # 0 OriginFiles
         OriginFile.objects.all().delete()
-        response = self.client.get(endpoint, format="json")
+        response = self.client.get(get_endpoint, format="json")
         self.assertEqual(response.data.get("count"), 0)
 
         # 1 OriginFile
         with open(os.path.join(BASE_DIR, file_location), "rb") as file:
             response = self.client.post(
-                endpoint,
+                post_endpoint,
                 {"file": file, "load_serving_entity_id": 2},
                 format="multipart",
             )
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        response = self.client.get(endpoint, format="json")
+        response = self.client.get(get_endpoint, format="json")
         self.assertEqual(response.data.get("count"), 1)
 
         # 1 OriginFile
         with open(os.path.join(BASE_DIR, file_location), "rb") as file:
             response = self.client.post(
-                endpoint,
+                post_endpoint,
                 {"file": file, "load_serving_entity_id": 2},
                 format="multipart",
             )
 
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        response = self.client.get(endpoint, format="json")
+        response = self.client.get(get_endpoint, format="json")
         self.assertEqual(response.data.get("count"), 1)
 
     def tearDown(self):

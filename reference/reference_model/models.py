@@ -1,14 +1,9 @@
 from localflavor.us.models import USStateField
 from localflavor.us.us_states import STATE_CHOICES
-import os
-import pandas as pd
 import uuid
 
-from django.contrib.auth.models import User
-from django.db import models, transaction
-from django.utils.functional import cached_property
+from django.db import models
 
-from beo_datastore.libs.ingest import get_item_17_dict
 from beo_datastore.libs.models import (
     PolymorphicValidationModel,
     ValidationModel,
@@ -17,8 +12,6 @@ from beo_datastore.libs.plot_intervalframe import (
     plot_intervalframe,
     plot_frame288_monthly_comparison,
 )
-from beo_datastore.libs.utils import file_md5sum
-from beo_datastore.settings import MEDIA_ROOT
 
 
 class BuildingType(ValidationModel):
@@ -130,129 +123,10 @@ class LoadServingEntity(ValidationModel):
         )
 
 
-class OriginFile(ValidationModel):
+class MeterDataMixin(object):
     """
-    File containing customer Meter and Channel data.
+    Properties for accessing and displaying meter data.
     """
-
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-    file = models.FileField(upload_to="origin_files")
-    md5sum = models.CharField(max_length=32)
-    load_serving_entity = models.ForeignKey(
-        to=LoadServingEntity,
-        related_name="origin_files",
-        on_delete=models.PROTECT,
-        blank=False,
-        null=False,
-    )
-    owners = models.ManyToManyField(
-        to=User, related_name="origin_files", blank=True
-    )
-
-    class Meta:
-        ordering = ["id"]
-
-    @property
-    def file_path(self):
-        try:
-            return self.file.path
-        except NotImplementedError:  # S3Boto3StorageFile
-            return os.path.join(MEDIA_ROOT, str(self.file))
-
-    @cached_property
-    def dataframe(self):
-        return pd.read_csv(self.file_path)
-
-    @cached_property
-    def meter_data_dict(self):
-        """
-        Return CSV file as dict in the following format.
-
-        {
-            SA_ID_1: {
-                "rate_plan_name": string,
-                "import": dataframe,
-                "export": dataframe,
-            },
-            ...
-        }
-        """
-        if self.load_serving_entity:
-            if (
-                self.load_serving_entity.name
-                == "Southern California Edison Co"
-            ):
-                # TODO: parse SCE data
-                pass
-            elif (
-                self.load_serving_entity.name == "San Diego Gas & Electric Co"
-            ):
-                # TODO: parse SDG&E data
-                pass
-            else:  # "Pacific Gas & Electric Co"
-                return get_item_17_dict(self.dataframe)
-
-    @classmethod
-    def get_or_create(cls, file, load_serving_entity, owner=None):
-        """
-        Create OriginFile and assign ownership. If OriginFile already exists,
-        only assign ownership.
-
-        :param file: file path
-        :param load_serving_entity: LoadServingEntity
-        :param user: Django User object
-        :return: (OriginFile, created)
-        """
-        with transaction.atomic():
-            origin_file = OriginFile(
-                load_serving_entity=load_serving_entity, md5sum="0"
-            )
-            origin_file.file.save(os.path.basename(file.name), file, save=True)
-            origin_file.md5sum = file_md5sum(origin_file.file.file)
-            origin_file.save()
-            if owner:
-                origin_file.owners.add(owner)
-
-            # TODO: delete duplicate files
-            existing_files = OriginFile.objects.filter(
-                load_serving_entity=load_serving_entity,
-                md5sum=origin_file.md5sum,
-            ).exclude(id=origin_file.id)
-
-            if not existing_files:
-                return (origin_file, True)
-            else:
-                origin_file.delete()
-                return (existing_files.first(), False)
-
-
-class Meter(PolymorphicValidationModel):
-    """
-    Model containing a linked intervalframe with time-stamped power readings.
-    """
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    origin_file = models.ForeignKey(
-        to=OriginFile,
-        related_name="meters",
-        on_delete=models.CASCADE,
-        blank=True,
-        null=True,
-    )
-
-    class Meta:
-        ordering = ["id"]
-
-    @property
-    def meter_type(self):
-        """
-        String representation of ctype minus spaces.
-        """
-        return self.polymorphic_ctype.name.replace(" ", "")
-
-    @property
-    def intervalframe(self):
-        raise NotImplementedError()
 
     @property
     def dataframe(self):
@@ -305,6 +179,55 @@ class Meter(PolymorphicValidationModel):
         Return a 12 x 24 dataframe of counts.
         """
         return self.intervalframe.count_frame288.dataframe
+
+
+class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
+    """
+    Model many Meters.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    @property
+    def meter_group_type(self):
+        """
+        String representation of ctype minus spaces.
+        """
+        return self.polymorphic_ctype.name.replace(" ", "")
+
+    @property
+    def intervalframe(self):
+        raise NotImplementedError()
+
+
+class Meter(PolymorphicValidationModel, MeterDataMixin):
+    """
+    Model containing a linked intervalframe with time-stamped power readings.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    meter_groups = models.ManyToManyField(
+        to=MeterGroup, related_name="meters", blank=True
+    )
+
+    class Meta:
+        ordering = ["id"]
+
+    @property
+    def meter_type(self):
+        """
+        String representation of ctype minus spaces.
+        """
+        return self.polymorphic_ctype.name.replace(" ", "")
+
+    @property
+    def intervalframe(self):
+        raise NotImplementedError()
 
 
 class VoltageCategory(ValidationModel):
