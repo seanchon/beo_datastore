@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "django_celery_beat",
     "django_celery_results",
     "django_extensions",
+    "django_filters",
     "polymorphic",
     "rest_auth",
     "rest_auth.registration",
@@ -214,6 +215,9 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ),
     "DEFAULT_SCHEMA_CLASS": "rest_framework.schemas.coreapi.AutoSchema",
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend"
+    ],
 }
 
 # Enable registration in django-rest-auth

@@ -13,6 +13,7 @@ django-celery-beat
 django-celery-results
 django-dotenv
 django-extensions
+django-filter
 django-localflavor
 django-polymorphic
 django-rest-auth
