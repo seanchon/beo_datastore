@@ -50,15 +50,22 @@ class MeterViewSet(ListRetrieveDestroyViewSet):
 
     queryset = Meter.objects.all()
     serializer_class = MeterSerializer
+    filterset_fields = ("origin_file",)
 
     schema = AutoSchema(
         manual_fields=[
+            coreapi.Field(
+                "origin_file",
+                required=False,
+                location="query",
+                description="An origin_file id.",
+            ),
             coreapi.Field(
                 "data_types",
                 required=False,
                 location="query",
                 description=(
-                    "Data type or types to return. Choices are 'default', "
+                    "One or many data types to return. Choices are 'default', "
                     "'total', 'average', 'maximum', 'minimum', and 'count'."
                 ),
             ),
