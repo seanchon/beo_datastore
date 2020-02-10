@@ -83,7 +83,7 @@ class MeterSerializer(serializers.ModelSerializer):
                     frame_type = data_type + "_frame288"
                     dataframe = getattr(intervalframe, frame_type).dataframe
 
-            data[data_type] = dataframe.where(pd.notnull(dataframe), None)
+                data[data_type] = dataframe.where(pd.notnull(dataframe), None)
 
             return data
         else:
