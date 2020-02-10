@@ -78,12 +78,12 @@ class MeterSerializer(serializers.ModelSerializer):
 
             for data_type in data_types.split(","):
                 if data_type == "default":
-                    data[data_type] = intervalframe.dataframe.reset_index()
+                    dataframe = intervalframe.dataframe.reset_index()
                 else:
                     frame_type = data_type + "_frame288"
-                    data[data_type] = getattr(
-                        intervalframe, frame_type
-                    ).dataframe
+                    dataframe = getattr(intervalframe, frame_type).dataframe
+
+            data[data_type] = dataframe.where(pd.notnull(dataframe), None)
 
             return data
         else:
