@@ -68,6 +68,14 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
     schema = AutoSchema(
         manual_fields=[
             coreapi.Field(
+                "meters",
+                required=False,
+                location="query",
+                description=(
+                    "True to return meter ids. No ids returned by default."
+                ),
+            ),
+            coreapi.Field(
                 "data_types",
                 required=False,
                 location="query",

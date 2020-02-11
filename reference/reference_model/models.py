@@ -193,6 +193,10 @@ class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
         ordering = ["id"]
 
     @property
+    def meter_count(self):
+        return self.meters.count()
+
+    @property
     def meter_group_type(self):
         """
         String representation of ctype minus spaces.

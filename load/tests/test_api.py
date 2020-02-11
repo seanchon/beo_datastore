@@ -137,6 +137,20 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
                 response.data["results"][0]["data"], {}, msg=endpoint
             )
 
+    def test_meter_ids_only_returned_on_request(self):
+        """
+        Test that meter ids are returned only on request.
+        """
+        self.client.force_authenticate(user=self.user)
+
+        endpoint = "/v1/load/meter_group/"
+        response = self.client.get(endpoint, format="json")
+        self.assertTrue(len(response.data["results"][0]["meters"]) == 0)
+
+        endpoint = "/v1/load/meter_group/?meters=true"
+        response = self.client.get(endpoint, format="json")
+        self.assertTrue(len(response.data["results"][0]["meters"]) > 0)
+
 
 class TestFileUpload(APITestCase):
     """

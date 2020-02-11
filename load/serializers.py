@@ -1,5 +1,6 @@
 from datetime import timedelta
 import dateutil.parser
+from distutils.util import strtobool
 import numpy as np
 import pandas as pd
 
@@ -97,6 +98,7 @@ class OriginFileSerializer(serializers.ModelSerializer):
 class MeterGroupSerializer(GetDataMixin, serializers.ModelSerializer):
     originfile = OriginFileSerializer(many=False, read_only=True)
     data = serializers.SerializerMethodField()
+    meters = serializers.SerializerMethodField()
 
     class Meta:
         model = MeterGroup
@@ -105,9 +107,24 @@ class MeterGroupSerializer(GetDataMixin, serializers.ModelSerializer):
             "created_at",
             "meter_group_type",
             "originfile",
+            "meter_count",
             "meters",
             "data",
         )
+
+    def get_meters(self, obj):
+        """
+        Used for SerializerMethodField "meters". Fields for Swagger
+        documentation set in MeterViewSet.schema.
+
+        :field meters: True or False (optional)
+        """
+        meters = self.context["request"].query_params.get("meters")
+
+        if meters and strtobool(meters):
+            return obj.meters.values_list("id", flat=True)
+        else:
+            return []
 
 
 class CustomerMeterSerializer(serializers.ModelSerializer):
