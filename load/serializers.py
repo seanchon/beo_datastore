@@ -28,23 +28,50 @@ class GetDataMixin(object):
         start = self.context["request"].query_params.get("start")
         end_limit = self.context["request"].query_params.get("end_limit")
 
+        if start:
+            try:
+                start = dateutil.parser.parse(start)
+            except Exception:
+                raise serializers.ValidationError(
+                    "start must be valid ISO 8601."
+                )
+        else:
+            start = pd.Timestamp.min
+
+        if end_limit:
+            try:
+                end_limit = dateutil.parser.parse(end_limit)
+            except Exception:
+                raise serializers.ValidationError(
+                    "end_limit must be valid ISO 8601."
+                )
+        else:
+            end_limit = pd.Timestamp.max
+
+        data_types = set(data_types.split(",")) if data_types else set()
+        allowed_data_types = {
+            "default",
+            "total",
+            "average",
+            "maximum",
+            "minimum",
+            "count",
+        }
+        disallowed_data_types = data_types - allowed_data_types
+        if disallowed_data_types:
+            raise serializers.ValidationError(
+                "Incorrect data_types: {}".format(
+                    ", ".join(disallowed_data_types)
+                )
+            )
+
         if data_types:
             data = {}
-            if start:
-                start = dateutil.parser.parse(start)
-            else:
-                start = pd.Timestamp.min
-
-            if end_limit:
-                end_limit = dateutil.parser.parse(end_limit)
-            else:
-                end_limit = pd.Timestamp.max
-
             intervalframe = obj.intervalframe.filter_by_datetime(
                 start=start, end_limit=end_limit
             ).resample_intervalframe(timedelta(hours=1), np.mean)
 
-            for data_type in data_types.split(","):
+            for data_type in data_types:
                 if data_type == "default":
                     dataframe = intervalframe.dataframe.reset_index()
                 else:
@@ -110,45 +137,3 @@ class MeterSerializer(GetDataMixin, serializers.ModelSerializer):
             "referencemeter",
             "data",
         )
-
-    def get_data(self, obj):
-        """
-        Used for SerializerMethodField "data". Fields for Swagger documentation
-        set in MeterViewSet.schema.
-
-        :field data_types: frame 288 type (optional)
-        :field start: ISO 8601 string (optional)
-        :field end_limit: ISO 8601 string (optional)
-        """
-        data_types = self.context["request"].query_params.get("data_types")
-        start = self.context["request"].query_params.get("start")
-        end_limit = self.context["request"].query_params.get("end_limit")
-
-        if data_types:
-            data = {}
-            if start:
-                start = dateutil.parser.parse(start)
-            else:
-                start = pd.Timestamp.min
-
-            if end_limit:
-                end_limit = dateutil.parser.parse(end_limit)
-            else:
-                end_limit = pd.Timestamp.max
-
-            intervalframe = obj.intervalframe.filter_by_datetime(
-                start=start, end_limit=end_limit
-            ).resample_intervalframe(timedelta(hours=1), np.mean)
-
-            for data_type in data_types.split(","):
-                if data_type == "default":
-                    dataframe = intervalframe.dataframe.reset_index()
-                else:
-                    frame_type = data_type + "_frame288"
-                    dataframe = getattr(intervalframe, frame_type).dataframe
-
-                data[data_type] = dataframe.where(pd.notnull(dataframe), None)
-
-            return data
-        else:
-            return {}
