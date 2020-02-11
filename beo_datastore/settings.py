@@ -244,4 +244,4 @@ CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TASK_SERIALIZER = "json"
 CELERY_DEFAULT_QUEUE = os.environ.get("CELERY_DEFAULT_QUEUE", "beo_datastore")
-BROKER_TRANSPORT_OPTIONS = {"region": "us-west-1", "polling_interval": 20}
+BROKER_TRANSPORT_OPTIONS = {"region": "us-west-1", "polling_interval": 1}

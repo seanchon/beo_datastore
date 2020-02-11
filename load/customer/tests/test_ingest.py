@@ -7,10 +7,11 @@ from beo_datastore.libs.fixtures import (
     flush_intervalframe_files,
     load_intervalframe_files,
 )
+from beo_datastore.libs.utils import chunks
 from beo_datastore.settings import BASE_DIR
 
 from load.customer.models import CustomerMeter, OriginFile
-from load.customer.scripts import ingest_item_17
+from load.tasks import ingest_origin_file, ingest_meters
 from reference.reference_model.models import LoadServingEntity
 
 
@@ -32,6 +33,27 @@ class TestItem17Ingest(TestCase):
         """
         flush_intervalframe_files()
 
+    def create_origin_file(self, file):
+        """
+        Perform ingest of OriginFile and associated meters.
+        """
+        with open(file, "rb") as file:
+            origin_file, _ = OriginFile.get_or_create(
+                load_serving_entity=LoadServingEntity.objects.first(),
+                file=file,
+            )
+
+        return origin_file
+
+    def ingest_origin_file_meters(self, origin_file_id):
+        """
+        Runs load.tasks.ingest_origin_file_meters synchronously.
+        """
+        ingest_origin_file(origin_file_id)
+        origin_file = OriginFile.objects.get(id=origin_file_id)
+        for sa_ids in chunks(origin_file.db_get_sa_ids(), n=50):
+            ingest_meters(origin_file.id, sa_ids)
+
     def test_15_min_kw_ingest(self):
         """
         Test ingest of 15-minute Item 17 file with kW readings.
@@ -39,7 +61,8 @@ class TestItem17Ingest(TestCase):
         file = os.path.join(
             BASE_DIR, "load/customer/tests/files/15_min_kw.csv"
         )
-        ingest_item_17.run(LoadServingEntity.objects.first(), file)
+        origin_file = self.create_origin_file(file)
+        self.ingest_origin_file_meters(origin_file.id)
 
         # origin file is created
         self.assertEqual(OriginFile.objects.count(), 1)
@@ -58,7 +81,8 @@ class TestItem17Ingest(TestCase):
         file = os.path.join(
             BASE_DIR, "load/customer/tests/files/15_min_kwh.csv"
         )
-        ingest_item_17.run(LoadServingEntity.objects.first(), file)
+        origin_file = self.create_origin_file(file)
+        self.ingest_origin_file_meters(origin_file.id)
 
         # origin file is created
         self.assertEqual(OriginFile.objects.count(), 1)
@@ -77,7 +101,8 @@ class TestItem17Ingest(TestCase):
         file = os.path.join(
             BASE_DIR, "load/customer/tests/files/60_min_kw.csv"
         )
-        ingest_item_17.run(LoadServingEntity.objects.first(), file)
+        origin_file = self.create_origin_file(file)
+        self.ingest_origin_file_meters(origin_file.id)
 
         # origin file is created
         self.assertEqual(OriginFile.objects.count(), 1)
@@ -96,7 +121,8 @@ class TestItem17Ingest(TestCase):
         file = os.path.join(
             BASE_DIR, "load/customer/tests/files/60_min_kwh.csv"
         )
-        ingest_item_17.run(LoadServingEntity.objects.first(), file)
+        origin_file = self.create_origin_file(file)
+        self.ingest_origin_file_meters(origin_file.id)
 
         # origin file is created
         self.assertEqual(OriginFile.objects.count(), 1)
@@ -107,3 +133,32 @@ class TestItem17Ingest(TestCase):
         self.assertEqual(
             meter.intervalframe.dataframe.loc[MIDNIGHT_2018]["kw"], 0.5
         )
+
+    def test_dupicate_origin_files_ingest(self):
+        """
+        Test that running the same ingest twice does not increase origin file
+        count on second run.
+        """
+        file = os.path.join(
+            BASE_DIR, "load/customer/tests/files/60_min_kwh.csv"
+        )
+        self.create_origin_file(file)
+        origin_file_count = OriginFile.objects.count()
+        self.create_origin_file(file)
+
+        self.assertEqual(origin_file_count, OriginFile.objects.count())
+
+    def test_duplicate_meters_ingest(self):
+        """
+        Test that running the same ingest twice does not increase meter count
+        on second run.
+        """
+        file = os.path.join(
+            BASE_DIR, "load/customer/tests/files/60_min_kwh.csv"
+        )
+        origin_file = self.create_origin_file(file)
+        self.ingest_origin_file_meters(origin_file.id)
+        meter_count = origin_file.meters.count()
+        self.ingest_origin_file_meters(origin_file.id)
+
+        self.assertEqual(meter_count, origin_file.meters.count())
