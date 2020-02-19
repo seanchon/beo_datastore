@@ -33,16 +33,11 @@ def get_dataframe_saids(dataframe, sa_column):
     return set(dataframe[sa_column])
 
 
-def filter_dataframe(dataframe, sa_column, said, export, column_list=[]):
+def filter_dataframe(dataframe, column_list=[]):
     """
     Filter Item 17 dataframe.
     """
-    if export:
-        dataframe = dataframe[dataframe["DIR"] == "R"]
-    else:
-        dataframe = dataframe[dataframe["DIR"] == "D"]
-
-    return dataframe[dataframe[sa_column] == said][column_list]
+    return dataframe[column_list]
 
 
 def reformat_timestamp_columns(dataframe):
@@ -85,74 +80,54 @@ def stack_dataframe(dataframe):
     df.drop(["DATE", "level_1"], axis=1, inplace=True)
     df.rename(index=str, columns={0: "kw"}, inplace=True)
     df.set_index("index", inplace=True)
-    df.index = pd.to_datetime(df.index, format="%m/%d/%Y %H:%M")
+    try:
+        df.index = pd.to_datetime(df.index, format="%m/%d/%Y %H:%M")
+    except ValueError:  # two-digit year
+        df.index = pd.to_datetime(df.index, format="%m/%d/%y %H:%M")
     df.sort_index(inplace=True)
     df = df.loc[~df.index.duplicated(keep="first")]
 
     return df
 
 
-def get_item_17_dict(dataframe):
+def reformat_item_17(dataframe):
     """
-    Return a dictionary of dataframes identified by SA ID and channel
-    (import/export).
-
-    Example:
-    {
-        SA_ID_1: {
-            "rate_plan_name": string,
-            "import": dataframe,
-            "export": dataframe,
-        },
-        ...
-    }
+    Return a dataframe in ValidationIntervalFrame format.
 
     :param dataframe: pandas DataFrame
     :return: dict
     """
     dataframe = reformat_timestamp_columns(dataframe)
-    sa_column = get_sa_id_column(dataframe)
 
-    saids = get_dataframe_saids(dataframe, sa_column)
     timestamp_columns = get_timestamp_columns(dataframe)
     timestamp_columns = [timestamp_columns[-1]] + timestamp_columns[:-1]
     columns = ["DATE"] + timestamp_columns
 
-    dataframe_dict = {}
+    unit_of_measure = set(dataframe["UOM"])
+    direction = set(dataframe["DIR"])
 
-    for said in saids:
-        dataframe_dict[said] = {
-            "rate_plan_name": get_rate_plan_name(dataframe, sa_column, said)
-        }
-        for export in [True, False]:
-            dir = "D" if export else "R"
-            unit_of_measure = set(
-                dataframe[
-                    (dataframe[sa_column] == said) & (dataframe["DIR"] == dir)
-                ]["UOM"]
-            )
-            df = filter_dataframe(dataframe, sa_column, said, export, columns)
+    if not dataframe.empty and unit_of_measure not in [{"KW"}, {"KWH"}]:
+        raise LookupError("UOM column should contain only KW or KWH.")
 
-            df.set_index("DATE", inplace=True)
-            df.sort_index(inplace=True)
+    if not dataframe.empty and direction not in [{"D"}, {"R"}]:
+        raise LookupError("DIR column should contain only single direction.")
 
-            # transform to single column of values
-            df = stack_dataframe(df)
+    dataframe = dataframe[columns]
+    dataframe.set_index("DATE", inplace=True)
 
-            # invert export values
-            if export:
-                df["kw"] = df["kw"] * -1.0
+    # transform to single column of values
+    df = stack_dataframe(dataframe)
+    df["kw"] = pd.to_numeric(df["kw"], errors="coerce")
 
-            # convert from kwh to kw
-            if not df.empty and unit_of_measure == {"KWH"}:
-                dataframe_period = get_dataframe_period(df)
-                multiplier = timedelta(0, 3600) / dataframe_period
-                if multiplier != 1:
-                    df["kw"] = df["kw"] * multiplier
+    # invert export values
+    if direction == {"R"}:
+        df["kw"] = df["kw"] * -1.0
 
-            if export:
-                dataframe_dict[said]["export"] = df
-            else:
-                dataframe_dict[said]["import"] = df
+    # convert from kwh to kw
+    if not df.empty and unit_of_measure == {"KWH"}:
+        dataframe_period = get_dataframe_period(df)
+        multiplier = timedelta(0, 3600) / dataframe_period
+        if multiplier != 1:
+            df["kw"] = df["kw"] * multiplier
 
-    return dataframe_dict
+    return df

@@ -1,6 +1,6 @@
 from functools import reduce
 import os
-import pandas as pd
+import pandas.io.sql as sqlio
 import us
 import uuid
 
@@ -9,7 +9,6 @@ from django.db import connection, models, transaction
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.clustering import KMeansLoadClustering
-from beo_datastore.libs.ingest import get_item_17_dict
 from beo_datastore.libs.intervalframe import ValidationIntervalFrame
 from beo_datastore.libs.intervalframe_file import (
     Frame288File,
@@ -25,8 +24,9 @@ from beo_datastore.libs.plot_intervalframe import (
     plot_intervalframe,
     plot_frame288_monthly_comparison,
 )
-from beo_datastore.settings import MEDIA_ROOT
-from beo_datastore.libs.utils import file_md5sum
+from beo_datastore.libs.postgresql import PostgreSQL, format_bulk_insert
+from beo_datastore.settings import DATABASES, MEDIA_ROOT
+from beo_datastore.libs.utils import bytes_to_str, file_md5sum
 
 from reference.reference_model.models import (
     DataUnit,
@@ -78,37 +78,57 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
             return os.path.join(MEDIA_ROOT, str(self.file))
 
     @cached_property
-    def file_dataframe(self):
-        return pd.read_csv(self.file_path)
-
-    @cached_property
-    def meter_data_dict(self):
+    def file_header(self):
         """
-        Return CSV file as dict in the following format.
-
-        {
-            SA_ID_1: {
-                "rate_plan_name": string,
-                "import": dataframe,
-                "export": dataframe,
-            },
-            ...
-        }
+        Return first line of self.file.
         """
-        if self.load_serving_entity:
-            if (
-                self.load_serving_entity.name
-                == "Southern California Edison Co"
-            ):
-                # TODO: parse SCE data
-                pass
-            elif (
-                self.load_serving_entity.name == "San Diego Gas & Electric Co"
-            ):
-                # TODO: parse SDG&E data
-                pass
-            else:  # "Pacific Gas & Electric Co"
-                return get_item_17_dict(self.file_dataframe)
+        with self.file.open(mode="r") as f:
+            return bytes_to_str(f.readline()).strip()
+
+    @property
+    def csv_columns(self):
+        """
+        CSV columns from self.file. Double-quoted to handle PostgreSQL special
+        character constraints.
+        """
+        return ['"{}"'.format(x) for x in self.file_header.split(",")]
+
+    @property
+    def db_exists(self):
+        """
+        Return True if corresponding database exists.
+        """
+        return bool(
+            self.db_execute_global(
+                "SELECT datname FROM pg_catalog.pg_database "
+                "WHERE datname = '{}'".format(self.db_name)
+            )
+        )
+
+    @property
+    def db_name(self):
+        """
+        Name of database containing contents of OriginFile.file.
+        """
+        return "origin_file_" + str(self.id).replace("-", "_")
+
+    @property
+    def db_table(self):
+        """
+        Table used within database (self.db_name).
+        """
+        return "intervals"
+
+    @property
+    def db_sa_id_column(self):
+        """
+        Return column containing SA ID.
+        """
+        sa_columns = [x for x in self.csv_columns if "SA" in x]
+        if len(sa_columns) != 1:
+            raise LookupError("Unique SA ID column not found.")
+        else:
+            return sa_columns[0]
 
     @classmethod
     def get_or_create(cls, file, load_serving_entity, owner=None):
@@ -143,6 +163,139 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
                 origin_file.delete()
                 return (existing_files.first(), False)
 
+    def db_connect(self):
+        """
+        Return PostgreSQL connection.
+        """
+        return PostgreSQL(
+            host=DATABASES["default"]["HOST"],
+            user=DATABASES["default"]["USER"],
+            password=DATABASES["default"]["PASSWORD"],
+            dbname=self.db_name,
+        )
+
+    def db_execute_global(self, command):
+        """
+        Execute PostgreSQL global command.
+
+        :param command: SQL command
+        :return: SQL response
+        """
+        return PostgreSQL.execute_global_command(
+            host=DATABASES["default"]["HOST"],
+            user=DATABASES["default"]["USER"],
+            password=DATABASES["default"]["PASSWORD"],
+            command=command,
+        )
+
+    def db_create(self):
+        """
+        Create a database with the contents of OriginFile.file.
+        """
+        command = "CREATE DATABASE {};".format(self.db_name)
+        self.db_execute_global(command=command)
+
+    def db_create_tables(self):
+        """
+        Create an intervals table to store self.file data.
+        """
+        with self.db_connect() as postgres:
+            # create corresponding columns
+            columns = ",".join(
+                ["{}".format(x) + " VARCHAR (16)" for x in self.csv_columns]
+            )
+            command = "CREATE TABLE {}({})".format(self.db_table, columns)
+            postgres.execute(command=command)
+
+    def db_load_intervals(self, chunk_size=1000):
+        """
+        Load data from self.file into database reading chunk_size lines at a
+        time.
+
+        :param chunk_size: number of lines to write to db at once
+        """
+        with self.db_connect() as postgres, self.file.open(mode="r") as f_in:
+            i = 0
+            chunk = []
+            for line in f_in.readlines()[1:]:  # skip header
+                chunk.append(bytes_to_str(line).strip())
+                i += 1
+                if i == chunk_size:
+                    # bulk upload
+                    command = "INSERT INTO {} ({}) VALUES {};".format(
+                        self.db_table,
+                        ",".join(self.csv_columns),
+                        format_bulk_insert(chunk),
+                    )
+                    postgres.execute(command=command)
+                    i = 0
+                    chunk = []
+            # bulk upload final chunk
+            if chunk:
+                command = "INSERT INTO {} ({}) VALUES {};".format(
+                    self.db_table,
+                    ",".join(self.csv_columns),
+                    format_bulk_insert(chunk),
+                )
+                postgres.execute(command=command)
+
+    def db_create_indexes(self):
+        """
+        Creates indexes on database. Should be run after data is loaded for
+        performance.
+        """
+        with self.db_connect() as postgres:
+            for column in self.csv_columns:
+                if "SA" in column or "DATE" in column:
+                    command = "CREATE INDEX idx_{} ON {}({});".format(
+                        column.replace('"', ""), self.db_table, column
+                    )
+                    postgres.execute(command=command)
+
+    def db_drop(self):
+        """
+        Drop database associated with OriginFile.file.
+        """
+        command = "DROP DATABASE {};".format(self.db_name)
+        self.db_execute_global(command=command)
+
+    def db_get_sa_ids(self):
+        """
+        Return meter SA IDs from database.
+        """
+        with self.db_connect() as postgres:
+            command = (
+                "SELECT DISTINCT {} from intervals "
+                "ORDER BY {};".format(
+                    self.db_sa_id_column, self.db_sa_id_column
+                )
+            )
+            return [x[0] for x in postgres.execute(command=command)]
+
+    def db_get_meter_dataframe(self, sa_ids):
+        """
+        Return meter dataframe from database where SA ID in sa_ids.
+
+        :param sa_id: SA ID
+        :param stack: if True, reformat in ValidationIntervalFrame format
+        :return: (forward channel dataframe, reverse channel dataframe)
+        """
+        if sa_ids:
+            sa_ids_str = "({})".format(
+                ",".join(["'{}'".format(x) for x in sa_ids])
+            )
+        else:
+            sa_ids_str = "('')"
+
+        with self.db_connect() as postgres:
+            command = (
+                "SELECT * FROM {} WHERE {} IN {} "
+                'ORDER BY "DATE";'.format(
+                    self.db_table, self.db_sa_id_column, sa_ids_str
+                )
+            )
+            return sqlio.read_sql_query(sql=command, con=postgres.connection)
+
 
 class CustomerMeter(Meter):
     """
@@ -150,6 +303,7 @@ class CustomerMeter(Meter):
     identified by a Service Address Identifier (sa_id).
     """
 
+    # TODO: change sa_id to CharField for flexibility
     sa_id = models.BigIntegerField(db_index=True)
     rate_plan_name = models.CharField(
         max_length=64, db_index=True, blank=True, null=True
@@ -253,6 +407,28 @@ class CustomerMeter(Meter):
             return self.channels.get(export=True)
         except Channel.DoesNotExist:
             return None
+
+    @classmethod
+    def get_or_create(
+        cls, origin_file, sa_id, rate_plan_name, forward_df, reverse_df
+    ):
+        """
+        Create a CustomerMeter with an import Channel and export Channel.
+
+        :param origin_file: OriginFile
+        :param sa_id: SA ID
+        :param rate_plan_name: string
+        :param forward_df: import Channel dataframe
+        :param reverse_df: export Channel dataframe
+        """
+        meter, created = CustomerMeter.objects.get_or_create(
+            sa_id=sa_id,
+            rate_plan_name=rate_plan_name,
+            load_serving_entity=origin_file.load_serving_entity,
+        )
+        meter.meter_groups.add(origin_file)
+        for (export, dataframe) in [(False, forward_df), (True, reverse_df)]:
+            meter.get_or_create_channel(export, dataframe)
 
     def get_or_create_channel(self, export, dataframe, data_unit_name="kw"):
         """

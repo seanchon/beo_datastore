@@ -10,10 +10,7 @@ from beo_datastore.libs.api.viewsets import (
     ListRetrieveDestroyViewSet,
 )
 
-from load.tasks import (
-    ingest_meters_from_file,
-    aggregate_meter_group_intervalframes,
-)
+from load.tasks import ingest_origin_file_meters
 from load.customer.models import OriginFile
 from reference.reference_model.models import (
     LoadServingEntity,
@@ -47,9 +44,7 @@ class OriginFileViewSet(CreateViewSet):
                 ),
                 owner=request.user,
             )
-            # TODO: ingest meters on EC2 instance
-            ingest_meters_from_file(origin_file.id)
-            aggregate_meter_group_intervalframes.delay(origin_file.id)
+            ingest_origin_file_meters.delay(origin_file.id, overwrite=True)
             # TODO: return link to asset in response
             return Response(status=status.HTTP_204_NO_CONTENT)
         else:

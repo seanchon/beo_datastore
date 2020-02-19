@@ -448,8 +448,8 @@ class ValidationIntervalFrame(ValidationDataFrame):
             index=[x for x in range(0, 24)],
         )
 
-        # filter dataframe to single column of values
-        dataframe = self.dataframe[[self.aggregation_column]]
+        # filter dataframe to single column of values and drop null values
+        dataframe = self.dataframe[[self.aggregation_column]].dropna()
 
         if convert_to_kwh:
             dataframe = resample_dataframe(

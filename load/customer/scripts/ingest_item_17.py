@@ -1,5 +1,5 @@
 from load.customer.models import OriginFile
-from load.tasks import ingest_meters_from_file
+from load.tasks import ingest_origin_file_meters
 from reference.reference_model.models import LoadServingEntity
 
 
@@ -30,5 +30,4 @@ def run(*args):
         origin_file, _ = OriginFile.get_or_create(
             load_serving_entity=load_serving_entity, file=file
         )
-        origin_file.save()
-        ingest_meters_from_file(origin_file.id)
+        ingest_origin_file_meters.delay(origin_file.id)

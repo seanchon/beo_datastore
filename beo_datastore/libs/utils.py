@@ -34,3 +34,20 @@ def file_md5sum(file, chunk_size=65536):
         hasher.update(buf)
 
     return hasher.hexdigest()
+
+
+def bytes_to_str(input):
+    """
+    Converts bytes to str.
+    """
+    if isinstance(input, bytes):
+        return input.decode("utf-8")
+    return input
+
+
+def chunks(lst, n):
+    """
+    Yield successive n-sized chunks from lst.
+    """
+    for i in range(0, len(lst), n):
+        yield lst[i : i + n]
