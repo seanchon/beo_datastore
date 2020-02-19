@@ -43,7 +43,7 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
 
         # aggregate Meter data in OriginFile
         for origin_file in OriginFile.objects.all():
-            aggregate_meter_group_intervalframes(origin_file.id)
+            aggregate_meter_group_intervalframes(origin_file.id, in_db=False)
 
     def tearDown(self):
         flush_intervalframe_files()

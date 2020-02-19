@@ -12,7 +12,7 @@ from reference.reference_model.models import MeterGroup
 
 
 @app.task
-def ingest_origin_file_meters(origin_file_id, chunk_size=10, overwrite=False):
+def ingest_origin_file_meters(origin_file_id, chunk_size=100, overwrite=False):
     """
     Performs all necessary ingest steps after an OriginFile has been created.
 
@@ -41,13 +41,12 @@ def ingest_origin_file_meters(origin_file_id, chunk_size=10, overwrite=False):
     else:
         sa_ids = set(origin_file.db_get_sa_ids())
 
+    # aggregate meter
+    aggregate_meter_group_intervalframes.delay(origin_file_id)
+
     # ingest meters
     for sa_ids in chunks(list(sa_ids), chunk_size):
         ingest_meters.delay(origin_file.id, sa_ids, overwrite)
-
-    # aggregate meter
-    # TODO: only run after all meters are ingested
-    aggregate_meter_group_intervalframes.delay(origin_file_id)
 
 
 @app.task
@@ -94,7 +93,9 @@ def ingest_meters(origin_file_id, sa_ids, overwrite=False):
                 meter_df[origin_file.db_sa_id_column.strip('"')] == sa_id
             ]
             if len(set(sa_id_df["RS"])) != 1:
-                raise LookupError("RS (rate schedule) should be unique.")
+                multiple_rate_plans = True
+            else:
+                multiple_rate_plans = False
             rate_plan_name = set(sa_id_df["RS"]).pop()
             forward_df = reformat_item_17(sa_id_df[sa_id_df["DIR"] == "D"])
             reverse_df = reformat_item_17(sa_id_df[sa_id_df["DIR"] == "R"])
@@ -102,25 +103,33 @@ def ingest_meters(origin_file_id, sa_ids, overwrite=False):
                 origin_file=origin_file,
                 sa_id=sa_id,
                 rate_plan_name=rate_plan_name,
+                multiple_rate_plans=multiple_rate_plans,
                 forward_df=forward_df,
                 reverse_df=reverse_df,
             )
 
 
 @app.task
-def aggregate_meter_group_intervalframes(meter_group_id):
+def aggregate_meter_group_intervalframes(meter_group_id, in_db=True):
     """
     Aggregate all Meter data associated with a MeterGroup.
 
     :param meter_group_id: MeterGroup id
+    :param in_db: If True, attempt in database aggregation.
     """
     meter_group = MeterGroup.objects.get(id=meter_group_id)
 
-    meter_group.intervalframe = reduce(
-        lambda x, y: x + y,
-        [x.intervalframe for x in meter_group.meters.all()],
-        ValidationIntervalFrame(
-            dataframe=ValidationIntervalFrame.default_dataframe
-        ),
-    )
+    if in_db and isinstance(meter_group, OriginFile) and meter_group.db_exists:
+        meter_group_df = meter_group.db_get_meter_group_dataframe()
+        meter_group.intervalframe.dataframe = reformat_item_17(
+            meter_group_df[meter_group_df["DIR"] == "D"]
+        ) + reformat_item_17(meter_group_df[meter_group_df["DIR"] == "R"])
+    else:
+        meter_group.intervalframe = reduce(
+            lambda x, y: x + y,
+            [x.intervalframe for x in meter_group.meters.all()],
+            ValidationIntervalFrame(
+                dataframe=ValidationIntervalFrame.default_dataframe
+            ),
+        )
     meter_group.save()
