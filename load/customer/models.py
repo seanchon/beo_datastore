@@ -1,6 +1,7 @@
 from functools import reduce
 import os
 import pandas.io.sql as sqlio
+import re
 import us
 import uuid
 
@@ -296,6 +297,30 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
             )
             return sqlio.read_sql_query(sql=command, con=postgres.connection)
 
+    def db_get_meter_group_dataframe(self):
+        """
+        Run an in-database aggregation of all meter readings grouped by DATE.
+        The returned dataframe is the equivalent of having a single aggregate
+        meter reading on all meters contained within the file.
+        """
+        with self.db_connect() as postgres:
+            # cleanse non-numeric data using cast, coalesce, substring
+            # aggregate data using sum ... GROUP BY
+            time_cols = ", ".join(
+                [
+                    "sum (cast(coalesce(substring({} FROM '^[0-9\.]+$'),'0.0') as float)) "
+                    "{}".format(x, x)
+                    for x in self.csv_columns
+                    if re.search(r"\d", x)
+                ]
+            )
+            command = (
+                'SELECT "DATE", "UOM", "DIR", {} FROM intervals '
+                'GROUP BY "DATE", "UOM", "DIR" '
+                'ORDER BY "DATE";'.format(time_cols)
+            )
+            return sqlio.read_sql_query(sql=command, con=postgres.connection)
+
 
 class CustomerMeter(Meter):
     """
@@ -308,6 +333,7 @@ class CustomerMeter(Meter):
     rate_plan_name = models.CharField(
         max_length=64, db_index=True, blank=True, null=True
     )
+    multiple_rate_plans = models.BooleanField(default=False)
     load_serving_entity = models.ForeignKey(
         to=LoadServingEntity,
         related_name="meters",
@@ -410,7 +436,13 @@ class CustomerMeter(Meter):
 
     @classmethod
     def get_or_create(
-        cls, origin_file, sa_id, rate_plan_name, forward_df, reverse_df
+        cls,
+        origin_file,
+        sa_id,
+        rate_plan_name,
+        forward_df,
+        reverse_df,
+        multiple_rate_plans=False,
     ):
         """
         Create a CustomerMeter with an import Channel and export Channel.
@@ -420,10 +452,12 @@ class CustomerMeter(Meter):
         :param rate_plan_name: string
         :param forward_df: import Channel dataframe
         :param reverse_df: export Channel dataframe
+        :param multiple_rate_plans: bool
         """
         meter, created = CustomerMeter.objects.get_or_create(
             sa_id=sa_id,
             rate_plan_name=rate_plan_name,
+            multiple_rate_plans=multiple_rate_plans,
             load_serving_entity=origin_file.load_serving_entity,
         )
         meter.meter_groups.add(origin_file)

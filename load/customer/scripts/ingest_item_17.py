@@ -1,3 +1,5 @@
+from django.db import transaction
+
 from load.customer.models import OriginFile
 from load.tasks import ingest_origin_file_meters
 from reference.reference_model.models import LoadServingEntity
@@ -26,7 +28,7 @@ def run(*args):
         )
         return
 
-    with open(args[1], "rb") as file:
+    with open(args[1], "rb") as file, transaction.atomic():
         origin_file, _ = OriginFile.get_or_create(
             load_serving_entity=load_serving_entity, file=file
         )
