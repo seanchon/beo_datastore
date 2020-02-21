@@ -11,7 +11,7 @@ from load.customer.models import CustomerMeter, OriginFile
 from reference.reference_model.models import MeterGroup
 
 
-@app.task
+@app.task(soft_time_limit=1800, max_retries=3)
 def ingest_origin_file_meters(origin_file_id, chunk_size=100, overwrite=False):
     """
     Performs all necessary ingest steps after an OriginFile has been created.
@@ -66,7 +66,7 @@ def ingest_origin_file(origin_file_id):
         origin_file.db_create_indexes()
 
 
-@app.task
+@app.task(max_retries=3)
 def ingest_meters(origin_file_id, sa_ids, overwrite=False):
     """
     Ingest meter from OriginFile based on SA IDs.
@@ -109,7 +109,7 @@ def ingest_meters(origin_file_id, sa_ids, overwrite=False):
             )
 
 
-@app.task
+@app.task(soft_time_limit=1800, max_retries=3)
 def aggregate_meter_group_intervalframes(meter_group_id, in_db=True):
     """
     Aggregate all Meter data associated with a MeterGroup.
