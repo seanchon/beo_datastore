@@ -137,6 +137,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# HTTPS
+SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", False)
+CSRF_COOKIE_SECURE = os.environ.get("CSRF_COOKIE_SECURE", False)
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.11/topics/i18n/
