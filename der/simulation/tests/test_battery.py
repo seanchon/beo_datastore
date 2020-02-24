@@ -52,6 +52,7 @@ class TestBattery(TestCase):
             sa_id="123",
             rate_plan_name=None,
             load_serving_entity=LoadServingEntity.objects.first(),
+            import_hash=self.intervalframe.__hash__(),
         )
         Channel.create(
             export=False,

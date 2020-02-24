@@ -62,7 +62,9 @@
   "fields": {
     "sa_id": 0,
     "rate_plan_name": "TEST",
-    "load_serving_entity": 2
+    "load_serving_entity": 2,
+    "import_hash": "7f35e2ea4a17180d475c165eb070cebc9e9ea478d5a0a68c5a89cdc007b9882c",
+    "export_hash": "eb55cca0e51f7f841f2e66faf4b55fb72710bea9dd98d821d8504eac9768f7cb"
   }
 },
 {
@@ -71,7 +73,9 @@
   "fields": {
     "sa_id": 8943913372,
     "rate_plan_name": "EV, Residential Rates for Electric Vehicle Owners",
-    "load_serving_entity": 2
+    "load_serving_entity": 2,
+    "import_hash": "a61719b2664f23f1f73edf317a7be7bcfb78e089b54a7206cde215602f47797c",
+    "export_hash": null
   }
 },
 {
@@ -80,7 +84,9 @@
   "fields": {
     "sa_id": 7720534682,
     "rate_plan_name": "E19, Medium General Service, Primary",
-    "load_serving_entity": 2
+    "load_serving_entity": 2,
+    "import_hash": "9871ef0eb089c76a18f3eaccc074b431abe4c715f848b8d39d3d6620d1de7ae4",
+    "export_hash": null
   }
 },
 {

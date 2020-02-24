@@ -92,7 +92,7 @@ class OriginFileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OriginFile
-        fields = ("filename", "owners")
+        fields = ("filename", "expected_meter_count", "owners")
 
 
 class MeterGroupSerializer(GetDataMixin, serializers.ModelSerializer):

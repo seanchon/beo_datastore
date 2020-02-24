@@ -32,6 +32,9 @@ class TestItem17Ingest(TestCase):
         Remove test MEDIA_ROOT and contents.
         """
         flush_intervalframe_files()
+        for origin_file in OriginFile.objects.all():
+            if origin_file.db_exists:
+                origin_file.db_drop()
 
     def create_origin_file(self, file):
         """

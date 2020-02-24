@@ -53,6 +53,7 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
     """
 
     file = models.FileField(upload_to="origin_files")
+    expected_meter_count = models.IntegerField(blank=True, null=True)
     md5sum = models.CharField(max_length=32)
     load_serving_entity = models.ForeignKey(
         to=LoadServingEntity,
@@ -341,9 +342,12 @@ class CustomerMeter(Meter):
         blank=True,
         null=True,
     )
+    import_hash = models.CharField(max_length=64, blank=True, null=True)
+    export_hash = models.CharField(max_length=64, blank=True, null=True)
 
     class Meta:
         ordering = ["id"]
+        unique_together = ("import_hash", "export_hash")
 
     def __str__(self):
         return "{} ({}: {})".format(
@@ -454,15 +458,27 @@ class CustomerMeter(Meter):
         :param reverse_df: export Channel dataframe
         :param multiple_rate_plans: bool
         """
-        meter, created = CustomerMeter.objects.get_or_create(
-            sa_id=sa_id,
-            rate_plan_name=rate_plan_name,
-            multiple_rate_plans=multiple_rate_plans,
-            load_serving_entity=origin_file.load_serving_entity,
-        )
-        meter.meter_groups.add(origin_file)
-        for (export, dataframe) in [(False, forward_df), (True, reverse_df)]:
-            meter.get_or_create_channel(export, dataframe)
+        # get dataframe hash values
+        import_hash = ValidationIntervalFrame(dataframe=forward_df).__hash__()
+        export_hash = ValidationIntervalFrame(dataframe=reverse_df).__hash__()
+
+        with transaction.atomic():
+            meter, created = CustomerMeter.objects.get_or_create(
+                sa_id=sa_id,
+                rate_plan_name=rate_plan_name,
+                multiple_rate_plans=multiple_rate_plans,
+                load_serving_entity=origin_file.load_serving_entity,
+                import_hash=import_hash,
+                export_hash=export_hash,
+            )
+            meter.meter_groups.add(origin_file)
+            for (export, dataframe) in [
+                (False, forward_df),
+                (True, reverse_df),
+            ]:
+                meter.get_or_create_channel(export, dataframe)
+
+            return (meter, created)
 
     def get_or_create_channel(self, export, dataframe, data_unit_name="kw"):
         """
