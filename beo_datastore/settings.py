@@ -155,28 +155,6 @@ USE_L10N = True
 # TODO: Set USE_TZ to True. Data ingest needs to be corrected first.
 USE_TZ = False
 
-# Logging
-if APP_ENV != "local":
-    logging_level = "DEBUG" if APP_ENV == "dev" else "INFO"
-    LOGGING = {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "handlers": {
-            "file": {
-                "level": logging_level,
-                "class": "logging.FileHandler",
-                "filename": "/var/log/django/django.log",
-            }
-        },
-        "loggers": {
-            "django": {
-                "handlers": ["file"],
-                "level": logging_level,
-                "propagate": True,
-            }
-        },
-    }
-
 # AWS Credentials
 
 AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
@@ -247,3 +225,52 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TASK_SERIALIZER = "json"
 CELERY_DEFAULT_QUEUE = os.environ.get("CELERY_DEFAULT_QUEUE", "beo_datastore")
 BROKER_TRANSPORT_OPTIONS = {"region": "us-west-1", "polling_interval": 1}
+
+# SMTP settings
+EMAIL_HOST = "email-smtp.us-west-2.amazonaws.com"
+EMAIL_PORT = 587
+EMAIL_HOST_USER = os.environ.get("SMTP_USER", None)
+EMAIL_HOST_PASSWORD = os.environ.get("SMTP_PASSWORD", None)
+EMAIL_USE_TLS = True
+
+# django.utils.log.AdminEmailHandler configuration
+SERVER_EMAIL = "support@navigader.com"  # source email
+ADMINS = [("NavigaDER", "support@navigader.com")]  # destination emails
+
+# Logging
+if APP_ENV != "local":
+    logging_level = "DEBUG" if APP_ENV == "dev" else "ERROR"
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "simple": {"format": "%(levelname)s %(message)s"},
+            "verbose": {"format": "%(asctime)s %(levelname)s %(message)s"},
+        },
+        "handlers": {
+            "null": {"level": "DEBUG", "class": "logging.NullHandler"},
+            "django_log": {
+                "level": logging_level,
+                "class": "logging.FileHandler",
+                "filename": "/var/log/django/django.log",
+                "formatter": "verbose",
+            },
+            "mail_admins": {
+                "level": "ERROR",
+                "class": "django.utils.log.AdminEmailHandler",
+                "formatter": "verbose",
+            },
+        },
+        "loggers": {
+            "django": {
+                "handlers": ["django_log"],
+                "level": logging_level,
+                "propagate": True,
+            },
+            "django.request": {"handlers": ["mail_admins"], "level": "ERROR"},
+            "django.security.DisallowedHost": {
+                "handlers": ["null"],
+                "propagate": False,
+            },
+        },
+    }
