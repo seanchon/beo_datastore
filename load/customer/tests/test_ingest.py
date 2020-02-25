@@ -1,4 +1,5 @@
 from datetime import datetime
+import ntpath
 import os
 
 from django.test import TestCase
@@ -41,9 +42,11 @@ class TestItem17Ingest(TestCase):
         Perform ingest of OriginFile and associated meters.
         """
         with open(file, "rb") as file:
+            name = ntpath.basename(file.name)
             origin_file, _ = OriginFile.get_or_create(
                 load_serving_entity=LoadServingEntity.objects.first(),
                 file=file,
+                name=name,
             )
 
         return origin_file

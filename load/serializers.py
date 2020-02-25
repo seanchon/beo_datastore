@@ -104,6 +104,7 @@ class MeterGroupSerializer(GetDataMixin, serializers.ModelSerializer):
         model = MeterGroup
         fields = (
             "id",
+            "name",
             "created_at",
             "meter_group_type",
             "originfile",

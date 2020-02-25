@@ -133,19 +133,20 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
             return sa_columns[0]
 
     @classmethod
-    def get_or_create(cls, file, load_serving_entity, owner=None):
+    def get_or_create(cls, file, name, load_serving_entity, owner=None):
         """
         Create OriginFile and assign ownership. If OriginFile already exists,
         only assign ownership.
 
         :param file: file path
+        :param name: string
         :param load_serving_entity: LoadServingEntity
         :param user: Django User object
         :return: (OriginFile, created)
         """
         with transaction.atomic():
             origin_file = OriginFile(
-                load_serving_entity=load_serving_entity, md5sum="0"
+                name=name, load_serving_entity=load_serving_entity, md5sum="0"
             )
             origin_file.file.save(os.path.basename(file.name), file, save=True)
             origin_file.md5sum = file_md5sum(origin_file.file.file)

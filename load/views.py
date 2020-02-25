@@ -35,10 +35,12 @@ class OriginFileViewSet(CreateViewSet):
 
     def create(self, request):
         file = request.data["file"]
+        name = request.data["name"]
         # TODO: add additional file validation
         if file.content_type == "text/csv":
             origin_file, _ = OriginFile.get_or_create(
                 file=file,
+                name=name,
                 load_serving_entity=LoadServingEntity.objects.get(
                     id=request.data["load_serving_entity_id"]
                 ),
