@@ -9,8 +9,7 @@ from beo_datastore.libs.models import ValidationModel, Frame288FileMixin
 from beo_datastore.settings import MEDIA_ROOT
 from beo_datastore.libs.views import dataframe_to_html
 
-from der.simulation.models import StoredBatterySimulation
-from reference.reference_model.models import RateUnit
+from reference.reference_model.models import DERSimulation, RateUnit
 
 
 class GHGRateFrame288(Frame288File):
@@ -61,8 +60,8 @@ class StoredGHGCalculation(ValidationModel):
 
     pre_DER_total = models.FloatField()
     post_DER_total = models.FloatField()
-    battery_simulation = models.ForeignKey(
-        to=StoredBatterySimulation,
+    der_simulation = models.ForeignKey(
+        to=DERSimulation,
         related_name="stored_ghg_calculations",
         on_delete=models.CASCADE,
     )
@@ -74,7 +73,7 @@ class StoredGHGCalculation(ValidationModel):
 
     class Meta:
         ordering = ["id"]
-        unique_together = ("battery_simulation", "ghg_rate")
+        unique_together = ("der_simulation", "ghg_rate")
 
     @property
     def net_impact(self):
@@ -98,52 +97,49 @@ class StoredGHGCalculation(ValidationModel):
         Return AggregateGHGCalculation equivalent of self.
         """
         return AggregateGHGCalculation(
-            agg_simulation=self.battery_simulation.agg_simulation,
+            agg_simulation=self.der_simulation.agg_simulation,
             ghg_frame288=self.ghg_rate.frame288,
         )
 
     @classmethod
-    def generate(cls, battery_simulation_set, ghg_rate):
+    def generate(cls, der_simulation_set, ghg_rate):
         """
         Get or create many StoredGHGCalculations at once. Pre-existing
         StoredGHGCalculations are retrieved and non-existing
         StoredGHGCalculations are created.
 
-        :param battery_simulation_set: QuerySet or set of
-            StoredBatterySimulations
+        :param der_simulation_set: QuerySet or set of DERSimulations
         :param ghg_rate: GHGRate
         :return: StoredGHGCalculation QuerySet
         """
         with transaction.atomic():
             # get existing GHG calculations
             stored_ghg_calculations = cls.objects.filter(
-                battery_simulation__in=battery_simulation_set,
-                ghg_rate=ghg_rate,
+                der_simulation__in=der_simulation_set, ghg_rate=ghg_rate
             )
 
             # create new GHG calculations
             stored_simulations = [
-                x.battery_simulation for x in stored_ghg_calculations
+                x.der_simulation for x in stored_ghg_calculations
             ]
             objects = []
-            for battery_simulation in battery_simulation_set:
-                if battery_simulation in stored_simulations:
+            for der_simulation in der_simulation_set:
+                if der_simulation in stored_simulations:
                     continue
                 ghg_calculation = AggregateGHGCalculation(
-                    agg_simulation=battery_simulation.agg_simulation,
+                    agg_simulation=der_simulation.agg_simulation,
                     ghg_frame288=ghg_rate.frame288,
                 )
                 objects.append(
                     cls(
                         pre_DER_total=ghg_calculation.pre_DER_total,
                         post_DER_total=ghg_calculation.post_DER_total,
-                        battery_simulation=battery_simulation,
+                        der_simulation=der_simulation,
                         ghg_rate=ghg_rate,
                     )
                 )
             cls.objects.bulk_create(objects)
 
             return cls.objects.filter(
-                battery_simulation__in=battery_simulation_set,
-                ghg_rate=ghg_rate,
+                der_simulation__in=der_simulation_set, ghg_rate=ghg_rate
             )

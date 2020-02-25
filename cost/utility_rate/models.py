@@ -12,8 +12,8 @@ from beo_datastore.libs.intervalframe import ValidationFrame288
 from beo_datastore.libs.models import ValidationModel
 from beo_datastore.libs.views import dataframe_to_html
 
-from der.simulation.models import StoredBatterySimulation
 from reference.reference_model.models import (
+    DERSimulation,
     LoadServingEntity,
     Sector,
     VoltageCategory,
@@ -281,8 +281,8 @@ class StoredBillCalculation(ValidationModel):
     Container for storing AggregateBillCalculation.
     """
 
-    battery_simulation = models.ForeignKey(
-        to=StoredBatterySimulation,
+    der_simulation = models.ForeignKey(
+        to=DERSimulation,
         related_name="stored_bill_calculations",
         on_delete=models.CASCADE,
     )
@@ -294,7 +294,7 @@ class StoredBillCalculation(ValidationModel):
 
     class Meta:
         ordering = ["id"]
-        unique_together = ("battery_simulation", "rate_plan")
+        unique_together = ("der_simulation", "rate_plan")
 
     @property
     def net_impact(self):
@@ -327,7 +327,7 @@ class StoredBillCalculation(ValidationModel):
 
     @property
     def meter(self):
-        return self.battery_simulation.meter
+        return self.der_simulation.meter
 
     @cached_property
     def date_ranges(self):
@@ -371,7 +371,7 @@ class StoredBillCalculation(ValidationModel):
         Return AggregateBillCalculation equivalent of self.
         """
         return AggregateBillCalculation(
-            agg_simulation=self.battery_simulation.agg_simulation,
+            agg_simulation=self.der_simulation.agg_simulation,
             rate_plan=self.rate_plan,
             date_ranges=self.date_ranges,
             pre_bills=self.pre_bills,
@@ -402,17 +402,17 @@ class StoredBillCalculation(ValidationModel):
 
     @classmethod
     def get_or_create_from_objects(
-        cls, battery_simulation, rate_plan, multiprocess=False
+        cls, der_simulation, rate_plan, multiprocess=False
     ):
         """
         Get existing or create new StoredBillCalculation from a
-        StoredBatterySimulation and RatePlan.
+        DERSimulation and RatePlan.
 
         Billing date ranges are created automatically from the first to last
-        day of every month found in a StoredBatterySimulation, which are used
+        day of every month found in a DERSimulation, which are used
         to created BillComparisons.
 
-        :param battery_simulation: StoredBatterySimulation
+        :param der_simulation: DERSimulation
         :param rate_plan: RatePlan
         :param multiprocess: True to multiprocess
         :return: (
@@ -421,17 +421,17 @@ class StoredBillCalculation(ValidationModel):
         )
         """
         with transaction.atomic():
-            meter = battery_simulation.meter
+            meter = der_simulation.meter
             bill_collection, new = cls.objects.get_or_create(
-                battery_simulation=battery_simulation, rate_plan=rate_plan
+                der_simulation=der_simulation, rate_plan=rate_plan
             )
 
             if new:
                 agg_bill_calculation = AggregateBillCalculation.create(
-                    agg_simulation=battery_simulation.agg_simulation,
+                    agg_simulation=der_simulation.agg_simulation,
                     rate_plan=rate_plan,
                     date_ranges=cls.create_date_ranges(
-                        intervalframe=battery_simulation.pre_intervalframe
+                        intervalframe=der_simulation.pre_intervalframe
                     ),
                     multiprocess=multiprocess,
                 )
@@ -451,14 +451,14 @@ class StoredBillCalculation(ValidationModel):
             return (bill_collection, new)
 
     @classmethod
-    def generate(cls, battery_simulation_set, rate_plan, multiprocess=False):
+    def generate(cls, der_simulation_set, rate_plan, multiprocess=False):
         """
         Get or create many StoredBillCalculations at once. Pre-existing
         StoredBillCalculations are retrieved and non-existing
         StoredBillCalculations are created.
 
-        :param battery_simulation_set: QuerySet or set of
-            StoredBatterySimulations
+        :param der_simulation_set: QuerySet or set of
+            DERSimulations
         :param RatePlan: RatePlan
         :param multiprocess: True to multiprocess
         :return: StoredBillCalculation QuerySet
@@ -466,24 +466,23 @@ class StoredBillCalculation(ValidationModel):
         with transaction.atomic():
             # get existing bill calculations
             stored_bill_calculations = cls.objects.filter(
-                battery_simulation__in=battery_simulation_set,
-                rate_plan=rate_plan,
+                der_simulation__in=der_simulation_set, rate_plan=rate_plan
             )
 
             # create new bill calculations
-            for battery_simulation in battery_simulation_set:
-                if battery_simulation not in [
-                    x.battery_simulation for x in stored_bill_calculations
-                ]:
+            existing_der_simulations = [
+                x.der_simulation for x in stored_bill_calculations
+            ]
+            for der_simulation in der_simulation_set:
+                if der_simulation not in existing_der_simulations:
                     cls.get_or_create_from_objects(
-                        battery_simulation=battery_simulation,
+                        der_simulation=der_simulation,
                         rate_plan=rate_plan,
                         multiprocess=multiprocess,
                     )
 
             return cls.objects.filter(
-                battery_simulation__in=battery_simulation_set,
-                rate_plan=rate_plan,
+                der_simulation__in=der_simulation_set, rate_plan=rate_plan
             )
 
 
@@ -519,7 +518,7 @@ class BillComparison(ValidationModel):
         """
         Return pre-DER ValidationIntervalFrame.
         """
-        frame = self.bill_collection.battery_simulation.pre_intervalframe
+        frame = self.bill_collection.der_simulation.pre_intervalframe
         return frame.filter_by_datetime(
             start=self.start, end_limit=self.end_limit
         )
@@ -529,7 +528,7 @@ class BillComparison(ValidationModel):
         """
         Return post-DER ValidationIntervalFrame.
         """
-        frame = self.bill_collection.battery_simulation.post_intervalframe
+        frame = self.bill_collection.der_simulation.post_intervalframe
         return frame.filter_by_datetime(
             start=self.start, end_limit=self.end_limit
         )

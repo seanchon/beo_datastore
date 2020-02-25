@@ -45,12 +45,14 @@ Additional environment variables will need to be set in AWS Elastic Beanstalk en
 APP_ENV=<dev, staging, prod>
 AWS_ACCESS_KEY_ID=<FROM IAM ROLE>
 AWS_MEDIA_BUCKET_NAME=<FROM S3>
-AWS_SECRET_ACCESS_KEY=<FROM IAM ROLE>
+AWS_SECRET_ACCESS_KEY=<FROM APPLICATION IAM ROLE>
 AWS_STORAGE_BUCKET_NAME=<FROM S3>
 CELERY_DEFAULT_QUEUE=<FROM SQS>
 CSRF_COOKIE_SECURE=1
 MEDIA_ROOT=<FROM S3>
 SESSION_COOKIE_SECURE=1
+SMTP_PASSWORD=<FROM SES IAM ROLE>
+SMTP_USER=<FROM SES IAM ROLE>
 STATIC_ROOT=<FROM S3>
 ```
 
@@ -236,4 +238,4 @@ coverage html -d coverage --skip-covered  # ignore files with 100% coverage
 
 This project follows the recommended process outlined in https://www.kennethreitz.org/essays/a-better-pip-workflow.
 
-When a new package is added to the project, add it to `requirements-to-freeze.txt` then run `pip install -r requirements-to-freeze.txt` or `pip install -r requirements-to-freeze.txt --upgrade` (if you want to upgrade all packages). Followed by `pip freeze | grep -Fwf requirements-to-freeze.txt > requirements.txt`.
+When a new package is added to the project, add it to `requirements-to-freeze.txt` then run `pip install -r requirements-to-freeze.txt` or `pip install -r requirements-to-freeze.txt --upgrade` (if you want to upgrade all packages). Followed by `pip freeze > requirements.txt`.

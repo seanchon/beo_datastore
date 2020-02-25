@@ -22,7 +22,12 @@ from beo_datastore.libs.plot_intervalframe import (
     plot_frame288,
     plot_frame288_monthly_comparison,
 )
-from reference.reference_model.models import Meter
+from reference.reference_model.models import (
+    DERConfiguration,
+    DERSimulation,
+    DERStrategy,
+    DERType,
+)
 
 
 class BatteryScheduleFrame288(Frame288File):
@@ -72,20 +77,19 @@ class BatterySchedule(Frame288FileMixin, ValidationModel):
         else:
             return (cls.create_from_frame288(frame288), True)
 
-    def save(self, *args, **kwargs):
+    def clean(self, *args, **kwargs):
         """
         Save ValidationFrame288 hash value.
         """
         self.hash = self.frame288.__hash__()
-        super().save(*args, **kwargs)
+        super().clean(*args, **kwargs)
 
 
-class BatteryStrategy(ValidationModel):
+class BatteryStrategy(DERStrategy):
     """
     Container for storing a combination of charge and discharge schedules.
     """
 
-    name = models.CharField(max_length=128, blank=True, null=True)
     charge_schedule = models.ForeignKey(
         to=BatterySchedule,
         related_name="charge_schedule_battery_strategies",
@@ -153,6 +157,8 @@ class BatteryStrategy(ValidationModel):
             is above, attempts to discharge
         :return: BatteryStrategy
         """
+        der_type, _ = DERType.objects.get_or_create(name="Battery")
+
         charge_schedule_frame_288 = optimize_battery_schedule(
             frame288=frame288,
             level=level,
@@ -188,6 +194,7 @@ class BatteryStrategy(ValidationModel):
             level,
         )
         object, _ = cls.objects.get_or_create(
+            der_type=der_type,
             charge_schedule=charge_schedule,
             discharge_schedule=discharge_schedule,
         )
@@ -197,7 +204,7 @@ class BatteryStrategy(ValidationModel):
         return object
 
 
-class BatteryConfiguration(ValidationModel):
+class BatteryConfiguration(DERConfiguration):
     """
     Container for storing Battery configurations.
     """
@@ -216,9 +223,6 @@ class BatteryConfiguration(ValidationModel):
     class Meta:
         ordering = ["id"]
         unique_together = ("rating", "discharge_duration_hours", "efficiency")
-
-    def __repr__(self):
-        return self.detailed_name
 
     @property
     def detailed_name(self):
@@ -285,49 +289,24 @@ class StoredBatterySimulationFrame(BatteryIntervalFrameFile):
     file_directory = os.path.join(MEDIA_ROOT, "battery_simulations")
 
 
-class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
+class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
     """
     Container for storing BatterySimulations.
     """
 
-    start = models.DateTimeField()
-    end_limit = models.DateTimeField()
-    meter = models.ForeignKey(
-        to=Meter, on_delete=models.CASCADE, related_name="battery_simulations"
-    )
-    battery_configuration = models.ForeignKey(
-        to=BatteryConfiguration,
-        on_delete=models.CASCADE,
-        related_name="battery_simulations",
-    )
-    battery_strategy = models.ForeignKey(
-        to=BatteryStrategy,
-        on_delete=models.CASCADE,
-        related_name="battery_strategies",
-    )
     pre_DER_total = models.FloatField()
     post_DER_total = models.FloatField()
 
     # Required by IntervalFrameFileMixin.
     frame_file_class = StoredBatterySimulationFrame
 
-    class Meta:
-        ordering = ["id"]
-        unique_together = (
-            "meter",
-            "battery_configuration",
-            "battery_strategy",
-            "start",
-            "end_limit",
-        )
-
     @property
     def charge_schedule(self):
-        return self.battery_strategy.charge_schedule
+        return self.der_strategy.charge_schedule
 
     @property
     def discharge_schedule(self):
-        return self.battery_strategy.discharge_schedule
+        return self.der_strategy.discharge_schedule
 
     @property
     def energy_loss(self):
@@ -401,7 +380,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         Return FixedScheduleBatterySimulation equivalent of self.
         """
         return FixedScheduleBatterySimulation(
-            battery=self.battery_configuration.battery,
+            battery=self.der_configuration.battery,
             load_intervalframe=self.meter.intervalframe.filter_by_datetime(
                 start=self.start, end_limit=self.end_limit
             ),
@@ -420,7 +399,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         beo_datastore/libs/controller.py.
         """
         return AggregateBatterySimulation(
-            battery=self.battery_configuration.battery,
+            battery=self.der_configuration.battery,
             start=self.start,
             end_limit=self.end_limit,
             charge_schedule=self.charge_schedule.frame288,
@@ -452,12 +431,14 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
             end_limit = simulation.battery_intervalframe.end_limit_datetime
 
         with transaction.atomic():
+            der_type, _ = DERType.objects.get_or_create(name="Battery")
             configuration, _ = BatteryConfiguration.objects.get_or_create(
                 rating=simulation.battery.rating,
                 discharge_duration_hours=(
                     simulation.battery.discharge_duration_hours
                 ),
                 efficiency=simulation.battery.efficiency,
+                der_type=der_type,
             )
             charge_schedule, _ = BatterySchedule.get_or_create(
                 hash=simulation.charge_schedule.__hash__(),
@@ -467,9 +448,10 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
                 hash=simulation.discharge_schedule.__hash__(),
                 dataframe=simulation.discharge_schedule.dataframe,
             )
-            battery_strategy, _ = BatteryStrategy.objects.get_or_create(
+            der_strategy, _ = BatteryStrategy.objects.get_or_create(
                 charge_schedule=charge_schedule,
                 discharge_schedule=discharge_schedule,
+                der_type=der_type,
             )
             pre_total_frame288 = simulation.pre_intervalframe.total_frame288
             pre_DER_total = pre_total_frame288.dataframe.sum().sum()
@@ -479,8 +461,8 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
                 start=start,
                 end_limit=end_limit,
                 meter=meter,
-                battery_configuration=configuration,
-                battery_strategy=battery_strategy,
+                der_configuration=configuration,
+                der_strategy=der_strategy,
                 pre_DER_total=pre_DER_total,
                 post_DER_total=post_DER_total,
                 dataframe=simulation.battery_intervalframe.dataframe,
@@ -496,6 +478,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         charge_schedule,
         discharge_schedule,
         multiprocess=False,
+        der_type="Battery",
     ):
         """
         Get or create many StoredBatterySimulations at once. Pre-existing
@@ -512,10 +495,12 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
         :return: StoredBatterySimulation QuerySet
         """
         with transaction.atomic():
+            der_type, _ = DERType.objects.get_or_create(name=der_type)
             configuration, _ = BatteryConfiguration.objects.get_or_create(
                 rating=battery.rating,
                 discharge_duration_hours=(battery.discharge_duration_hours),
                 efficiency=battery.efficiency,
+                der_type=der_type,
             )
             charge_schedule, _ = BatterySchedule.get_or_create(
                 hash=charge_schedule.__hash__(),
@@ -525,16 +510,17 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
                 hash=discharge_schedule.__hash__(),
                 dataframe=discharge_schedule.dataframe,
             )
-            battery_strategy, _ = BatteryStrategy.objects.get_or_create(
+            der_strategy, _ = BatteryStrategy.objects.get_or_create(
                 charge_schedule=charge_schedule,
                 discharge_schedule=discharge_schedule,
+                der_type=der_type,
             )
 
             # get existing aggregate simulation
             stored_simulations = cls.objects.filter(
                 meter__id__in=[x.id for x in meter_set],
-                battery_configuration=configuration,
-                battery_strategy=battery_strategy,
+                der_configuration=configuration,
+                der_strategy=der_strategy,
                 start=start,
                 end_limit=end_limit,
             )
@@ -562,8 +548,8 @@ class StoredBatterySimulation(IntervalFrameFileMixin, ValidationModel):
 
             return cls.objects.filter(
                 meter__in=meter_set,
-                battery_configuration=configuration,
-                battery_strategy=battery_strategy,
+                der_configuration=configuration,
+                der_strategy=der_strategy,
                 start=start,
                 end_limit=end_limit,
             )

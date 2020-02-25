@@ -2,6 +2,7 @@ from localflavor.us.models import USStateField
 from localflavor.us.us_states import STATE_CHOICES
 import uuid
 
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from beo_datastore.libs.models import (
@@ -123,6 +124,49 @@ class LoadServingEntity(ValidationModel):
         )
 
 
+class VoltageCategory(ValidationModel):
+    """
+    Utility's Customer Voltage Category.
+    """
+
+    name = models.CharField(max_length=32)
+    load_serving_entity = models.ForeignKey(
+        to=LoadServingEntity,
+        related_name="voltage_categories",
+        on_delete=models.PROTECT,
+    )
+
+    class Meta:
+        ordering = ["id"]
+        unique_together = ("name", "load_serving_entity")
+
+    def __str__(self):
+        return self.name
+
+
+class Sector(ValidationModel):
+    """
+    Classification of LSE customer.
+
+    Ex. Residential, Commercial
+    """
+
+    name = models.CharField(max_length=32)
+    load_serving_entity = models.ForeignKey(
+        to=LoadServingEntity, related_name="sectors", on_delete=models.PROTECT
+    )
+
+    class Meta:
+        ordering = ["id"]
+        unique_together = ("name", "load_serving_entity")
+
+    def __str__(self):
+        return self.name
+
+
+# LOAD BASE MODELS
+
+
 class MeterDataMixin(object):
     """
     Properties for accessing and displaying meter data.
@@ -183,7 +227,7 @@ class MeterDataMixin(object):
 
 class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
     """
-    Model many Meters.
+    Base model containing many Meters.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -211,7 +255,8 @@ class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
 
 class Meter(PolymorphicValidationModel, MeterDataMixin):
     """
-    Model containing a linked intervalframe with time-stamped power readings.
+    Base model containing a linked intervalframe with time-stamped power
+    readings.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -232,44 +277,127 @@ class Meter(PolymorphicValidationModel, MeterDataMixin):
 
     @property
     def intervalframe(self):
+        """
+        Return a ValidationIntervalFrame.
+        """
         raise NotImplementedError()
 
 
-class VoltageCategory(ValidationModel):
+# DER BASE MODELS
+
+
+class DERType(ValidationModel):
     """
-    Utility's Customer Voltage Category.
+    Model containing a DER type definition.
+
+    ex. Battery, Electric Water Heater, EV Charger, etc.
     """
 
-    name = models.CharField(max_length=32)
-    load_serving_entity = models.ForeignKey(
-        to=LoadServingEntity,
-        related_name="voltage_categories",
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class DERConfiguration(PolymorphicValidationModel):
+    """
+    Base model containing particular DER configurations.
+
+    ex. Battery rating and duration.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=128, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    der_type = models.ForeignKey(
+        to=DERType,
+        related_name="der_configurations",
         on_delete=models.PROTECT,
+        blank=False,
+        null=False,
+    )
+
+    @property
+    def configuration(self):
+        """
+        Return dictionary containing configuration values.
+        """
+        raise NotImplementedError()
+
+
+class DERStrategy(PolymorphicValidationModel):
+    """
+    Base model containing particular DER strategies.
+
+    ex. Battery charge with solar and discharge evening load.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=128, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    der_type = models.ForeignKey(
+        to=DERType,
+        related_name="der_strategies",
+        on_delete=models.PROTECT,
+        blank=False,
+        null=False,
+    )
+
+    @property
+    def strategy(self):
+        """
+        Return dictionary containing strategy values.
+        """
+        raise NotImplementedError()
+
+
+class DERSimulation(Meter):
+    """
+    Base model containing simulated load resulting from DER simulations.
+    """
+
+    start = models.DateTimeField()
+    end_limit = models.DateTimeField()
+    meter = models.ForeignKey(
+        to=Meter,
+        on_delete=models.CASCADE,
+        related_name="der_simulations",
+        blank=False,
+        null=False,
+    )
+    der_configuration = models.ForeignKey(
+        to=DERConfiguration,
+        on_delete=models.CASCADE,
+        related_name="der_simulations",
+        blank=False,
+        null=False,
+    )
+    der_strategy = models.ForeignKey(
+        to=DERStrategy,
+        on_delete=models.CASCADE,
+        related_name="der_simulations",
+        blank=True,
+        null=True,
     )
 
     class Meta:
         ordering = ["id"]
-        unique_together = ("name", "load_serving_entity")
+        unique_together = (
+            "start",
+            "end_limit",
+            "meter",
+            "der_configuration",
+            "der_strategy",
+        )
 
-    def __str__(self):
-        return self.name
-
-
-class Sector(ValidationModel):
-    """
-    Classification of LSE customer.
-
-    Ex. Residential, Commercial
-    """
-
-    name = models.CharField(max_length=32)
-    load_serving_entity = models.ForeignKey(
-        to=LoadServingEntity, related_name="sectors", on_delete=models.PROTECT
-    )
-
-    class Meta:
-        ordering = ["id"]
-        unique_together = ("name", "load_serving_entity")
-
-    def __str__(self):
-        return self.name
+    def clean(self, *args, **kwargs):
+        """
+        Constrain related DERConfiguration and DERStrategy to be of the same
+        DERType.
+        """
+        if self.der_strategy and (
+            self.der_configuration.der_type != self.der_strategy.der_type
+        ):
+            raise ValidationError(
+                "der_configuration.der_type must match der_strategy.der_type"
+            )
+        super().clean(*args, **kwargs)

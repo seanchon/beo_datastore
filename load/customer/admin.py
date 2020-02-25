@@ -3,7 +3,6 @@ from __future__ import unicode_literals
 
 from django.contrib import admin
 
-from der.simulation.models import StoredBatterySimulation
 from load.customer.models import (
     CustomerMeter,
     Channel,
@@ -17,17 +16,6 @@ class ChannelInline(admin.TabularInline):
     readonly_fields = ["export", "data_unit", "meter"]
 
 
-class StoredBatterySimulationInline(admin.TabularInline):
-    model = StoredBatterySimulation
-    readonly_fields = [
-        "start",
-        "end_limit",
-        "battery_configuration",
-        "charge_schedule",
-        "discharge_schedule",
-    ]
-
-
 @admin.register(CustomerMeter)
 class CustomerMeterAdmin(admin.ModelAdmin):
     readonly_fields = [
@@ -37,7 +25,7 @@ class CustomerMeterAdmin(admin.ModelAdmin):
         "intervalframe_html_plot",
         "average_vs_maximum_html_plot",
     ]
-    inlines = [ChannelInline, StoredBatterySimulationInline]
+    inlines = [ChannelInline]
     search_fields = [
         "id",
         "sa_id",
