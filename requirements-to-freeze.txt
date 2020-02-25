@@ -32,6 +32,7 @@ pre-commit
 pyarrow
 pycurl
 psycopg2-binary
+redis
 requests
 rise
 s3fs

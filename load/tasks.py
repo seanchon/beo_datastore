@@ -1,5 +1,6 @@
 from functools import reduce
 
+from celery.utils.log import get_task_logger
 from django.db import transaction
 
 from beo_datastore.celery import app
@@ -9,6 +10,9 @@ from beo_datastore.libs.utils import chunks
 
 from load.customer.models import CustomerMeter, OriginFile
 from reference.reference_model.models import MeterGroup
+
+
+logger = get_task_logger(__name__)
 
 
 @app.task(soft_time_limit=1800, max_retries=3)
@@ -65,6 +69,10 @@ def ingest_origin_file(origin_file_id):
         origin_file.db_load_intervals()
         origin_file.db_create_indexes()
 
+        # store number of unique SA IDs
+        origin_file.expected_meter_count = len(origin_file.db_get_sa_ids())
+        origin_file.save()
+
 
 @app.task(max_retries=3)
 def ingest_meters(origin_file_id, sa_ids, overwrite=False):
@@ -76,19 +84,20 @@ def ingest_meters(origin_file_id, sa_ids, overwrite=False):
     :param overwrite: If True, overwrite existing Meter values. If false,
         ignore when there is an existing meter.
     """
-    with transaction.atomic():
-        # retrieve sa_ids to ingest
-        origin_file = OriginFile.objects.get(id=origin_file_id)
-        if not overwrite:
-            existing_sa_ids = origin_file.meters.values_list(
-                "customermeter__sa_id", flat=True
-            )
-            existing_sa_ids = set([str(x) for x in existing_sa_ids])
-            sa_ids = set(sa_ids) - existing_sa_ids
+    # retrieve sa_ids to ingest
+    origin_file = OriginFile.objects.get(id=origin_file_id)
+    if not overwrite:
+        existing_sa_ids = origin_file.meters.values_list(
+            "customermeter__sa_id", flat=True
+        )
+        existing_sa_ids = set([str(x) for x in existing_sa_ids])
+        sa_ids = set(sa_ids) - existing_sa_ids
 
-        # ingest meters
-        meter_df = origin_file.db_get_meter_dataframe(sa_ids)
-        for sa_id in sa_ids:
+    # ingest meters
+    meter_df = origin_file.db_get_meter_dataframe(sa_ids)
+
+    for sa_id in sa_ids:
+        try:
             sa_id_df = meter_df[
                 meter_df[origin_file.db_sa_id_column.strip('"')] == sa_id
             ]
@@ -107,6 +116,9 @@ def ingest_meters(origin_file_id, sa_ids, overwrite=False):
                 forward_df=forward_df,
                 reverse_df=reverse_df,
             )
+        except Exception as e:
+            # Log failed meter ingests, but continue processing other meters.
+            logger.exception(e)
 
 
 @app.task(soft_time_limit=1800, max_retries=3)
