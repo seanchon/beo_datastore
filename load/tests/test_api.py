@@ -1,4 +1,5 @@
 from faker import Factory
+import ntpath
 import os
 import pandas as pd
 
@@ -197,9 +198,10 @@ class TestFileUpload(APITestCase):
 
         # 1 OriginFile
         with open(os.path.join(BASE_DIR, file_location), "rb") as file:
+            name = ntpath.basename(file.name)
             response = self.client.post(
                 post_endpoint,
-                {"file": file, "load_serving_entity_id": 2},
+                {"file": file, "name": name, "load_serving_entity_id": 2},
                 format="multipart",
             )
 
@@ -209,9 +211,10 @@ class TestFileUpload(APITestCase):
 
         # 1 OriginFile
         with open(os.path.join(BASE_DIR, file_location), "rb") as file:
+            name = ntpath.basename(file.name)
             response = self.client.post(
                 post_endpoint,
-                {"file": file, "load_serving_entity_id": 2},
+                {"file": file, "name": name, "load_serving_entity_id": 2},
                 format="multipart",
             )
 
