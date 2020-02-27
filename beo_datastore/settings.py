@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "django.contrib.sites",
     "allauth",
     "allauth.account",
+    "corsheaders",
     "django_celery_beat",
     "django_celery_results",
     "django_extensions",
@@ -73,6 +74,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -82,6 +84,13 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django.contrib.admindocs.middleware.XViewMiddleware",
 ]
+
+CORS_ORIGIN_ALLOW_ALL = False
+
+try:
+    CORS_ORIGIN_WHITELIST = os.environ.get("CORS_ORIGIN_WHITELIST").split(" ")
+except AttributeError:
+    CORS_ORIGIN_WHITELIST = []
 
 ROOT_URLCONF = "beo_datastore.urls"
 

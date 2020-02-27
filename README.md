@@ -22,21 +22,12 @@ $ source <env_name>/bin/activate
 
 A handful of environment variables need to be configured on a local machine or in Elastic Beanstalk in order for the application to run. On a personal computer, the following should be put into a file called `.env`. The environment variables will be automatically loaded, but the command `export $(<.env)` can be used to export the environment variables to your local machine.
 
-The following can be used with SQLite.
-
-```
-APP_ENV=local
-BROKER_URL=redis://localhost
-DEBUG=1
-DJANGO_ALLOWED_HOSTS=localhost
-SECRET_KEY=<SECRET_KEY>
-```
-
 The following can be used with PostgreSQL.
 
 ```
 APP_ENV=local
 BROKER_URL=redis://localhost
+CORS_ORIGIN_WHITELIST=http://localhost:3000
 DEBUG=1
 DJANGO_ALLOWED_HOSTS=localhost
 SECRET_KEY=<SECRET_KEY>

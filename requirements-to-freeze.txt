@@ -11,6 +11,7 @@ django-allauth
 django-auto-repr
 django-celery-beat
 django-celery-results
+django-cors-headers
 django-dotenv
 django-extensions
 django-filter
