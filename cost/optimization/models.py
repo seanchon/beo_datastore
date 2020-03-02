@@ -1,6 +1,7 @@
 from functools import reduce
 import pandas as pd
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
@@ -18,14 +19,16 @@ from cost.procurement.models import (
     StoredResourceAdequacyCalculation,
 )
 from cost.utility_rate.models import RatePlan, StoredBillCalculation
-from der.simulation.models import (
-    BatteryConfiguration,
-    BatteryStrategy,
-    StoredBatterySimulation,
-)
+from der.simulation.models import StoredBatterySimulation
 from load.customer.models import CustomerCluster, CustomerMeter
 from load.openei.models import ReferenceMeter
-from reference.reference_model.models import LoadServingEntity, Meter
+from reference.reference_model.models import (
+    DERConfiguration,
+    DERStrategy,
+    DERSimulation,
+    LoadServingEntity,
+    Meter,
+)
 
 
 class SimulationOptimization(ValidationModel):
@@ -44,13 +47,13 @@ class SimulationOptimization(ValidationModel):
     name = models.CharField(max_length=128, blank=True, null=True)
     start = models.DateTimeField()
     end_limit = models.DateTimeField()
-    battery_strategy = models.ForeignKey(
-        to=BatteryStrategy,
+    der_strategy = models.ForeignKey(
+        to=DERStrategy,
         related_name="simulation_optimizations",
         on_delete=models.CASCADE,
     )
-    battery_configuration = models.ForeignKey(
-        to=BatteryConfiguration,
+    der_configuration = models.ForeignKey(
+        to=DERConfiguration,
         related_name="simulation_optimizations",
         on_delete=models.CASCADE,
     )
@@ -87,24 +90,24 @@ class SimulationOptimization(ValidationModel):
             "name",
             "start",
             "end_limit",
-            "battery_strategy",
-            "battery_configuration",
+            "der_strategy",
+            "der_configuration",
             "load_serving_entity",
             "rate_plan",
         )
 
-    def save(self, *args, **kwargs):
+    def clean(self, *args, **kwargs):
         if (
             self.rate_plan
             and self.load_serving_entity
             and self.rate_plan not in self.load_serving_entity.rate_plans.all()
         ):
-            raise AttributeError(
+            raise ValidationError(
                 "RatePlan assignment is limited by those belonging to the "
                 "LoadServingEntity."
             )
 
-        super().save(*args, **kwargs)
+        super().clean(*args, **kwargs)
 
     @property
     def customer_cluster_meters(self):
@@ -122,26 +125,26 @@ class SimulationOptimization(ValidationModel):
         """
         Charge BatterySchedule.
         """
-        return self.battery_strategy.charge_schedule
+        return self.der_strategy.charge_schedule
 
     @property
     def discharge_schedule(self):
         """
         Discharge BatterySchedule.
         """
-        return self.battery_strategy.discharge_schedule
+        return self.der_strategy.discharge_schedule
 
     @property
-    def battery_simulations(self):
+    def der_simulations(self):
         """
         Return StoredBatterySimulations related to self.
         """
-        return StoredBatterySimulation.objects.filter(
+        return DERSimulation.objects.filter(
             start=self.start,
             end_limit=self.end_limit,
             meter__in=self.meters.all(),
-            battery_configuration=self.battery_configuration,
-            battery_strategy=self.battery_strategy,
+            der_configuration=self.der_configuration,
+            der_strategy=self.der_strategy,
         )
 
     @property
@@ -150,8 +153,7 @@ class SimulationOptimization(ValidationModel):
         Return StoredBillCalculations related to self.
         """
         return StoredBillCalculation.objects.filter(
-            battery_simulation__in=self.battery_simulations,
-            rate_plan=self.rate_plan,
+            der_simulation__in=self.der_simulations, rate_plan=self.rate_plan
         )
 
     @property
@@ -160,7 +162,7 @@ class SimulationOptimization(ValidationModel):
         Return StoredGHGCalculations related to self.
         """
         return StoredGHGCalculation.objects.filter(
-            battery_simulation__in=self.battery_simulations,
+            der_simulation__in=self.der_simulations,
             ghg_rate__in=self.ghg_rates.all(),
         )
 
@@ -170,7 +172,7 @@ class SimulationOptimization(ValidationModel):
         Return StoredResourceAdequacyCalculations related to self.
         """
         return StoredResourceAdequacyCalculation.objects.filter(
-            battery_simulation__in=self.battery_simulations,
+            der_simulation__in=self.der_simulations,
             system_profile__in=self.system_profiles.all(),
         )
 
@@ -185,9 +187,9 @@ class SimulationOptimization(ValidationModel):
         """
         return reduce(
             lambda x, y: x + y,
-            [x.agg_simulation for x in self.battery_simulations],
+            [x.agg_simulation for x in self.der_simulations],
             AggregateBatterySimulation(
-                battery=self.battery_configuration.battery,
+                battery=self.der_configuration.battery,
                 start=self.start,
                 end_limit=self.end_limit,
                 charge_schedule=self.charge_schedule.frame288,
@@ -225,7 +227,7 @@ class SimulationOptimization(ValidationModel):
         """
         Return all energy lost due to battery roundtrip efficiency.
         """
-        return sum([x.energy_loss for x in self.battery_simulations])
+        return sum([x.energy_loss for x in self.der_simulations])
 
     @cached_property
     def detailed_report(self):
@@ -236,10 +238,8 @@ class SimulationOptimization(ValidationModel):
         This report is used in MultiScenarioOptimization reports.
         """
         report = self.report_with_id
-        report[
-            "BatteryConfiguration"
-        ] = self.battery_configuration.detailed_name
-        report["BatteryStrategy"] = self.battery_strategy.name
+        report["DERConfiguration"] = self.der_configuration.detailed_name
+        report["DERStrategy"] = self.der_strategy.name
         report["SimulationRatePlan"] = self.rate_plan.name
 
         return report.join(self.customer_meter_report, how="outer").join(
@@ -288,7 +288,7 @@ class SimulationOptimization(ValidationModel):
                         x.post_DER_total,
                         x.net_impact,
                     )
-                    for x in self.battery_simulations
+                    for x in self.der_simulations
                 ],
                 key=lambda x: x[1],
             )
@@ -315,7 +315,7 @@ class SimulationOptimization(ValidationModel):
             sorted(
                 [
                     (
-                        x.battery_simulation.meter.id,
+                        x.der_simulation.meter.id,
                         x.pre_DER_total,
                         x.post_DER_total,
                         x.net_impact,
@@ -416,7 +416,7 @@ class SimulationOptimization(ValidationModel):
             sorted(
                 [
                     (
-                        x.battery_simulation.meter.id,
+                        x.der_simulation.meter.id,
                         x.pre_DER_total,
                         x.post_DER_total,
                         x.net_impact,
@@ -453,7 +453,7 @@ class SimulationOptimization(ValidationModel):
             sorted(
                 [
                     (
-                        x.battery_simulation.meter.id,
+                        x.der_simulation.meter.id,
                         x.pre_DER_total,
                         x.post_DER_total,
                         x.net_impact,
@@ -484,7 +484,7 @@ class SimulationOptimization(ValidationModel):
 
     def run(self, multiprocess=False):
         """
-        Run related StoredBatterySimulations, StoredBillCalculations and
+        Run related DERSimulations, StoredBillCalculations and
         StoredGHGCalculations.
 
         Note: Meters and GHGRates need to be added to object prior
@@ -495,8 +495,8 @@ class SimulationOptimization(ValidationModel):
         # add Meters from CustomerClusters
         self.initialize()
 
-        battery_simulation_set = StoredBatterySimulation.generate(
-            battery=self.battery_configuration.battery,
+        der_simulation_set = StoredBatterySimulation.generate(
+            battery=self.der_configuration.battery,
             start=self.start,
             end_limit=self.end_limit,
             meter_set=self.meters.all(),
@@ -506,20 +506,19 @@ class SimulationOptimization(ValidationModel):
         )
 
         StoredBillCalculation.generate(
-            battery_simulation_set=battery_simulation_set,
+            der_simulation_set=der_simulation_set,
             rate_plan=self.rate_plan,
             multiprocess=multiprocess,
         )
 
         for ghg_rate in self.ghg_rates.all():
             StoredGHGCalculation.generate(
-                battery_simulation_set=battery_simulation_set,
-                ghg_rate=ghg_rate,
+                der_simulation_set=der_simulation_set, ghg_rate=ghg_rate
             )
 
         for system_profile in self.system_profiles.all():
             StoredResourceAdequacyCalculation.generate(
-                battery_simulation_set=battery_simulation_set,
+                der_simulation_set=der_simulation_set,
                 system_profile=system_profile,
             )
 
@@ -634,17 +633,17 @@ class MultiScenarioOptimization(ValidationModel):
         ).distinct()
 
     @property
-    def battery_simulations(self):
+    def der_simulations(self):
         """
-        Return StoredBatterySimulations related to self.
+        Return DERSimulations related to self.
         """
         return reduce(
             lambda x, y: x | y,
             [
-                x.battery_simulations.all()
+                x.der_simulations.all()
                 for x in self.simulation_optimizations.all()
             ],
-            StoredBatterySimulation.objects.none(),
+            DERSimulation.objects.none(),
         ).distinct()
 
     @property

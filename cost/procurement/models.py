@@ -13,8 +13,7 @@ from beo_datastore.libs.plot_intervalframe import (
 from beo_datastore.settings import MEDIA_ROOT
 from beo_datastore.libs.views import dataframe_to_html
 
-from der.simulation.models import StoredBatterySimulation
-from reference.reference_model.models import LoadServingEntity
+from reference.reference_model.models import DERSimulation, LoadServingEntity
 
 
 class SystemProfileIntervalFrame(IntervalFrameFile):
@@ -72,8 +71,8 @@ class StoredResourceAdequacyCalculation(ValidationModel):
 
     pre_DER_total = models.FloatField()
     post_DER_total = models.FloatField()
-    battery_simulation = models.ForeignKey(
-        to=StoredBatterySimulation,
+    der_simulation = models.ForeignKey(
+        to=DERSimulation,
         related_name="stored_resource_adequacy_calculations",
         on_delete=models.CASCADE,
     )
@@ -85,7 +84,7 @@ class StoredResourceAdequacyCalculation(ValidationModel):
 
     class Meta:
         ordering = ["id"]
-        unique_together = ("battery_simulation", "system_profile")
+        unique_together = ("der_simulation", "system_profile")
 
     @property
     def net_impact(self):
@@ -109,52 +108,52 @@ class StoredResourceAdequacyCalculation(ValidationModel):
         Return AggregateResourceAdequacyCalculation equivalent of self.
         """
         return AggregateResourceAdequacyCalculation(
-            agg_simulation=self.battery_simulation.agg_simulation,
+            agg_simulation=self.der_simulation.agg_simulation,
             system_profile_intervalframe=self.system_profile.intervalframe,
         )
 
     @classmethod
-    def generate(cls, battery_simulation_set, system_profile):
+    def generate(cls, der_simulation_set, system_profile):
         """
         Get or create many StoredResourceAdequacyCalculations at once.
         Pre-existing StoredResourceAdequacyCalculations are retrieved and
         non-existing StoredResourceAdequacyCalculations are created.
 
-        :param battery_simulation_set: QuerySet or set of
-            StoredBatterySimulations
+        :param der_simulation_set: QuerySet or set of
+            DERSimulations
         :param system_profile: SystemProfile
         :return: StoredResourceAdequacyCalculation QuerySet
         """
         with transaction.atomic():
             # get existing RA calculations
             stored_ra_calculations = cls.objects.filter(
-                battery_simulation__in=battery_simulation_set,
+                der_simulation__in=der_simulation_set,
                 system_profile=system_profile,
             )
 
             # create new RA calculations
             stored_simulations = [
-                x.battery_simulation for x in stored_ra_calculations
+                x.der_simulation for x in stored_ra_calculations
             ]
             objects = []
-            for battery_simulation in battery_simulation_set:
-                if battery_simulation in stored_simulations:
+            for der_simulation in der_simulation_set:
+                if der_simulation in stored_simulations:
                     continue
                 ra_calculation = AggregateResourceAdequacyCalculation(
-                    agg_simulation=battery_simulation.agg_simulation,
+                    agg_simulation=der_simulation.agg_simulation,
                     system_profile_intervalframe=system_profile.intervalframe,
                 )
                 objects.append(
                     cls(
                         pre_DER_total=ra_calculation.pre_DER_total,
                         post_DER_total=ra_calculation.post_DER_total,
-                        battery_simulation=battery_simulation,
+                        der_simulation=der_simulation,
                         system_profile=system_profile,
                     )
                 )
             cls.objects.bulk_create(objects)
 
             return cls.objects.filter(
-                battery_simulation__in=battery_simulation_set,
+                der_simulation__in=der_simulation_set,
                 system_profile=system_profile,
             )
