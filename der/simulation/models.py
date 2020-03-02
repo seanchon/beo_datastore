@@ -26,7 +26,6 @@ from reference.reference_model.models import (
     DERConfiguration,
     DERSimulation,
     DERStrategy,
-    DERType,
 )
 
 
@@ -101,10 +100,26 @@ class BatteryStrategy(DERStrategy):
         on_delete=models.PROTECT,
     )
 
+    der_type = "Battery"
+
     class Meta:
         ordering = ["id"]
         unique_together = ("charge_schedule", "discharge_schedule")
         verbose_name_plural = "battery strategies"
+
+    @property
+    def charge_schedule_frame(self):
+        """
+        Data served via DRF. Converted to str to handle inf and -inf.
+        """
+        return self.charge_schedule.frame288.dataframe.astype(str)
+
+    @property
+    def discharge_schedule_frame(self):
+        """
+        Data served via DRF. Converted to str to handle inf and -inf.
+        """
+        return self.discharge_schedule.frame288.dataframe.astype(str)
 
     @property
     def charge_schedule_html_table(self):
@@ -157,8 +172,6 @@ class BatteryStrategy(DERStrategy):
             is above, attempts to discharge
         :return: BatteryStrategy
         """
-        der_type, _ = DERType.objects.get_or_create(name="Battery")
-
         charge_schedule_frame_288 = optimize_battery_schedule(
             frame288=frame288,
             level=level,
@@ -194,7 +207,6 @@ class BatteryStrategy(DERStrategy):
             level,
         )
         object, _ = cls.objects.get_or_create(
-            der_type=der_type,
             charge_schedule=charge_schedule,
             discharge_schedule=discharge_schedule,
         )
@@ -219,6 +231,8 @@ class BatteryConfiguration(DERConfiguration):
             MaxValueValidator(limit_value=1),
         ],
     )
+
+    der_type = "Battery"
 
     class Meta:
         ordering = ["id"]
@@ -299,6 +313,28 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
 
     # Required by IntervalFrameFileMixin.
     frame_file_class = StoredBatterySimulationFrame
+
+    der_type = "Battery"
+
+    @property
+    def der_intervalframe(self):
+        """
+        ValidationIntervalFrame represention all DER operations.
+        """
+        return self.intervalframe
+
+    @cached_property
+    def meter_intervalframe(self):
+        """
+        ValidationIntervalFrame representing building load after DER has been
+        introduced.
+        """
+        return (
+            self.meter.intervalframe.filter_by_datetime(
+                start=self.start, end_limit=self.end_limit
+            )
+            + self.intervalframe
+        )
 
     @property
     def charge_schedule(self):
@@ -431,14 +467,12 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
             end_limit = simulation.battery_intervalframe.end_limit_datetime
 
         with transaction.atomic():
-            der_type, _ = DERType.objects.get_or_create(name="Battery")
             configuration, _ = BatteryConfiguration.objects.get_or_create(
                 rating=simulation.battery.rating,
                 discharge_duration_hours=(
                     simulation.battery.discharge_duration_hours
                 ),
                 efficiency=simulation.battery.efficiency,
-                der_type=der_type,
             )
             charge_schedule, _ = BatterySchedule.get_or_create(
                 hash=simulation.charge_schedule.__hash__(),
@@ -451,7 +485,6 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
             der_strategy, _ = BatteryStrategy.objects.get_or_create(
                 charge_schedule=charge_schedule,
                 discharge_schedule=discharge_schedule,
-                der_type=der_type,
             )
             pre_total_frame288 = simulation.pre_intervalframe.total_frame288
             pre_DER_total = pre_total_frame288.dataframe.sum().sum()
@@ -478,7 +511,6 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
         charge_schedule,
         discharge_schedule,
         multiprocess=False,
-        der_type="Battery",
     ):
         """
         Get or create many StoredBatterySimulations at once. Pre-existing
@@ -495,12 +527,10 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
         :return: StoredBatterySimulation QuerySet
         """
         with transaction.atomic():
-            der_type, _ = DERType.objects.get_or_create(name=der_type)
             configuration, _ = BatteryConfiguration.objects.get_or_create(
                 rating=battery.rating,
                 discharge_duration_hours=(battery.discharge_duration_hours),
                 efficiency=battery.efficiency,
-                der_type=der_type,
             )
             charge_schedule, _ = BatterySchedule.get_or_create(
                 hash=charge_schedule.__hash__(),
@@ -513,7 +543,6 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
             der_strategy, _ = BatteryStrategy.objects.get_or_create(
                 charge_schedule=charge_schedule,
                 discharge_schedule=discharge_schedule,
-                der_type=der_type,
             )
 
             # get existing aggregate simulation

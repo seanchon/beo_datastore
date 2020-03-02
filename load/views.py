@@ -99,6 +99,14 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
                     "end_limit. (Format: ISO 8601)"
                 ),
             ),
+            coreapi.Field(
+                "metadata",
+                required=False,
+                location="query",
+                description=(
+                    "Set to false to remove metadata. Defaults to true."
+                ),
+            ),
         ]
     )
 
@@ -145,6 +153,14 @@ class MeterViewSet(ListRetrieveViewSet):
                 description=(
                     "Filter data to include only timestamps starting before "
                     "end_limit. (Format: ISO 8601)"
+                ),
+            ),
+            coreapi.Field(
+                "metadata",
+                required=False,
+                location="query",
+                description=(
+                    "Set to false to remove metadata. Defaults to true."
                 ),
             ),
         ]

@@ -67,7 +67,9 @@ class ValidationDataFrame(object):
                 index=pd.to_datetime([])
             )
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "default_dataframe must be set in {}".format(self.__class__)
+        )
 
     @classmethod
     def validate_dataframe(cls, dataframe):
@@ -145,7 +147,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         """
         # change other to type self.__class__
         other = self.__class__(
-            other.dataframe[list(self.default_dataframe.columns)]
+            dataframe=other.dataframe[list(self.default_dataframe.columns)]
         )
 
         if other.dataframe.empty:
@@ -351,8 +353,10 @@ class ValidationIntervalFrame(ValidationDataFrame):
         :param other: IntervalSetFrame object
         :param overwrite_rows: boolean
         """
-        return ValidationIntervalFrame(
-            merge_dataframe(self.dataframe, other.dataframe, overwrite_rows)
+        return self.__class__(
+            dataframe=merge_dataframe(
+                self.dataframe, other.dataframe, overwrite_rows
+            )
         )
 
     def filter_by_datetime(
@@ -366,8 +370,8 @@ class ValidationIntervalFrame(ValidationDataFrame):
         :param end_limit: datetime object
         :return: ValidationIntervalFrame
         """
-        return ValidationIntervalFrame(
-            filter_dataframe_by_datetime(
+        return self.__class__(
+            dataframe=filter_dataframe_by_datetime(
                 dataframe=self.dataframe, start=start, end_limit=end_limit
             )
         )
@@ -378,8 +382,8 @@ class ValidationIntervalFrame(ValidationDataFrame):
 
         :return: ValidationIntervalFrame
         """
-        return ValidationIntervalFrame(
-            filter_dataframe_by_weekday(dataframe=self.dataframe)
+        return self.__class__(
+            dataframe=filter_dataframe_by_weekday(dataframe=self.dataframe)
         )
 
     def filter_by_weekend(self):
@@ -388,8 +392,8 @@ class ValidationIntervalFrame(ValidationDataFrame):
 
         :return: ValidationIntervalFrame
         """
-        return ValidationIntervalFrame(
-            filter_dataframe_by_weekend(dataframe=self.dataframe)
+        return self.__class__(
+            dataframe=filter_dataframe_by_weekend(dataframe=self.dataframe)
         )
 
     def filter_by_months(self, months):
@@ -399,7 +403,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         :param months: set/list of integers (1-12)
         :return: ValidationIntervalFrame
         """
-        return ValidationIntervalFrame(
+        return self.__class__(
             dataframe=self.dataframe[self.dataframe.index.month.isin(months)]
         )
 
@@ -413,7 +417,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         :param aggfunc: aggregation function
         :return: ValidationIntervalFrame
         """
-        return ValidationIntervalFrame(
+        return self.__class__(
             dataframe=resample_dataframe(
                 dataframe=self.dataframe, rule=rule, aggfunc=aggfunc
             )
@@ -471,7 +475,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
             # merge summary 288 values into default values
             results_288.update(calculated_288)
 
-        return ValidationFrame288(results_288)
+        return ValidationFrame288(dataframe=results_288)
 
     def reset_cached_properties(self):
         """
@@ -511,7 +515,7 @@ class ValidationFrame288(ValidationDataFrame):
         :return: ValidationFrame288
         """
         self.validate_dataframe(other.dataframe)
-        return ValidationFrame288(self.dataframe + other.dataframe)
+        return self.__class__(dataframe=self.dataframe + other.dataframe)
 
     def __sub__(self, other):
         """
@@ -521,7 +525,7 @@ class ValidationFrame288(ValidationDataFrame):
         :return: ValidationFrame288
         """
         self.validate_dataframe(other.dataframe)
-        return ValidationFrame288(self.dataframe + other.dataframe)
+        return self.__class__(dataframe=self.dataframe + other.dataframe)
 
     def __mul__(self, other):
         """
@@ -531,7 +535,7 @@ class ValidationFrame288(ValidationDataFrame):
         :return: ValidationFrame288
         """
         self.validate_dataframe(other.dataframe)
-        return ValidationFrame288(self.dataframe * other.dataframe)
+        return self.__class__(dataframe=self.dataframe * other.dataframe)
 
     def __truediv__(self, other):
         """
@@ -541,7 +545,7 @@ class ValidationFrame288(ValidationDataFrame):
         :return: ValidationFrame288
         """
         self.validate_dataframe(other.dataframe)
-        return ValidationFrame288(self.dataframe / other.dataframe)
+        return self.__class__(dataframe=self.dataframe / other.dataframe)
 
     @cached_property
     def normalized_frame288(self):
@@ -556,7 +560,7 @@ class ValidationFrame288(ValidationDataFrame):
             # empty ValidationFrame288
             return self
         else:
-            return ValidationFrame288(self.dataframe / abs_max)
+            return self.__class__(dataframe=self.dataframe / abs_max)
 
     @cached_property
     def flattened_array(self):
@@ -603,9 +607,9 @@ class ValidationFrame288(ValidationDataFrame):
         dataframe.columns = pd.to_numeric(dataframe.columns)
 
         if not dataframe.empty:
-            return cls(dataframe.transpose())
+            return cls(dataframe=dataframe.transpose())
         else:
-            return cls(ValidationFrame288.default_dataframe)
+            return cls(dataframe=ValidationFrame288.default_dataframe)
 
     @classmethod
     def convert_flattened_array_to_frame288(cls, flattened_array):
@@ -619,7 +623,7 @@ class ValidationFrame288(ValidationDataFrame):
         matrix = [
             flattened_array[(x - 1) * 24 : (x * 24)] for x in range(1, 13)
         ]
-        return cls.convert_matrix_to_frame288(matrix)
+        return cls.convert_matrix_to_frame288(matrix=matrix)
 
     def get_mask(self, key):
         """
@@ -629,4 +633,4 @@ class ValidationFrame288(ValidationDataFrame):
         :param key: key of any type
         :return: ValidationFrame288
         """
-        return ValidationFrame288(self.dataframe == key)
+        return self.__class__(dataframe=self.dataframe == key)

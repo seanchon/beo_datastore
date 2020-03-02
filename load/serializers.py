@@ -1,89 +1,15 @@
-from datetime import timedelta
-import dateutil.parser
 from distutils.util import strtobool
-import numpy as np
-import pandas as pd
 
 from rest_framework import serializers
 
+from beo_datastore.libs.serializers import AbstractGetDataMixin
 from load.customer.models import CustomerMeter, OriginFile
 from load.openei.models import ReferenceMeter
-from reference.reference_model.models import Meter, MeterGroup
+from reference.reference_model.models import DERSimulation, Meter, MeterGroup
 
 
-class GetDataMixin(object):
-    """
-    Method for serving interval data as DRF response.
-    """
-
-    def get_data(self, obj):
-        """
-        Used for SerializerMethodField "data". Fields for Swagger documentation
-        set in MeterViewSet.schema.
-
-        :field data_types: frame 288 type (optional)
-        :field start: ISO 8601 string (optional)
-        :field end_limit: ISO 8601 string (optional)
-        """
-        data_types = self.context["request"].query_params.get("data_types")
-        start = self.context["request"].query_params.get("start")
-        end_limit = self.context["request"].query_params.get("end_limit")
-
-        if start:
-            try:
-                start = dateutil.parser.parse(start)
-            except Exception:
-                raise serializers.ValidationError(
-                    "start must be valid ISO 8601."
-                )
-        else:
-            start = pd.Timestamp.min
-
-        if end_limit:
-            try:
-                end_limit = dateutil.parser.parse(end_limit)
-            except Exception:
-                raise serializers.ValidationError(
-                    "end_limit must be valid ISO 8601."
-                )
-        else:
-            end_limit = pd.Timestamp.max
-
-        data_types = set(data_types.split(",")) if data_types else set()
-        allowed_data_types = {
-            "default",
-            "total",
-            "average",
-            "maximum",
-            "minimum",
-            "count",
-        }
-        disallowed_data_types = data_types - allowed_data_types
-        if disallowed_data_types:
-            raise serializers.ValidationError(
-                "Incorrect data_types: {}".format(
-                    ", ".join(disallowed_data_types)
-                )
-            )
-
-        if data_types:
-            data = {}
-            intervalframe = obj.intervalframe.filter_by_datetime(
-                start=start, end_limit=end_limit
-            ).resample_intervalframe(timedelta(hours=1), np.mean)
-
-            for data_type in data_types:
-                if data_type == "default":
-                    dataframe = intervalframe.dataframe.reset_index()
-                else:
-                    frame_type = data_type + "_frame288"
-                    dataframe = getattr(intervalframe, frame_type).dataframe
-
-                data[data_type] = dataframe.where(pd.notnull(dataframe), None)
-
-            return data
-        else:
-            return {}
+class GetMeterDataMixin(AbstractGetDataMixin):
+    intervalframe_name = "meter_intervalframe"
 
 
 class OriginFileSerializer(serializers.ModelSerializer):
@@ -95,10 +21,10 @@ class OriginFileSerializer(serializers.ModelSerializer):
         fields = ("filename", "expected_meter_count", "owners")
 
 
-class MeterGroupSerializer(GetDataMixin, serializers.ModelSerializer):
-    originfile = OriginFileSerializer(many=False, read_only=True)
+class MeterGroupSerializer(GetMeterDataMixin, serializers.ModelSerializer):
     data = serializers.SerializerMethodField()
     meters = serializers.SerializerMethodField()
+    metadata = serializers.SerializerMethodField()
 
     class Meta:
         model = MeterGroup
@@ -106,11 +32,11 @@ class MeterGroupSerializer(GetDataMixin, serializers.ModelSerializer):
             "id",
             "name",
             "created_at",
-            "meter_group_type",
-            "originfile",
+            "object_type",
             "meter_count",
             "meters",
             "data",
+            "metadata",
         )
 
     def get_meters(self, obj):
@@ -127,6 +53,20 @@ class MeterGroupSerializer(GetDataMixin, serializers.ModelSerializer):
         else:
             return []
 
+    def get_metadata(self, obj):
+        """
+        Nest related serializer under "metadata".
+        """
+        # allow metadata to be disabled
+        metadata = self.context["request"].query_params.get("metadata")
+        if metadata and not strtobool(metadata):
+            return {}
+
+        if isinstance(obj, OriginFile):
+            return OriginFileSerializer(obj, many=False, read_only=True).data
+        else:
+            return {}
+
 
 class CustomerMeterSerializer(serializers.ModelSerializer):
     class Meta:
@@ -140,18 +80,46 @@ class ReferenceMeterSerializer(serializers.ModelSerializer):
         fields = ("location", "state", "source_file_url")
 
 
-class MeterSerializer(GetDataMixin, serializers.ModelSerializer):
-    customermeter = CustomerMeterSerializer(many=False, read_only=True)
-    referencemeter = ReferenceMeterSerializer(many=False, read_only=True)
+class DERSimulationSerialzier(serializers.ModelSerializer):
+    class Meta:
+        model = DERSimulation
+        fields = (
+            "start",
+            "end_limit",
+            "meter",
+            "der_configuration",
+            "der_strategy",
+        )
+
+
+class MeterSerializer(GetMeterDataMixin, serializers.ModelSerializer):
     data = serializers.SerializerMethodField()
+    metadata = serializers.SerializerMethodField()
 
     class Meta:
         model = Meter
-        fields = (
-            "id",
-            "meter_type",
-            "meter_groups",
-            "customermeter",
-            "referencemeter",
-            "data",
-        )
+        fields = ("id", "object_type", "meter_groups", "data", "metadata")
+
+    def get_metadata(self, obj):
+        """
+        Nest related serializer under "metadata".
+        """
+        # allow metadata to be disabled
+        metadata = self.context["request"].query_params.get("metadata")
+        if metadata and not strtobool(metadata):
+            return {}
+
+        if isinstance(obj, CustomerMeter):
+            return CustomerMeterSerializer(
+                obj, many=False, read_only=True
+            ).data
+        elif isinstance(obj, ReferenceMeter):
+            return ReferenceMeterSerializer(
+                obj, many=False, read_only=True
+            ).data
+        elif isinstance(obj, DERSimulation):
+            return DERSimulationSerialzier(
+                obj, many=False, read_only=True
+            ).data
+        else:
+            return {}

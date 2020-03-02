@@ -60,6 +60,13 @@ class PolymorphicValidationModel(AutoRepr, PolymorphicModel):
             if isinstance(value, cached_property):
                 self.__dict__.pop(key, None)
 
+    @property
+    def object_type(self):
+        """
+        String representation of object type.
+        """
+        return self.polymorphic_ctype.model_class().__name__
+
 
 class FrameFileMixin(object):
     """
