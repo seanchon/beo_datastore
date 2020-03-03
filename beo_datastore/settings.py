@@ -146,6 +146,19 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Account authentication
+ACCOUNT_AUTHENTICATION_METHOD = "email"
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USERNAME_REQUIRED = False
+
+# Enable registration with email instead of username
+AUTHENTICATION_BACKENDS = (
+    # Needed to login by username in Django admin, regardless of `allauth`
+    "django.contrib.auth.backends.ModelBackend",
+    # `allauth` specific authentication methods, such as login by e-mail
+    "allauth.account.auth_backends.AuthenticationBackend",
+)
+
 # HTTPS
 SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", False)
 CSRF_COOKIE_SECURE = os.environ.get("CSRF_COOKIE_SECURE", False)
