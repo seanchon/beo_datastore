@@ -22,7 +22,7 @@ class DataFrameFile(ValidationDataFrame):
     -   file_directory
     """
 
-    def __init__(self, reference_object, dataframe, *args, **kwargs):
+    def __init__(self, dataframe, reference_object=None, *args, **kwargs):
         """
         :param reference_object: reference object DataFrame belongs to
         :param dataframe: pandas DataFrame
@@ -54,7 +54,9 @@ class DataFrameFile(ValidationDataFrame):
         Ex.
             file_directory = "project_root/directory_xyz/"
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "file_directory must be set in {}".format(self.__class__)
+        )
 
     @property
     def filename(self):
@@ -99,9 +101,15 @@ class DataFrameFile(ValidationDataFrame):
             file_path = cls.get_file_path(reference_object)
 
         try:
-            return cls(reference_object, pd.read_parquet(file_path))
+            return cls(
+                dataframe=pd.read_parquet(file_path),
+                reference_object=reference_object,
+            )
         except OSError:
-            return cls(reference_object, cls.default_dataframe)
+            return cls(
+                dataframe=cls.default_dataframe,
+                reference_object=reference_object,
+            )
 
 
 class IntervalFrameFile(ValidationIntervalFrame, DataFrameFile):
@@ -146,9 +154,12 @@ class Frame288File(ValidationFrame288, DataFrameFile):
         try:
             dataframe = pd.read_parquet(file_path)
             dataframe = convert_columns_type(dataframe, np.int64)
-            return cls(reference_object, dataframe)
+            return cls(dataframe=dataframe, reference_object=reference_object)
         except OSError:
-            return cls(reference_object, cls.default_dataframe)
+            return cls(
+                dataframe=cls.default_dataframe,
+                reference_object=reference_object,
+            )
 
 
 class BatteryIntervalFrameFile(BatteryIntervalFrame, DataFrameFile):

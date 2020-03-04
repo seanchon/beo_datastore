@@ -175,3 +175,7 @@ class ReferenceMeter(IntervalFrameFileMixin, Meter):
                 columns={self.full_intervalframe.aggregation_column: "kw"}
             )
         )
+
+    @property
+    def meter_intervalframe(self):
+        return self.intervalframe

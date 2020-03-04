@@ -137,7 +137,7 @@ class SimulationOptimization(ValidationModel):
     @property
     def der_simulations(self):
         """
-        Return StoredBatterySimulations related to self.
+        Return DERSimulations related to self.
         """
         return DERSimulation.objects.filter(
             start=self.start,

@@ -174,7 +174,7 @@ class MeterDataMixin(object):
 
     @property
     def dataframe(self):
-        return self.intervalframe.dataframe
+        return self.meter_intervalframe.dataframe
 
     @property
     def intervalframe_html_plot(self):
@@ -182,7 +182,7 @@ class MeterDataMixin(object):
         Return Django-formatted HTML intervalframe plt.
         """
         return plot_intervalframe(
-            intervalframe=self.intervalframe, y_label="kw", to_html=True
+            intervalframe=self.meter_intervalframe, y_label="kw", to_html=True
         )
 
     @property
@@ -191,8 +191,8 @@ class MeterDataMixin(object):
         Return Django-formatted HTML average vs maximum 288 plt.
         """
         return plot_frame288_monthly_comparison(
-            original_frame288=self.intervalframe.average_frame288,
-            modified_frame288=self.intervalframe.maximum_frame288,
+            original_frame288=self.meter_intervalframe.average_frame288,
+            modified_frame288=self.meter_intervalframe.maximum_frame288,
             to_html=True,
         )
 
@@ -201,28 +201,28 @@ class MeterDataMixin(object):
         """
         Return a 12 x 24 dataframe of totals (sums).
         """
-        return self.intervalframe.total_frame288.dataframe
+        return self.meter_intervalframe.total_frame288.dataframe
 
     @property
     def average_288(self):
         """
         Return a 12 x 24 dataframe of averages.
         """
-        return self.intervalframe.average_frame288.dataframe
+        return self.meter_intervalframe.average_frame288.dataframe
 
     @property
     def peak_288(self):
         """
         Return a 12 x 24 dataframe of peaks.
         """
-        return self.intervalframe.minimum_frame288.dataframe
+        return self.meter_intervalframe.minimum_frame288.dataframe
 
     @property
     def count_288(self):
         """
         Return a 12 x 24 dataframe of counts.
         """
-        return self.intervalframe.count_frame288.dataframe
+        return self.meter_intervalframe.count_frame288.dataframe
 
 
 class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
@@ -235,22 +235,20 @@ class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["id"]
+        ordering = ["-created_at"]
 
     @property
     def meter_count(self):
         return self.meters.count()
 
     @property
-    def meter_group_type(self):
+    def meter_intervalframe(self):
         """
-        String representation of ctype minus spaces.
+        Return ValidationIntervalFrame related to a group of buildings' load.
         """
-        return self.polymorphic_ctype.name.replace(" ", "")
-
-    @property
-    def intervalframe(self):
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "meter_intervalframe must be set in {}".format(self.__class__)
+        )
 
 
 class Meter(PolymorphicValidationModel, MeterDataMixin):
@@ -266,36 +264,19 @@ class Meter(PolymorphicValidationModel, MeterDataMixin):
     )
 
     class Meta:
-        ordering = ["id"]
+        ordering = ["-created_at"]
 
     @property
-    def meter_type(self):
+    def meter_intervalframe(self):
         """
-        String representation of ctype minus spaces.
+        Return ValidationIntervalFrame related to a building's load.
         """
-        return self.polymorphic_ctype.name.replace(" ", "")
-
-    @property
-    def intervalframe(self):
-        """
-        Return a ValidationIntervalFrame.
-        """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "meter_intervalframe must be set in {}".format(self.__class__)
+        )
 
 
 # DER BASE MODELS
-
-
-class DERType(ValidationModel):
-    """
-    Model containing a DER type definition.
-
-    ex. Battery, Electric Water Heater, EV Charger, etc.
-    """
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=64)
-    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class DERConfiguration(PolymorphicValidationModel):
@@ -308,20 +289,28 @@ class DERConfiguration(PolymorphicValidationModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=128, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    der_type = models.ForeignKey(
-        to=DERType,
-        related_name="der_configurations",
-        on_delete=models.PROTECT,
-        blank=False,
-        null=False,
-    )
+
+    class Meta:
+        ordering = ["created_at"]
+
+    @property
+    def der_type(self):
+        """
+        A DERConfiguration.der_type must match a DERStrategy.der_type when
+        creating a DERSimulation.
+        """
+        raise NotImplementedError(
+            "der_type must be set in {}".format(self.__class__)
+        )
 
     @property
     def configuration(self):
         """
         Return dictionary containing configuration values.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "configuration must be set in {}".format(self.__class__)
+        )
 
 
 class DERStrategy(PolymorphicValidationModel):
@@ -334,20 +323,28 @@ class DERStrategy(PolymorphicValidationModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=128, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    der_type = models.ForeignKey(
-        to=DERType,
-        related_name="der_strategies",
-        on_delete=models.PROTECT,
-        blank=False,
-        null=False,
-    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @property
+    def der_type(self):
+        """
+        A DERConfiguration.der_type must match a DERStrategy.der_type when
+        creating a DERSimulation.
+        """
+        raise NotImplementedError(
+            "der_type must be set in {}".format(self.__class__)
+        )
 
     @property
     def strategy(self):
         """
         Return dictionary containing strategy values.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "strategy must be set in {}".format(self.__class__)
+        )
 
 
 class DERSimulation(Meter):
@@ -380,7 +377,7 @@ class DERSimulation(Meter):
     )
 
     class Meta:
-        ordering = ["id"]
+        ordering = ["-created_at"]
         unique_together = (
             "start",
             "end_limit",
@@ -392,7 +389,7 @@ class DERSimulation(Meter):
     def clean(self, *args, **kwargs):
         """
         Constrain related DERConfiguration and DERStrategy to be of the same
-        DERType.
+        type.
         """
         if self.der_strategy and (
             self.der_configuration.der_type != self.der_strategy.der_type
@@ -401,3 +398,32 @@ class DERSimulation(Meter):
                 "der_configuration.der_type must match der_strategy.der_type"
             )
         super().clean(*args, **kwargs)
+
+    @property
+    def meter_intervalframe(self):
+        """
+        Return ValidationIntervalFrame related to a simulated building's load.
+        This is what a building's electricity meter would read after a
+        hypothetical DER is installed.
+        """
+        raise NotImplementedError(
+            "meter_intervalframe must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def der_intervalframe(self):
+        """
+        Return ValidationIntervalFrame related to a DER's impact to a
+        building's load. The original building's load plus the
+        der_intervalframe would yield the meter_intervalframe.
+        """
+        raise NotImplementedError(
+            "der_intervalframe must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def der_columns(self):
+        """
+        Return columns from der_intervalframe for use in frame288 computation.
+        """
+        return self.der_intervalframe.dataframe.columns

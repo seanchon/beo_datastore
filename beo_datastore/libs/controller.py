@@ -34,7 +34,9 @@ class DERAggregateSimulation(object):
         Return a dictionary of key, value pairs where each key is a meter and
         each value is a ValidationIntervalFrame before introducing a DER.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "pre_DER_results must be set in {}".format(self.__class__)
+        )
 
     @property
     def post_DER_results(self):
@@ -42,7 +44,9 @@ class DERAggregateSimulation(object):
         Return a dictionary of key, value pairs where each key is a meter and
         each value is a ValidationIntervalFrame after introducing a DER.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "post_DER_results must be set in {}".format(self.__class__)
+        )
 
     @property
     def pre_DER_intervalframe(self):
@@ -50,7 +54,9 @@ class DERAggregateSimulation(object):
         Return a ValidationIntervalFrame that represents the aggregate interval
         readings before introducing a DER.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "pre_DER_intervalframe must be set in {}".format(self.__class__)
+        )
 
     @property
     def post_DER_intervalframe(self):
@@ -58,7 +64,9 @@ class DERAggregateSimulation(object):
         Return a ValidationIntervalFrame that represents the aggregate interval
         readings after introducing a DER.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "post_DER_intervalframe must be set in {}".format(self.__class__)
+        )
 
     @property
     def net_intervalframe(self):
@@ -66,7 +74,9 @@ class DERAggregateSimulation(object):
         Return a ValidationIntervalFrame that represents the aggregate changes
         between a pre-DER and post-DER scenario.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "net_intervalframe must be set in {}".format(self.__class__)
+        )
 
 
 @attr.s(frozen=True)
@@ -305,14 +315,18 @@ class DERCostCalculation(object):
         """
         Return the cost calculation of a pre-DER scenario.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "pre_DER_total must be set in {}".format(self.__class__)
+        )
 
     @property
     def post_DER_total(self):
         """
         Return the cost calculation of a post-DER scenario.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "post_DER_total must be set in {}".format(self.__class__)
+        )
 
     @property
     def net_impact(self):
@@ -320,7 +334,9 @@ class DERCostCalculation(object):
         Return the cost calculation of a post-DER scenario minus the cost
         calculation of a pre-DER scenario.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "net_impact must be set in {}".format(self.__class__)
+        )
 
 
 @attr.s(frozen=True)

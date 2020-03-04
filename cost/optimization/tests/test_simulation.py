@@ -16,7 +16,6 @@ from cost.optimization.models import (
 from cost.utility_rate.models import RatePlan
 from der.simulation.models import BatteryConfiguration, BatteryStrategy
 from load.customer.models import CustomerPopulation, CustomerMeter
-from reference.reference_model.models import DERType
 
 
 class TestSimulation(TestCase):
@@ -65,12 +64,8 @@ class TestSimulation(TestCase):
         )
 
         # 2. Create and choose battery and strategy (DER)
-        der_type = DERType.objects.create(name="Battery")
         battery_configuration, _ = BatteryConfiguration.objects.get_or_create(
-            rating=5,
-            discharge_duration_hours=2,
-            efficiency=0.9,
-            der_type=der_type,
+            rating=5, discharge_duration_hours=2, efficiency=0.9
         )
 
         # minimize bill - charge from grid, no exporting

@@ -344,7 +344,9 @@ class BatterySimulation(object):
         """
         Logic for operating batteries.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(
+            "operate_battery must be set in {}".format(self.__class__)
+        )
 
     def compare_peak_loads(self):
         """

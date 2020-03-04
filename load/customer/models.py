@@ -73,6 +73,10 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         ordering = ["id"]
 
     @property
+    def meter_intervalframe(self):
+        return self.intervalframe
+
+    @property
     def file_path(self):
         try:
             return self.file.path
@@ -354,6 +358,10 @@ class CustomerMeter(Meter):
         return "{} ({}: {})".format(
             self.sa_id, self.load_serving_entity, self.rate_plan_name
         )
+
+    @property
+    def meter_intervalframe(self):
+        return self.intervalframe
 
     @property
     def state(self):
