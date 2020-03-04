@@ -608,6 +608,7 @@ class CustomerPopulation(ValidationModel):
     pre-defined number of CustomerClusters.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=128)
     FRAME288_TYPES = (
         ("average_frame288", "average_frame288"),
@@ -710,34 +711,66 @@ class CustomerPopulation(ValidationModel):
             if len(clustering.get_objects_by_cluster_id(i)) == 0:
                 # don't create empty clusters
                 continue
-            cluster = CustomerCluster.create(
-                cluster_id=i + 1,
-                customer_population=population,
+            cluster_classifier = ClusterClassifier.create(
                 dataframe=clustering.get_reference_frame288_by_cluster_id(
                     i
-                ).dataframe,
+                ).dataframe
+            )
+            cluster = CustomerCluster.objects.create(
+                cluster_id=i + 1,
+                customer_population=population,
+                cluster_classifier=cluster_classifier,
             )
             cluster.meters.add(*clustering.get_objects_by_cluster_id(i))
 
         return population
 
 
-class CustomerClusterFrame288(Frame288File):
+class ClusterClassifierFrame288(Frame288File):
     """
-    Model for handling CustomerCluster Frame288Files.
+    Model for handling ClusterClassifier Frame288Files.
     """
 
     # directory for parquet file storage
     file_directory = os.path.join(MEDIA_ROOT, "customer_clusters")
 
 
-class CustomerCluster(Frame288FileMixin, ValidationModel):
+class ClusterClassifier(Frame288FileMixin, ValidationModel):
+    """
+    A reference 288 that is used in the k-means clustering algorithm.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Required by Frame288FileMixin.
+    frame_file_class = ClusterClassifierFrame288
+
+    class Meta:
+        ordering = ["id"]
+
+
+class CustomerClusterIntervalFrame(IntervalFrameFile):
+    """
+    Model for handling CustomerCluster IntervalFrameFiles, which is an
+    aggregate of all Meter objects contained within.
+    """
+
+    # directory for parquet file storage
+    file_directory = os.path.join(MEDIA_ROOT, "customer_clusters")
+
+
+class CustomerCluster(IntervalFrameFileMixin, MeterGroup):
     """
     A CustomerCluster is a sub-population of a CustomerPopulation grouped by
     similar load profiles.
     """
 
     cluster_id = models.IntegerField()
+    cluster_classifier = models.OneToOneField(
+        to=ClusterClassifier,
+        related_name="customer_cluster",
+        on_delete=models.CASCADE,
+    )
     customer_population = models.ForeignKey(
         to=CustomerPopulation,
         related_name="customer_clusters",
@@ -745,8 +778,8 @@ class CustomerCluster(Frame288FileMixin, ValidationModel):
     )
     meters = models.ManyToManyField(to=Meter, related_name="customer_clusters")
 
-    # Required by Frame288FileMixin.
-    frame_file_class = CustomerClusterFrame288
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = CustomerClusterIntervalFrame
 
     class Meta:
         ordering = ["id"]
@@ -767,8 +800,14 @@ class CustomerCluster(Frame288FileMixin, ValidationModel):
         return self.meters.count()
 
     @property
+    def meter_intervalframe(self):
+        return self.intervalframe
+
+    @property
     def frame288_html_plot(self):
         """
         Return Django-formatted HTML frame288 plt.
         """
-        return plot_frame288(frame288=self.frame288, to_html=True)
+        return plot_frame288(
+            frame288=self.cluster_classifier.frame288, to_html=True
+        )

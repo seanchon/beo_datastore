@@ -7,10 +7,7 @@ from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.battery import BatteryIntervalFrame
-from beo_datastore.libs.controller import AggregateBatterySimulation
 from beo_datastore.libs.intervalframe import ValidationIntervalFrame
-from beo_datastore.libs.models import ValidationModel
 from beo_datastore.libs.views import dataframe_to_html
 
 from cost.ghg.models import GHGRate, StoredGHGCalculation
@@ -20,7 +17,7 @@ from cost.procurement.models import (
 )
 from cost.utility_rate.models import RatePlan, StoredBillCalculation
 from der.simulation.models import StoredBatterySimulation
-from load.customer.models import CustomerCluster, CustomerMeter
+from load.customer.models import CustomerMeter
 from load.openei.models import ReferenceMeter
 from reference.reference_model.models import (
     DERConfiguration,
@@ -28,66 +25,66 @@ from reference.reference_model.models import (
     DERSimulation,
     LoadServingEntity,
     Meter,
+    MeterGroup,
+    Study,
 )
 
 
-class SimulationOptimization(ValidationModel):
+class SingleScenarioStudy(Study):
     """
-    Container for a single simulation optimization.
+    Container for a single-scenario study.
 
-    Steps to create a simulation optimization:
-    1. Create SimulationOptimization object
-    2. Add CustomerClusters, GHGRates, and SystemProfiles
+    Steps to create a single-scenario study:
+    1. Create SingleScenarioStudy object
+    2. Add MeterGroups, GHGRates, and SystemProfiles
     3. run() to generate all simulations
     4. filter_by_query() to filter results
     5. display reports
     6. initialize() before running different filter_by_query()
     """
 
-    name = models.CharField(max_length=128, blank=True, null=True)
     start = models.DateTimeField()
     end_limit = models.DateTimeField()
     der_strategy = models.ForeignKey(
         to=DERStrategy,
-        related_name="simulation_optimizations",
+        related_name="single_scenario_studies",
         on_delete=models.CASCADE,
     )
     der_configuration = models.ForeignKey(
         to=DERConfiguration,
-        related_name="simulation_optimizations",
+        related_name="single_scenario_studies",
         on_delete=models.CASCADE,
     )
     # Constrains Meters and RatePlan to belong to LSE. If null is True, any
     # Meter and RatePlan can be used in optimization.
     load_serving_entity = models.ForeignKey(
         to=LoadServingEntity,
-        related_name="simulation_optimizations",
+        related_name="single_scenario_studies",
         on_delete=models.CASCADE,
         blank=True,
         null=True,
     )
     rate_plan = models.ForeignKey(
         to=RatePlan,
-        related_name="simulation_optimizations",
+        related_name="single_scenario_studies",
         on_delete=models.CASCADE,
     )
     ghg_rates = models.ManyToManyField(
-        to=GHGRate, related_name="simulation_optimizations", blank=True
+        to=GHGRate, related_name="single_scenario_studies", blank=True
     )
     system_profiles = models.ManyToManyField(
-        to=SystemProfile, related_name="simulation_optimizations", blank=True
+        to=SystemProfile, related_name="single_scenario_studies", blank=True
     )
-    customer_clusters = models.ManyToManyField(
-        to=CustomerCluster, related_name="simulation_optimizations", blank=True
+    meter_groups = models.ManyToManyField(
+        to=MeterGroup, related_name="single_scenario_studies", blank=True
     )
     meters = models.ManyToManyField(
-        to=Meter, related_name="simulation_optimizations", blank=True
+        to=Meter, related_name="single_scenario_studies", blank=True
     )
 
     class Meta:
         ordering = ["id"]
         unique_together = (
-            "name",
             "start",
             "end_limit",
             "der_strategy",
@@ -110,14 +107,63 @@ class SimulationOptimization(ValidationModel):
         super().clean(*args, **kwargs)
 
     @property
-    def customer_cluster_meters(self):
+    def pre_der_intervalframe(self):
         """
-        QuerySet of Meters from all customer_clusters.
+        ValidationIntervalFrame representing aggregate readings of all meters
+        before running DER simulations.
+        """
+        return reduce(
+            lambda x, y: x + y,
+            [x.meter_intervalframe for x in self.meters.all()],
+            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
+        )
+
+    @property
+    def der_intervalframe(self):
+        """
+        ValidationIntervalFrame representing aggregate readings of all DER
+        operations.
+        """
+        if self.der_simulations.count() > 0:
+            return reduce(
+                lambda x, y: x + y,
+                [x.der_intervalframe for x in self.der_simulations.all()],
+            )
+        else:
+            return ValidationIntervalFrame(
+                ValidationIntervalFrame.default_dataframe
+            )
+
+    @property
+    def post_der_intervalframe(self):
+        """
+        ValidationIntervalFrame representing aggregate readings of all meters
+        after running DER simulations.
+        """
+        return self.pre_der_intervalframe + self.der_intervalframe
+
+    @property
+    def base_meters(self):
+        """
+        QuerySet of Meters from all meter_groups.
         """
         return reduce(
             lambda x, y: x | y,
-            [x.meters.all() for x in self.customer_clusters.all()],
+            [x.meters.all() for x in self.meter_groups.all()],
             Meter.objects.none(),
+        )
+
+    @property
+    def der_simulations(self):
+        """
+        Return DERSimulations related to self.
+        """
+        return DERSimulation.objects.filter(
+            start=self.start,
+            end_limit=self.end_limit,
+            meter__in=self.meters.all(),
+            der_configuration=self.der_configuration,
+            der_strategy=self.der_strategy,
         )
 
     @property
@@ -133,19 +179,6 @@ class SimulationOptimization(ValidationModel):
         Discharge BatterySchedule.
         """
         return self.der_strategy.discharge_schedule
-
-    @property
-    def der_simulations(self):
-        """
-        Return DERSimulations related to self.
-        """
-        return DERSimulation.objects.filter(
-            start=self.start,
-            end_limit=self.end_limit,
-            meter__in=self.meters.all(),
-            der_configuration=self.der_configuration,
-            der_strategy=self.der_strategy,
-        )
 
     @property
     def bill_calculations(self):
@@ -177,65 +210,12 @@ class SimulationOptimization(ValidationModel):
         )
 
     @cached_property
-    def agg_simulation(self):
-        """
-        Return AggregateBatterySimulation associated with self.
-
-        AggregateBatterySimulations with the same parameters can be added to
-        one another and can be used for aggregate "cost calculations" found in
-        beo_datastore/libs/controller.py.
-        """
-        return reduce(
-            lambda x, y: x + y,
-            [x.agg_simulation for x in self.der_simulations],
-            AggregateBatterySimulation(
-                battery=self.der_configuration.battery,
-                start=self.start,
-                end_limit=self.end_limit,
-                charge_schedule=self.charge_schedule.frame288,
-                discharge_schedule=self.discharge_schedule.frame288,
-                results={},
-            ),
-        )
-
-    @property
-    def aggregate_battery_intervalframe(self):
-        """
-        Return BatteryIntervalFrame representing all battery operations in
-        aggregate.
-        """
-        return self.agg_simulation.aggregate_battery_intervalframe
-
-    @property
-    def pre_DER_intervalframe(self):
-        """
-        Return a single ValidationIntervalFrame represeting the aggregate
-        readings of all meter readings before a DER simulation.
-        """
-        return self.agg_simulation.pre_DER_intervalframe
-
-    @property
-    def post_DER_intervalframe(self):
-        """
-        Return a single ValidationIntervalFrame represeting the aggregate
-        readings of all meter reading after a DER simulation.
-        """
-        return self.agg_simulation.post_DER_intervalframe
-
-    @cached_property
-    def energy_loss(self):
-        """
-        Return all energy lost due to battery roundtrip efficiency.
-        """
-        return sum([x.energy_loss for x in self.der_simulations])
-
-    @cached_property
     def detailed_report(self):
         """
         Return pandas Dataframe with self.report_with_id and
-        BatteryConfiguration details, Simulation RatePlan, and Meter RatePlan.
+        DERConfiguration details, Simulation RatePlan, and Meter RatePlan.
 
-        This report is used in MultiScenarioOptimization reports.
+        This report is used in MultipleScenarioStudy reports.
         """
         report = self.report_with_id
         report["DERConfiguration"] = self.der_configuration.detailed_name
@@ -256,10 +236,10 @@ class SimulationOptimization(ValidationModel):
     @cached_property
     def report_with_id(self):
         """
-        Return pandas Dataframe self.report and SimulationOptimization id.
+        Return pandas Dataframe self.report and SingleScenarioStudy id.
         """
         report = self.report
-        report["SimulationOptimization"] = self.id
+        report["SingleScenarioStudy"] = self.id
 
         return report
 
@@ -492,7 +472,7 @@ class SimulationOptimization(ValidationModel):
 
         :param multiprocess: True to multiprocess
         """
-        # add Meters from CustomerClusters
+        # add Meters from MeterGroups
         self.initialize()
 
         der_simulation_set = StoredBatterySimulation.generate(
@@ -525,7 +505,7 @@ class SimulationOptimization(ValidationModel):
     def filter_by_query(self, query):
         """
         Based on DataFrame query, only matching meters are kept as part of
-        the SimulationOptimization. All filtering can be reset using
+        the SingleScenarioStudy. All filtering can be reset using
         initialize().
 
         Example:
@@ -539,36 +519,36 @@ class SimulationOptimization(ValidationModel):
 
     def initialize(self):
         """
-        Attaches any Meters within attached CustomerClusters.
+        Attaches any Meters within attached MeterGroups.
         Optimizations are performed by removing meters until only the desired
-        Meters are attached to a SimulationOptimization. This
+        Meters are attached to a SingleScenarioStudy. This
         method allows many optimizations to be tried.
         """
         self.meters.clear()
-        self.meters.add(*self.customer_cluster_meters)
+        self.meters.add(*self.base_meters)
 
 
-@receiver(m2m_changed, sender=SimulationOptimization.meters.through)
+@receiver(m2m_changed, sender=SingleScenarioStudy.meters.through)
 def reset_cached_properties_update_meters(sender, **kwargs):
     """
     Reset cached properties whenever meters is updated. This resets any cached
     reports.
     """
     simulation_optimization = kwargs.get(
-        "instance", SimulationOptimization.objects.none()
+        "instance", SingleScenarioStudy.objects.none()
     )
     simulation_optimization._reset_cached_properties()
 
 
-@receiver(m2m_changed, sender=SimulationOptimization.meters.through)
+@receiver(m2m_changed, sender=SingleScenarioStudy.meters.through)
 def validate_meters_belong_to_lse(sender, **kwargs):
     """
     If load_serving_entity is set, this validation ensure meters not belonging
-    to LSE are not added to SimulationOptimization.
+    to LSE are not added to SingleScenarioStudy.
     """
-    # get SimulationOptimization and Meters proposed to be added
+    # get SingleScenarioStudy and Meters proposed to be added
     simulation_optimization = kwargs.get(
-        "instance", SimulationOptimization.objects.none()
+        "instance", SingleScenarioStudy.objects.none()
     )
     pk_set = kwargs.get("pk_set", {})
     if pk_set is None:
@@ -587,34 +567,33 @@ def validate_meters_belong_to_lse(sender, **kwargs):
         )
 
 
-@receiver(m2m_changed, sender=SimulationOptimization.ghg_rates.through)
+@receiver(m2m_changed, sender=SingleScenarioStudy.ghg_rates.through)
 def reset_cached_properties_update_ghg_rates(sender, **kwargs):
     """
     Reset cached properties whenever ghg_rates is updated. This resets any
     cached reports.
     """
     simulation_optimization = kwargs.get(
-        "instance", SimulationOptimization.objects.none()
+        "instance", SingleScenarioStudy.objects.none()
     )
     simulation_optimization._reset_cached_properties()
 
 
-class MultiScenarioOptimization(ValidationModel):
+class MultipleScenarioStudy(Study):
     """
-    Container for a multi-scenario simulation optimization.
+    Container for a multiple-scenario study.
 
-    Steps to create a simulation optimization:
-    1. Create MultiScenarioOptimization objects and related to
-       SimulationOptimizations
+    Steps to create a multiple-scenario study:
+    1. Create MultipleScenarioStudy object and related to
+       SingleScenarioStudy objects
     2. run() to generate all simulations
     3. filter_by_query() or filter_by_transform() to filter results
     4. display reports
     5. initialize() before running different filter_by_query()
     """
 
-    name = models.CharField(max_length=128, blank=True, null=True)
-    simulation_optimizations = models.ManyToManyField(
-        to=SimulationOptimization, related_name="multi_scenario_optimizations"
+    single_scenario_studies = models.ManyToManyField(
+        to=SingleScenarioStudy, related_name="multiple_scenario_studies"
     )
 
     class Meta:
@@ -624,11 +603,11 @@ class MultiScenarioOptimization(ValidationModel):
     def meters(self):
         """
         Return QuerySet of Meters in all
-        self.simulation_optimizations.
+        self.single_scenario_studies.
         """
         return reduce(
             lambda x, y: x | y,
-            [x.meters.all() for x in self.simulation_optimizations.all()],
+            [x.meters.all() for x in self.single_scenario_studies.all()],
             Meter.objects.none(),
         ).distinct()
 
@@ -641,10 +620,66 @@ class MultiScenarioOptimization(ValidationModel):
             lambda x, y: x | y,
             [
                 x.der_simulations.all()
-                for x in self.simulation_optimizations.all()
+                for x in self.single_scenario_studies.all()
             ],
             DERSimulation.objects.none(),
         ).distinct()
+
+    @cached_property
+    def pre_der_intervalframe(self):
+        """
+        ValidationIntervalFrame representing aggregate readings of all meters
+        before running DER simulations.
+        """
+        self.validate_unique_meters()
+        return reduce(
+            lambda x, y: x + y,
+            [
+                x.pre_der_intervalframe
+                for x in self.single_scenario_studies.all()
+            ],
+            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
+        )
+
+    @cached_property
+    def der_intervalframe(self):
+        """
+        ValidationIntervalFrame representing aggregate readings of all DER
+        operations.
+        """
+        self.validate_unique_meters()
+        # only include studies with meters
+        studies = [
+            x
+            for x in self.single_scenario_studies.all()
+            if x.meters.count() > 0
+        ]
+        if len(studies) > 0:
+            return reduce(
+                lambda x, y: x + y, [x.der_intervalframe for x in studies]
+            )
+        else:
+            return (
+                ValidationIntervalFrame(
+                    ValidationIntervalFrame.default_dataframe
+                ),
+            )
+
+    @property
+    def post_der_intervalframe(self):
+        """
+        ValidationIntervalFrame representing aggregate readings of all meters
+        after running DER simulations.
+        """
+        self.validate_unique_meters()
+        return reduce(
+            lambda x, y: x + y,
+            [
+                x.post_der_intervalframe
+                for x in self.single_scenario_studies.all()
+            ],
+            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
+        )
 
     @property
     def bill_calculations(self):
@@ -655,7 +690,7 @@ class MultiScenarioOptimization(ValidationModel):
             lambda x, y: x | y,
             [
                 x.bill_calculations.all()
-                for x in self.simulation_optimizations.all()
+                for x in self.single_scenario_studies.all()
             ],
             StoredBillCalculation.objects.none(),
         ).distinct()
@@ -669,7 +704,7 @@ class MultiScenarioOptimization(ValidationModel):
             lambda x, y: x | y,
             [
                 x.ghg_calculations.all()
-                for x in self.simulation_optimizations.all()
+                for x in self.single_scenario_studies.all()
             ],
             StoredGHGCalculation.objects.none(),
         ).distinct()
@@ -683,66 +718,20 @@ class MultiScenarioOptimization(ValidationModel):
             lambda x, y: x | y,
             [
                 x.resource_adequacy_calculations.all()
-                for x in self.simulation_optimizations.all()
+                for x in self.single_scenario_studies.all()
             ],
             StoredResourceAdequacyCalculation.objects.none(),
         ).distinct()
 
     @cached_property
-    def aggregate_battery_intervalframe(self):
-        """
-        Return ValidationIntervalFrame representing aggregate battery
-        operations.
-        """
-        self.validate_unique_meters()
-        return reduce(
-            lambda x, y: x + y,
-            [
-                x.aggregate_battery_intervalframe
-                for x in self.simulation_optimizations.all()
-            ],
-            BatteryIntervalFrame(BatteryIntervalFrame.default_dataframe),
-        )
-
-    @cached_property
-    def pre_DER_intervalframe(self):
-        """
-        Return ValidationIntervalFrame representing aggregate pre-DER load.
-        """
-        self.validate_unique_meters()
-        return reduce(
-            lambda x, y: x + y,
-            [
-                x.pre_DER_intervalframe
-                for x in self.simulation_optimizations.all()
-            ],
-            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
-        )
-
-    @cached_property
-    def post_DER_intervalframe(self):
-        """
-        Return ValidationIntervalFrame representing aggregate post-DER load.
-        """
-        self.validate_unique_meters()
-        return reduce(
-            lambda x, y: x + y,
-            [
-                x.post_DER_intervalframe
-                for x in self.simulation_optimizations.all()
-            ],
-            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
-        )
-
-    @cached_property
     def detailed_report(self):
         """
-        Return pandas DataFrame of all simulation_optimizations'
+        Return pandas DataFrame of all single_scenario_studies'
         detailed_report appended together.
         """
         return reduce(
             lambda x, y: x.append(y, sort=False),
-            [x.detailed_report for x in self.simulation_optimizations.all()],
+            [x.detailed_report for x in self.single_scenario_studies.all()],
             pd.DataFrame(),
         ).sort_index()
 
@@ -756,38 +745,29 @@ class MultiScenarioOptimization(ValidationModel):
     @cached_property
     def report(self):
         """
-        Return pandas DataFrame of all simulation_optimizations' report_with_id
+        Return pandas DataFrame of all single_scenario_studies' report_with_id
         appended together.
         """
         return reduce(
             lambda x, y: x.append(y, sort=False),
-            [x.report_with_id for x in self.simulation_optimizations.all()],
+            [x.report_with_id for x in self.single_scenario_studies.all()],
             pd.DataFrame(),
         ).sort_index()
-
-    @cached_property
-    def energy_loss(self):
-        """
-        Return all energy lost due to battery roundtrip efficiency.
-        """
-        return sum(
-            [x.energy_loss for x in self.simulation_optimizations.all()]
-        )
 
     def validate_unique_meters(self):
         """
         Validate that each meter appears only once in
-        self.simulation_optimizations.
+        self.single_scenario_studies.
         """
         total_meter_count = reduce(
             lambda x, y: x + y,
-            [x.meters.count() for x in self.simulation_optimizations.all()],
+            [x.meters.count() for x in self.single_scenario_studies.all()],
         )
         unique_meter_count = (
             reduce(
                 lambda x, y: x | y,
-                [x.meters.all() for x in self.simulation_optimizations.all()],
-                SimulationOptimization.objects.none(),
+                [x.meters.all() for x in self.single_scenario_studies.all()],
+                SingleScenarioStudy.objects.none(),
             )
             .distinct()
             .count()
@@ -795,34 +775,34 @@ class MultiScenarioOptimization(ValidationModel):
 
         if total_meter_count != unique_meter_count:
             raise RuntimeError(
-                "Meters in MultiScenarioOptimization are not "
+                "Meters in MultipleScenarioStudy are not "
                 "unique. See: filter_by_transform() to filter meters."
             )
 
     def run(self, multiprocess=False):
         """
-        Run related SimulationOptimizations.
+        Run related SingleScenarioStudys.
 
         Note: Meters and GHGRates need to be added to object prior
         to optimization.
 
         :param multiprocess: True to multiprocess
         """
-        for simulation_optimization in self.simulation_optimizations.all():
+        for simulation_optimization in self.single_scenario_studies.all():
             simulation_optimization.run(multiprocess=multiprocess)
         self._reset_cached_properties()
 
     def filter_by_query(self, query):
         """
         Based on DataFrame query, only matching meters are kept as part of
-        the simulation_optimizations. All filtering can be reset using
+        the single_scenario_studies. All filtering can be reset using
         initialize().
 
         Example:
         query = "Bill_Delta > 0" only keeps meters where Bill_Delta is greater
         than 0.
         """
-        for simulation_optimization in self.simulation_optimizations.all():
+        for simulation_optimization in self.single_scenario_studies.all():
             simulation_optimization.filter_by_query(query)
         self._reset_cached_properties()
 
@@ -850,12 +830,12 @@ class MultiScenarioOptimization(ValidationModel):
         # remove duplicates
         report = report.loc[~report.index.duplicated(keep="first")]
 
-        # keep only desired meters in each SimulationOptimization
-        for simulation_optimization in self.simulation_optimizations.filter(
-            id__in=set(self.detailed_report["SimulationOptimization"])
+        # keep only desired meters in each SingleScenarioStudy
+        for simulation_optimization in self.single_scenario_studies.filter(
+            id__in=set(self.detailed_report["SingleScenarioStudy"])
         ):
             id = simulation_optimization.id
-            ids = report[report["SimulationOptimization"] == id].index
+            ids = report[report["SingleScenarioStudy"] == id].index
             meter_ids = list(
                 simulation_optimization.meters.filter(id__in=ids).values_list(
                     "id", flat=True
@@ -870,20 +850,19 @@ class MultiScenarioOptimization(ValidationModel):
     def initialize(self):
         """
         Re-attaches any Meters previously associated with related
-        SimulationOptimizations.
+        SingleScenarioStudy objects.
         """
-        for simulation_optimization in self.simulation_optimizations.all():
+        for simulation_optimization in self.single_scenario_studies.all():
             simulation_optimization.initialize()
         self._reset_cached_properties()
 
 
 @receiver(
-    m2m_changed,
-    sender=MultiScenarioOptimization.simulation_optimizations.through,
+    m2m_changed, sender=MultipleScenarioStudy.single_scenario_studies.through
 )
-def reset_cached_properties_update_simulation_optimizations(sender, **kwargs):
+def reset_cached_properties_update_single_scenario_studies(sender, **kwargs):
     """
-    Reset cached properties whenever simulation_optimizations is updated. This
+    Reset cached properties whenever single_scenario_studies is updated. This
     resets any cached reports.
     """
     simulation_optimization = kwargs.get("instance", None)
