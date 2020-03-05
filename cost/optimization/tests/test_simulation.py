@@ -9,10 +9,7 @@ from beo_datastore.libs.fixtures import (
 )
 
 from cost.ghg.models import GHGRate
-from cost.optimization.models import (
-    MultiScenarioOptimization,
-    SimulationOptimization,
-)
+from cost.optimization.models import MultipleScenarioStudy, SingleScenarioStudy
 from cost.utility_rate.models import RatePlan
 from der.simulation.models import BatteryConfiguration, BatteryStrategy
 from load.customer.models import CustomerPopulation, CustomerMeter
@@ -84,8 +81,8 @@ class TestSimulation(TestCase):
 
         # 3. Create and choose cost functions (cost)
         # 4. Run simulation.
-        multi = MultiScenarioOptimization.objects.create()
-        single, _ = SimulationOptimization.objects.get_or_create(
+        multi = MultipleScenarioStudy.objects.create()
+        single, _ = SingleScenarioStudy.objects.get_or_create(
             start=datetime(2018, 1, 1),
             end_limit=datetime(2018, 1, 2),
             der_strategy=battery_strategy,
@@ -93,11 +90,9 @@ class TestSimulation(TestCase):
             rate_plan=rate_plan,
             load_serving_entity=meters.first().load_serving_entity,
         )
-        single.customer_clusters.add(
-            *customer_population.customer_clusters.all()
-        )
+        single.meter_groups.add(*customer_population.customer_clusters.all())
         single.ghg_rates.add(*GHGRate.objects.filter(name="Clean Net Short"))
-        multi.simulation_optimizations.add(single)
+        multi.single_scenario_studies.add(single)
         multi.run()
 
         # all meters found in report

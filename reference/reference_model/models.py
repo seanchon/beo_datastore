@@ -291,7 +291,7 @@ class DERConfiguration(PolymorphicValidationModel):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["created_at"]
+        ordering = ["-created_at"]
 
     @property
     def der_type(self):
@@ -427,3 +427,54 @@ class DERSimulation(Meter):
         Return columns from der_intervalframe for use in frame288 computation.
         """
         return self.der_intervalframe.dataframe.columns
+
+
+# STUDY BASE MODELS
+
+
+class Study(PolymorphicValidationModel):
+    """
+    Base model containing many meters run under DER simulations and cost
+    calculations.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=128, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @property
+    def meter_count(self):
+        return self.meters.count()
+
+    @property
+    def pre_der_intervalframe(self):
+        """
+        ValidationIntervalFrame representing aggregate readings of all meters
+        before running DER simulations.
+        """
+        raise NotImplementedError(
+            "pre_der_intervalframe must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def der_intervalframe(self):
+        """
+        ValidationIntervalFrame representing aggregate readings of all DER
+        operations.
+        """
+        raise NotImplementedError(
+            "der_intervalframe must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def post_der_intervalframe(self):
+        """
+        ValidationIntervalFrame representing aggregate readings of all meters
+        after running DER simulations.
+        """
+        raise NotImplementedError(
+            "post_der_intervalframe must be set in {}".format(self.__class__)
+        )

@@ -49,23 +49,23 @@ class DERAggregateSimulation(object):
         )
 
     @property
-    def pre_DER_intervalframe(self):
+    def pre_der_intervalframe(self):
         """
         Return a ValidationIntervalFrame that represents the aggregate interval
         readings before introducing a DER.
         """
         raise NotImplementedError(
-            "pre_DER_intervalframe must be set in {}".format(self.__class__)
+            "pre_der_intervalframe must be set in {}".format(self.__class__)
         )
 
     @property
-    def post_DER_intervalframe(self):
+    def post_der_intervalframe(self):
         """
         Return a ValidationIntervalFrame that represents the aggregate interval
         readings after introducing a DER.
         """
         raise NotImplementedError(
-            "post_DER_intervalframe must be set in {}".format(self.__class__)
+            "post_der_intervalframe must be set in {}".format(self.__class__)
         )
 
     @property
@@ -163,7 +163,7 @@ class AggregateBatterySimulation(DERAggregateSimulation):
         }
 
     @cached_property
-    def pre_DER_intervalframe(self):
+    def pre_der_intervalframe(self):
         """
         Return a single ValidationIntervalFrame represeting the aggregate
         readings of all meter readings before a battery simulation.
@@ -175,7 +175,7 @@ class AggregateBatterySimulation(DERAggregateSimulation):
         )
 
     @cached_property
-    def post_DER_intervalframe(self):
+    def post_der_intervalframe(self):
         """
         Return a single ValidationIntervalFrame represeting the aggregate
         readings of all meter reading after a battery simulation.
@@ -533,7 +533,7 @@ class AggregateGHGCalculation(DERCostCalculation):
         Return 288 frame of month-hour GHG emissions pre-DER.
         """
         return (
-            self.agg_simulation.pre_DER_intervalframe.total_frame288
+            self.agg_simulation.pre_der_intervalframe.total_frame288
             * self.ghg_frame288
         )
 
@@ -543,7 +543,7 @@ class AggregateGHGCalculation(DERCostCalculation):
         Return 288 frame of month-hour GHG emissions post-DER.
         """
         return (
-            self.agg_simulation.post_DER_intervalframe.total_frame288
+            self.agg_simulation.post_der_intervalframe.total_frame288
             * self.ghg_frame288
         )
 
