@@ -2,7 +2,10 @@ from distutils.util import strtobool
 
 from rest_framework import serializers
 
-from beo_datastore.libs.serializers import AbstractGetDataMixin
+from beo_datastore.libs.api.serializers import (
+    AbstractGetDataMixin,
+    get_context_request_param,
+)
 from der.simulation.models import BatteryConfiguration, BatteryStrategy
 from reference.reference_model.models import (
     DERConfiguration,
@@ -33,7 +36,7 @@ class DERConfigurationSerializer(serializers.ModelSerializer):
         Nest related serializer under "metadata".
         """
         # allow metadata to be disabled
-        metadata = self.context["request"].query_params.get("metadata")
+        metadata = get_context_request_param(self.context, "metadata")
         if metadata and not strtobool(metadata):
             return {}
 
@@ -65,9 +68,24 @@ class DERSimulationSerializer(GetDERDataMixin, serializers.ModelSerializer):
 
 
 class BatteryStrategySerializer(serializers.ModelSerializer):
+    charge_schedule_frame = serializers.SerializerMethodField()
+    discharge_schedule_frame = serializers.SerializerMethodField()
+
     class Meta:
         model = BatteryStrategy
         fields = ("charge_schedule_frame", "discharge_schedule_frame")
+
+    def get_charge_schedule_frame(self, obj):
+        """
+        Convert float("inf") and float("-inf") to string representations.
+        """
+        return obj.charge_schedule.frame288.dataframe.astype(str)
+
+    def get_discharge_schedule_frame(self, obj):
+        """
+        Convert float("inf") and float("-inf") to string representations.
+        """
+        return obj.discharge_schedule.frame288.dataframe.astype(str)
 
 
 class DERStrategySerializer(serializers.ModelSerializer):
@@ -82,7 +100,7 @@ class DERStrategySerializer(serializers.ModelSerializer):
         Nest related serializer under "metadata".
         """
         # allow metadata to be disabled
-        metadata = self.context["request"].query_params.get("metadata")
+        metadata = get_context_request_param(self.context, "metadata")
         if metadata and not strtobool(metadata):
             return {}
 

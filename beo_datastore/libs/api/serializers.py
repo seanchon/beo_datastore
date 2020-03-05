@@ -6,6 +6,35 @@ import pandas as pd
 from rest_framework import serializers
 
 
+def require_request_data(request, input_list):
+    """
+    Require that specified Request data is passed.
+
+    :param request: Request object
+    :param input_list: required inputs (str)
+    """
+    missing_inputs = set(input_list) - set(request.data.keys())
+    if missing_inputs:
+        raise serializers.ValidationError(
+            "Required: {}".format(", ".join(missing_inputs))
+        )
+
+
+def get_context_request_param(context, param):
+    """
+    Get param from context["request"]. If it does not exist, return None. POST
+    operations do not have request in context, so this is a safe way to
+    retrieve params.
+
+    :param context: Serializer context
+    :param param: param string
+    """
+    if "request" in context.keys():
+        return context["request"].query_params.get(param)
+    else:
+        return None
+
+
 class AbstractGetDataMixin(object):
     """
     Method for serving interval data as DRF response.
@@ -29,10 +58,10 @@ class AbstractGetDataMixin(object):
         :field start: ISO 8601 string (optional)
         :field end_limit: ISO 8601 string (optional)
         """
-        data_types = self.context["request"].query_params.get("data_types")
-        start = self.context["request"].query_params.get("start")
-        end_limit = self.context["request"].query_params.get("end_limit")
-        column = self.context["request"].query_params.get("column")
+        data_types = get_context_request_param(self.context, "data_types")
+        start = get_context_request_param(self.context, "start")
+        end_limit = get_context_request_param(self.context, "end_limit")
+        column = get_context_request_param(self.context, "column")
 
         if start:
             try:

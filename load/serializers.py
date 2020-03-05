@@ -2,7 +2,10 @@ from distutils.util import strtobool
 
 from rest_framework import serializers
 
-from beo_datastore.libs.serializers import AbstractGetDataMixin
+from beo_datastore.libs.api.serializers import (
+    AbstractGetDataMixin,
+    get_context_request_param,
+)
 from load.customer.models import CustomerMeter, OriginFile
 from load.openei.models import ReferenceMeter
 from reference.reference_model.models import DERSimulation, Meter, MeterGroup
@@ -46,9 +49,9 @@ class MeterGroupSerializer(GetMeterDataMixin, serializers.ModelSerializer):
 
         :field meters: True or False (optional)
         """
-        meters = self.context["request"].query_params.get("meters")
+        ids = get_context_request_param(self.context, "ids")
 
-        if meters and strtobool(meters):
+        if ids and strtobool(ids):
             return obj.meters.values_list("id", flat=True)
         else:
             return []
@@ -58,7 +61,7 @@ class MeterGroupSerializer(GetMeterDataMixin, serializers.ModelSerializer):
         Nest related serializer under "metadata".
         """
         # allow metadata to be disabled
-        metadata = self.context["request"].query_params.get("metadata")
+        metadata = get_context_request_param(self.context, "metadata")
         if metadata and not strtobool(metadata):
             return {}
 
@@ -105,7 +108,7 @@ class MeterSerializer(GetMeterDataMixin, serializers.ModelSerializer):
         Nest related serializer under "metadata".
         """
         # allow metadata to be disabled
-        metadata = self.context["request"].query_params.get("metadata")
+        metadata = get_context_request_param(self.context, "metadata")
         if metadata and not strtobool(metadata):
             return {}
 

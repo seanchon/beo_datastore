@@ -9,19 +9,19 @@ from beo_datastore.libs.fixtures import (
 )
 
 from cost.ghg.models import GHGRate
-from cost.optimization.models import MultipleScenarioStudy, SingleScenarioStudy
+from cost.study.models import MultipleScenarioStudy, SingleScenarioStudy
 from cost.utility_rate.models import RatePlan
 from der.simulation.models import BatteryConfiguration, BatteryStrategy
 from load.customer.models import CustomerPopulation, CustomerMeter
 
 
-class TestSimulation(TestCase):
+class TestStudy(TestCase):
     """
-    Test the creation of a DER simulation, which is a four-step process.
+    Test the creation of a DER study, which is a four-step process.
         1. Create and choose k-means clusters (load)
         2. Create and choose battery and strategy (DER)
         3. Create and choose cost functions (cost)
-        4. Run simulation.
+        4. Run study.
 
     This test ensures that following demo scripts are functional.
         - demo/1_create_kmeans_clusters.ipynb
@@ -43,7 +43,7 @@ class TestSimulation(TestCase):
         """
         flush_intervalframe_files()
 
-    def test_simulation(self):
+    def test_study(self):
         meters = CustomerMeter.objects.filter(rate_plan_name__contains="EV")
 
         # 1. Create and choose k-means clusters (load)
@@ -80,7 +80,7 @@ class TestSimulation(TestCase):
         )
 
         # 3. Create and choose cost functions (cost)
-        # 4. Run simulation.
+        # 4. Run study.
         multi = MultipleScenarioStudy.objects.create()
         single, _ = SingleScenarioStudy.objects.get_or_create(
             start=datetime(2018, 1, 1),

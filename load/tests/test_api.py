@@ -148,7 +148,7 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
         response = self.client.get(endpoint, format="json")
         self.assertTrue(len(response.data["results"][0]["meters"]) == 0)
 
-        endpoint = "/v1/load/meter_group/?meters=true"
+        endpoint = "/v1/load/meter_group/?ids=true"
         response = self.client.get(endpoint, format="json")
         self.assertTrue(len(response.data["results"][0]["meters"]) > 0)
 
@@ -205,7 +205,7 @@ class TestFileUpload(APITestCase):
                 format="multipart",
             )
 
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         response = self.client.get(get_endpoint, format="json")
         self.assertEqual(response.data.get("count"), 1)
 
@@ -218,7 +218,7 @@ class TestFileUpload(APITestCase):
                 format="multipart",
             )
 
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         response = self.client.get(get_endpoint, format="json")
         self.assertEqual(response.data.get("count"), 1)
 

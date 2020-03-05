@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 from django.contrib import admin
 
-from cost.optimization.models import SingleScenarioStudy, MultipleScenarioStudy
+from cost.study.models import SingleScenarioStudy, MultipleScenarioStudy
 
 
 @admin.register(SingleScenarioStudy)

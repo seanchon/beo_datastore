@@ -108,20 +108,6 @@ class BatteryStrategy(DERStrategy):
         verbose_name_plural = "battery strategies"
 
     @property
-    def charge_schedule_frame(self):
-        """
-        Data served via DRF. Converted to str to handle inf and -inf.
-        """
-        return self.charge_schedule.frame288.dataframe.astype(str)
-
-    @property
-    def discharge_schedule_frame(self):
-        """
-        Data served via DRF. Converted to str to handle inf and -inf.
-        """
-        return self.discharge_schedule.frame288.dataframe.astype(str)
-
-    @property
     def charge_schedule_html_table(self):
         return self.charge_schedule.html_table
 

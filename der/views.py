@@ -26,9 +26,7 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
                 "metadata",
                 required=False,
                 location="query",
-                description=(
-                    "Set to false to remove metadata. Defaults to true."
-                ),
+                description=("False to remove metadata. Defaults to true."),
             )
         ]
     )
@@ -84,9 +82,7 @@ class DERSimulationViewSet(ListRetrieveViewSet):
                 "metadata",
                 required=False,
                 location="query",
-                description=(
-                    "Set to false to remove metadata. Defaults to true."
-                ),
+                description=("False to remove metadata. Defaults to true."),
             ),
         ]
     )
@@ -106,9 +102,7 @@ class DERStrategyViewSet(ListRetrieveViewSet):
                 "metadata",
                 required=False,
                 location="query",
-                description=(
-                    "Set to false to remove metadata. Defaults to true."
-                ),
+                description=("False to remove metadata. Defaults to true."),
             )
         ]
     )
