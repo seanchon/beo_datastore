@@ -234,6 +234,8 @@ SWAGGER_SETTINGS = {
         "api_key": {"type": "apiKey", "in": "header", "name": "Authorization"}
     },
 }
+if APP_ENV != "local":  # communicate over https in AWS
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Celery
 CELERY_RESULT_BACKEND = "django-db"
