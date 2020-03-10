@@ -232,3 +232,26 @@ class TestBattery(TestCase):
             stored_simulations.first().post_intervalframe,
             self.simulation.post_intervalframe,
         )
+
+    def test_zero_period_simulation(self):
+        """
+        Bug fix to catch ZeroDivisionError.
+        """
+        single_intervalframe = ValidationIntervalFrame(
+            pd.DataFrame(
+                zip(
+                    [datetime(2018, 1, 1, x) for x in range(0, 1)],
+                    [-5 for x in range(0, 1)],
+                )
+            )
+            .rename(columns={0: "index", 1: "kw"})
+            .set_index("index")
+        )
+
+        single_interval_simulation = FixedScheduleBatterySimulation(
+            battery=self.battery,
+            load_intervalframe=single_intervalframe,
+            charge_schedule=self.charge_schedule,
+            discharge_schedule=self.discharge_schedule,
+        )
+        single_interval_simulation.generate_full_sequence()
