@@ -23,10 +23,10 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
     schema = AutoSchema(
         manual_fields=[
             coreapi.Field(
-                "metadata",
+                "data",
                 required=False,
                 location="query",
-                description=("False to remove metadata. Defaults to true."),
+                description=("True to return data. Defaults to false."),
             )
         ]
     )
@@ -99,10 +99,10 @@ class DERStrategyViewSet(ListRetrieveViewSet):
     schema = AutoSchema(
         manual_fields=[
             coreapi.Field(
-                "metadata",
+                "data",
                 required=False,
                 location="query",
-                description=("False to remove metadata. Defaults to true."),
+                description=("True to return data. Defaults to false."),
             )
         ]
     )
