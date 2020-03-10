@@ -39,19 +39,19 @@ class OriginFileViewSet(CreateViewSet):
             coreapi.Field(
                 "file",
                 required=True,
-                location="query",
+                location="body",
                 description=("File containing Meter data."),
             ),
             coreapi.Field(
                 "name",
                 required=True,
-                location="query",
+                location="body",
                 description=("File name."),
             ),
             coreapi.Field(
                 "load_serving_entity_id",
                 required=True,
-                location="query",
+                location="body",
                 description=("LoadServingEntity ID."),
             ),
         ]

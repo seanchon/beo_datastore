@@ -38,13 +38,13 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
             coreapi.Field(
                 "name",
                 required=True,
-                location="query",
+                location="body",
                 description=("MultipleScenarioStudy Name."),
             ),
             coreapi.Field(
                 "meter_group_ids",
                 required=True,
-                location="query",
+                location="body",
                 description=(
                     "JSON List of MeterGroup ids. "
                     "Ex. ['<meter_group_id>', '<meter_group_id>']"
@@ -53,7 +53,7 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
             coreapi.Field(
                 "ders",
                 required=True,
-                location="query",
+                location="body",
                 description=(
                     "JSON List of der_configuration_id, der_strategy_id pairs. "
                     "Ex. [{'der_configuration_id': '<id>', "
@@ -82,11 +82,26 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
             for der in ders:
                 configuration_id = der["der_configuration_id"]
                 strategy_id = der["der_strategy_id"]
-                meter_group = MeterGroup.objects.get(id=meter_group_id)
-                der_configuration = DERConfiguration.objects.get(
-                    id=configuration_id
-                )
-                der_strategy = DERStrategy.objects.get(id=strategy_id)
+                try:
+                    meter_group = MeterGroup.objects.get(id=meter_group_id)
+                except MeterGroup.DoesNotExist:
+                    raise serializers.ValidationError(
+                        "MeterGroup does not exist."
+                    )
+                try:
+                    der_configuration = DERConfiguration.objects.get(
+                        id=configuration_id
+                    )
+                except DERConfiguration.DoesNotExist:
+                    raise serializers.ValidationError(
+                        "DERConfiguration does not exist."
+                    )
+                try:
+                    der_strategy = DERStrategy.objects.get(id=strategy_id)
+                except DERStrategy.DoesNotExist:
+                    raise serializers.ValidationError(
+                        "DERStrategy does not exist."
+                    )
 
                 if meter_group.intervalframe.dataframe.empty:
                     pass  # cannot get start and end_limit
