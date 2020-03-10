@@ -14,7 +14,7 @@
     "model": "customer.originfile",
     "pk": "00000000-0000-0000-0000-000000000001",
     "fields": {
-      "file": "foobar.csv",
+      "file": "test.csv",
       "md5sum": "0",
       "load_serving_entity": 1,
       "owners": []

@@ -1,3 +1,5 @@
+from functools import reduce
+
 from django_auto_repr import AutoRepr
 from polymorphic.models import PolymorphicModel
 
@@ -5,6 +7,22 @@ from django.db import models, transaction
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.views import dataframe_to_html
+
+
+def get_exact_many_to_many(model, m2m_field, ids):
+    """
+    Return a model QuerySet where there is an exact match on ids using the
+    m2m_field.
+
+    :param model: Django model
+    :param m2m_field: string
+    :param ids: list of ids
+    :return: model QuerySet
+    """
+    initial_qs = model.objects.annotate(cnt=models.Count(m2m_field)).filter(
+        cnt=len(ids)
+    )
+    return reduce(lambda qs, pk: qs.filter(**{m2m_field: pk}), ids, initial_qs)
 
 
 class ValidationModel(AutoRepr, models.Model):

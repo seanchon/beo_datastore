@@ -1,6 +1,8 @@
 from datetime import datetime
 from faker import Factory
+import json
 
+from rest_framework import status
 from rest_framework.test import APITestCase
 
 from django.contrib.auth.models import User
@@ -66,9 +68,10 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         # create Study
         single, _ = SingleScenarioStudy.objects.get_or_create(
             start=datetime(2018, 1, 1),
-            end_limit=datetime(2019, 1, 1),
+            end_limit=datetime(2018, 1, 1, 1),
             der_strategy=battery_strategy,
             der_configuration=configuration,
+            meter_group=meter_group,
             rate_plan=RatePlan.objects.first(),
         )
         single.ghg_rates.add(*GHGRate.objects.all())
@@ -79,3 +82,47 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
 
     def tearDown(self):
         flush_intervalframe_files()
+
+    def test_post_duplicate_multiple_scenario_study(self):
+        """
+        Test new objects created on POST to /cost/multiple_scenario_study/.
+        """
+        post_endpoint = "/v1/cost/multiple_scenario_study/"
+        self.client.force_authenticate(user=self.user)
+
+        # Delete all Study objects
+        SingleScenarioStudy.objects.all().delete()
+        MultipleScenarioStudy.objects.all().delete()
+
+        meter_group = MeterGroup.objects.first()
+        configuration = BatteryConfiguration.objects.first()
+        strategy = BatteryStrategy.objects.first()
+
+        data = {
+            "name": "test",
+            "meter_group_ids": json.dumps([str(meter_group.id)]),
+            "ders": json.dumps(
+                [
+                    {
+                        "der_configuration_id": str(configuration.id),
+                        "der_strategy_id": str(strategy.id),
+                    }
+                ]
+            ),
+        }
+
+        # 0 count
+        self.assertEqual(SingleScenarioStudy.objects.count(), 0)
+        self.assertEqual(MultipleScenarioStudy.objects.count(), 0)
+
+        # 1 count
+        response = self.client.post(post_endpoint, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(SingleScenarioStudy.objects.count(), 1)
+        self.assertEqual(MultipleScenarioStudy.objects.count(), 1)
+
+        # 1 count - do not create duplicates
+        response = self.client.post(post_endpoint, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(SingleScenarioStudy.objects.count(), 1)
+        self.assertEqual(MultipleScenarioStudy.objects.count(), 1)
