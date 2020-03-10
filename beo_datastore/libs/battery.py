@@ -411,9 +411,14 @@ class ManualScheduleBatterySimulation(BatterySimulation):
         :param power: float (kw)
         :param duration: timedelta
         """
+        if self.load_period:
+            number_of_operations = int(duration / self.load_period)
+        else:
+            number_of_operations = 0
+
         self.cached_operation_timestamps += [
             self.next_interval_timestamp + (x * self.load_period)
-            for x in range(0, int(duration / self.load_period))
+            for x in range(0, number_of_operations)
         ]
         self.cached_operations += self._generate_battery_operations(
             power=power,
@@ -481,9 +486,14 @@ class FixedScheduleBatterySimulation(BatterySimulation):
         :param power: float (kw)
         :param duration: timedelta
         """
+        if self.load_period:
+            number_of_operations = int(duration / self.load_period)
+        else:
+            number_of_operations = 0
+
         self.cached_operation_timestamps += [
             self.next_interval_timestamp + (x * self.load_period)
-            for x in range(0, int(duration / self.load_period))
+            for x in range(0, number_of_operations)
         ]
         self.cached_operations += self._generate_battery_operations(
             power=power,
