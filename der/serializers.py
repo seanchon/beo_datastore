@@ -25,19 +25,19 @@ class BatteryConfigurationSerializer(serializers.ModelSerializer):
 
 
 class DERConfigurationSerializer(serializers.ModelSerializer):
-    metadata = serializers.SerializerMethodField()
+    data = serializers.SerializerMethodField()
 
     class Meta:
         model = DERConfiguration
-        fields = ("id", "name", "created_at", "object_type", "metadata")
+        fields = ("id", "name", "created_at", "object_type", "data")
 
-    def get_metadata(self, obj):
+    def get_data(self, obj):
         """
-        Nest related serializer under "metadata".
+        Nest related serializer under "data".
         """
-        # allow metadata to be disabled
-        metadata = get_context_request_param(self.context, "metadata")
-        if metadata and not strtobool(metadata):
+        # allow data to be enabled
+        data = get_context_request_param(self.context, "data")
+        if not data or not strtobool(data):
             return {}
 
         if isinstance(obj, BatteryConfiguration):
@@ -89,19 +89,19 @@ class BatteryStrategySerializer(serializers.ModelSerializer):
 
 
 class DERStrategySerializer(serializers.ModelSerializer):
-    metadata = serializers.SerializerMethodField()
+    data = serializers.SerializerMethodField()
 
     class Meta:
         model = DERStrategy
-        fields = ("id", "name", "created_at", "object_type", "metadata")
+        fields = ("id", "name", "created_at", "object_type", "data")
 
-    def get_metadata(self, obj):
+    def get_data(self, obj):
         """
-        Nest related serializer under "metadata".
+        Nest related serializer under "data".
         """
-        # allow metadata to be disabled
-        metadata = get_context_request_param(self.context, "metadata")
-        if metadata and not strtobool(metadata):
+        # allow data to be disabled
+        data = get_context_request_param(self.context, "data")
+        if not data or not strtobool(data):
             return {}
 
         if isinstance(obj, BatteryStrategy):
