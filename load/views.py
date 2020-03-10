@@ -4,6 +4,7 @@ from rest_framework.exceptions import UnsupportedMediaType
 from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
 
+from beo_datastore.libs.api.serializers import require_request_data
 from beo_datastore.libs.api.viewsets import (
     CreateViewSet,
     ListRetrieveViewSet,
@@ -33,7 +34,34 @@ class OriginFileViewSet(CreateViewSet):
     queryset = OriginFile.objects.all()
     serializer_class = OriginFileSerializer
 
+    schema = AutoSchema(
+        manual_fields=[
+            coreapi.Field(
+                "file",
+                required=True,
+                location="body",
+                description=("File containing Meter data."),
+            ),
+            coreapi.Field(
+                "name",
+                required=True,
+                location="body",
+                description=("File name."),
+            ),
+            coreapi.Field(
+                "load_serving_entity_id",
+                required=True,
+                location="body",
+                description=("LoadServingEntity ID."),
+            ),
+        ]
+    )
+
     def create(self, request):
+        require_request_data(
+            request, ["file", "name", "load_serving_entity_id"]
+        )
+
         file = request.data["file"]
         name = request.data["name"]
         # TODO: add additional file validation
@@ -47,8 +75,10 @@ class OriginFileViewSet(CreateViewSet):
                 owner=request.user,
             )
             ingest_origin_file_meters.delay(origin_file.id, overwrite=True)
-            # TODO: return link to asset in response
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response(
+                MeterGroupSerializer(origin_file, many=False).data,
+                status=status.HTTP_201_CREATED,
+            )
         else:
             raise UnsupportedMediaType("Upload must be a .csv file.")
 
@@ -65,12 +95,10 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
     schema = AutoSchema(
         manual_fields=[
             coreapi.Field(
-                "meters",
+                "ids",
                 required=False,
                 location="query",
-                description=(
-                    "True to return meter ids. No ids returned by default."
-                ),
+                description=("True to return Meter ids. Defaults to false."),
             ),
             coreapi.Field(
                 "data_types",
@@ -103,9 +131,7 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
                 "metadata",
                 required=False,
                 location="query",
-                description=(
-                    "Set to false to remove metadata. Defaults to true."
-                ),
+                description=("False to remove metadata. Defaults to true."),
             ),
         ]
     )
@@ -126,7 +152,7 @@ class MeterViewSet(ListRetrieveViewSet):
                 "meter_groups",
                 required=False,
                 location="query",
-                description="A single meter_group id.",
+                description="Filter meters by a single meter_group id.",
             ),
             coreapi.Field(
                 "data_types",
@@ -159,9 +185,7 @@ class MeterViewSet(ListRetrieveViewSet):
                 "metadata",
                 required=False,
                 location="query",
-                description=(
-                    "Set to false to remove metadata. Defaults to true."
-                ),
+                description=("False to remove metadata. Defaults to true."),
             ),
         ]
     )

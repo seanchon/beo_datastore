@@ -1,7 +1,6 @@
 from rest_framework.routers import DefaultRouter
 
-from cost.ghg.views import GHGRateViewSet
-from cost.utility_rate.views import RateCollectionViewSet, RatePlanViewSet
+from cost.views import MultipleScenarioStudyViewSet, StudyViewSet
 from der.views import (
     DERConfigurationViewSet,
     DERSimulationViewSet,
@@ -11,9 +10,10 @@ from load.views import MeterViewSet, MeterGroupViewSet, OriginFileViewSet
 
 
 v1_router = DefaultRouter()
-v1_router.register(r"cost/ghg_rate", GHGRateViewSet)
-v1_router.register(r"cost/utility_rate_plan", RatePlanViewSet)
-v1_router.register(r"cost/utility_rate_collection", RateCollectionViewSet)
+v1_router.register(r"cost/study", StudyViewSet)
+v1_router.register(
+    r"cost/multiple_scenario_study", MultipleScenarioStudyViewSet
+)
 v1_router.register(r"der/configuration", DERConfigurationViewSet)
 v1_router.register(r"der/simulation", DERSimulationViewSet)
 v1_router.register(r"der/strategy", DERStrategyViewSet)

@@ -602,13 +602,23 @@ class MultipleScenarioStudy(Study):
     @property
     def meters(self):
         """
-        Return QuerySet of Meters in all
-        self.single_scenario_studies.
+        Return QuerySet of Meters in all self.single_scenario_studies.
         """
         return reduce(
             lambda x, y: x | y,
             [x.meters.all() for x in self.single_scenario_studies.all()],
             Meter.objects.none(),
+        ).distinct()
+
+    @property
+    def meter_groups(self):
+        """
+        Return QuerySet of MeterGroups in all self.single_scenario_studies.
+        """
+        return reduce(
+            lambda x, y: x | y,
+            [x.meter_groups.all() for x in self.single_scenario_studies.all()],
+            MeterGroup.objects.none(),
         ).distinct()
 
     @property

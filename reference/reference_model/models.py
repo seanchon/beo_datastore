@@ -446,6 +446,33 @@ class Study(PolymorphicValidationModel):
         ordering = ["-created_at"]
 
     @property
+    def meters(self):
+        """
+        Associated Meter queryset.
+        """
+        raise NotImplementedError(
+            "meters must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def meter_groups(self):
+        """
+        Associated MeterGroup queryset.
+        """
+        raise NotImplementedError(
+            "meter_groups must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def der_simulations(self):
+        """
+        Associated DERSimulation queryset.
+        """
+        raise NotImplementedError(
+            "der_simulations must be set in {}".format(self.__class__)
+        )
+
+    @property
     def meter_count(self):
         return self.meters.count()
 
