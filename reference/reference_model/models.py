@@ -4,6 +4,7 @@ import uuid
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.functional import cached_property
 
 from beo_datastore.libs.models import (
     PolymorphicValidationModel,
@@ -399,23 +400,19 @@ class DERSimulation(Meter):
             )
         super().clean(*args, **kwargs)
 
-    @property
-    def meter_intervalframe(self):
+    @cached_property
+    def pre_der_intervalframe(self):
         """
-        Return ValidationIntervalFrame related to a simulated building's load.
-        This is what a building's electricity meter would read after a
-        hypothetical DER is installed.
+        ValidationIntervalFrame before running a DERSimulation.
         """
-        raise NotImplementedError(
-            "meter_intervalframe must be set in {}".format(self.__class__)
-        )
+        return self.meter.meter_intervalframe
 
     @property
     def der_intervalframe(self):
         """
-        Return ValidationIntervalFrame related to a DER's impact to a
-        building's load. The original building's load plus the
-        der_intervalframe would yield the meter_intervalframe.
+        ValidationIntervalFrame related to a DER's impact to a building's load.
+        The original building's load plus the der_intervalframe would yield the
+        post_der_intervalframe a.k.a. meter_intervalframe.
         """
         raise NotImplementedError(
             "der_intervalframe must be set in {}".format(self.__class__)
@@ -424,9 +421,29 @@ class DERSimulation(Meter):
     @property
     def der_columns(self):
         """
-        Return columns from der_intervalframe for use in frame288 computation.
+        Columns from der_intervalframe for use in frame288 computation.
         """
         return self.der_intervalframe.dataframe.columns
+
+    @cached_property
+    def post_der_intervalframe(self):
+        """
+        ValidationIntervalFrame after running a DERSimulation.
+        """
+        return (
+            self.meter.intervalframe.filter_by_datetime(
+                start=self.start, end_limit=self.end_limit
+            )
+            + self.intervalframe
+        )
+
+    @cached_property
+    def meter_intervalframe(self):
+        """
+        ValidationIntervalFrame representing building load after DER has been
+        introduced.
+        """
+        return self.post_der_intervalframe
 
 
 # STUDY BASE MODELS

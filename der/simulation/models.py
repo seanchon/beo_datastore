@@ -309,19 +309,6 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
         """
         return self.intervalframe
 
-    @cached_property
-    def meter_intervalframe(self):
-        """
-        ValidationIntervalFrame representing building load after DER has been
-        introduced.
-        """
-        return (
-            self.meter.intervalframe.filter_by_datetime(
-                start=self.start, end_limit=self.end_limit
-            )
-            + self.intervalframe
-        )
-
     @property
     def charge_schedule(self):
         return self.der_strategy.charge_schedule
@@ -342,14 +329,6 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
         return self.post_DER_total - self.pre_DER_total
 
     @cached_property
-    def pre_intervalframe(self):
-        return self.simulation.pre_intervalframe
-
-    @cached_property
-    def post_intervalframe(self):
-        return self.simulation.post_intervalframe
-
-    @cached_property
     def average_state_of_charge_frame288(self):
         aggregation_column = self.intervalframe.aggregation_column
         self.intervalframe.aggregation_column = "capacity"
@@ -366,8 +345,8 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
         Return Django-formatted HTML pre vs. post average 288 plt.
         """
         return plot_frame288_monthly_comparison(
-            original_frame288=self.pre_intervalframe.average_frame288,
-            modified_frame288=self.post_intervalframe.average_frame288,
+            original_frame288=self.pre_der_intervalframe.average_frame288,
+            modified_frame288=self.post_der_intervalframe.average_frame288,
             to_html=True,
         )
 
@@ -377,8 +356,8 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
         Return Django-formatted HTML pre vs. post maximum 288 plt.
         """
         return plot_frame288_monthly_comparison(
-            original_frame288=self.pre_intervalframe.maximum_frame288,
-            modified_frame288=self.post_intervalframe.maximum_frame288,
+            original_frame288=self.pre_der_intervalframe.maximum_frame288,
+            modified_frame288=self.post_der_intervalframe.maximum_frame288,
             to_html=True,
         )
 

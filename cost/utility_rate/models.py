@@ -431,7 +431,7 @@ class StoredBillCalculation(ValidationModel):
                     agg_simulation=der_simulation.agg_simulation,
                     rate_plan=rate_plan,
                     date_ranges=cls.create_date_ranges(
-                        intervalframe=der_simulation.pre_intervalframe
+                        intervalframe=der_simulation.pre_der_intervalframe
                     ),
                     multiprocess=multiprocess,
                 )
@@ -514,21 +514,21 @@ class BillComparison(ValidationModel):
         return self.post_DER_total - self.pre_DER_total
 
     @cached_property
-    def pre_intervalframe(self):
+    def pre_der_intervalframe(self):
         """
         Return pre-DER ValidationIntervalFrame.
         """
-        frame = self.bill_collection.der_simulation.pre_intervalframe
+        frame = self.bill_collection.der_simulation.pre_der_intervalframe
         return frame.filter_by_datetime(
             start=self.start, end_limit=self.end_limit
         )
 
     @cached_property
-    def post_intervalframe(self):
+    def post_der_intervalframe(self):
         """
         Return post-DER ValidationIntervalFrame.
         """
-        frame = self.bill_collection.der_simulation.post_intervalframe
+        frame = self.bill_collection.der_simulation.post_der_intervalframe
         return frame.filter_by_datetime(
             start=self.start, end_limit=self.end_limit
         )
@@ -539,7 +539,7 @@ class BillComparison(ValidationModel):
         Generate pre-DER ValidationBill from scratch.
         """
         return ValidationBill(
-            intervalframe=self.pre_intervalframe,
+            intervalframe=self.pre_der_intervalframe,
             openei_rate_data=(
                 getattr(
                     self.bill_collection.rate_plan.get_latest_rate_collection(
@@ -564,7 +564,7 @@ class BillComparison(ValidationModel):
         Generate post-DER ValidationBill from scratch.
         """
         return ValidationBill(
-            intervalframe=self.post_intervalframe,
+            intervalframe=self.post_der_intervalframe,
             openei_rate_data=(
                 getattr(
                     self.bill_collection.rate_plan.get_latest_rate_collection(
