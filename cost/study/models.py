@@ -616,10 +616,10 @@ class MultipleScenarioStudy(Study):
         """
         Return QuerySet of MeterGroups in all self.single_scenario_studies.
         """
-        return reduce(
-            lambda x, y: x | y,
-            [x.meter_groups.all() for x in self.single_scenario_studies.all()],
-            MeterGroup.objects.none(),
+        return MeterGroup.objects.filter(
+            id__in=self.single_scenario_studies.values_list(
+                "meter_group__id", flat=True
+            )
         ).distinct()
 
     @property
