@@ -87,15 +87,18 @@ class TestStudy(TestCase):
             end_limit=datetime(2018, 1, 2),
             der_strategy=battery_strategy,
             der_configuration=battery_configuration,
+            meter_group=customer_population.customer_clusters.first(),
             rate_plan=rate_plan,
             load_serving_entity=meters.first().load_serving_entity,
         )
-        single.meter_groups.add(*customer_population.customer_clusters.all())
         single.ghg_rates.add(*GHGRate.objects.filter(name="Clean Net Short"))
         multi.single_scenario_studies.add(single)
         multi.run()
 
         # all meters found in report
-        self.assertEqual(len(multi.report), customer_population.meter_count)
+        self.assertEqual(
+            len(multi.report),
+            customer_population.customer_clusters.first().meters.count(),
+        )
         # battery modifies load
         self.assertNotEqual(np.mean(multi.report["UsageDelta"]), 0)

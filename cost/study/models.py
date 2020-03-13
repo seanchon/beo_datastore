@@ -55,6 +55,11 @@ class SingleScenarioStudy(Study):
         related_name="single_scenario_studies",
         on_delete=models.CASCADE,
     )
+    meter_group = models.ForeignKey(
+        to=MeterGroup,
+        related_name="single_scenario_studies",
+        on_delete=models.CASCADE,
+    )
     # Constrains Meters and RatePlan to belong to LSE. If null is True, any
     # Meter and RatePlan can be used in optimization.
     load_serving_entity = models.ForeignKey(
@@ -75,9 +80,6 @@ class SingleScenarioStudy(Study):
     system_profiles = models.ManyToManyField(
         to=SystemProfile, related_name="single_scenario_studies", blank=True
     )
-    meter_groups = models.ManyToManyField(
-        to=MeterGroup, related_name="single_scenario_studies", blank=True
-    )
     meters = models.ManyToManyField(
         to=Meter, related_name="single_scenario_studies", blank=True
     )
@@ -89,6 +91,7 @@ class SingleScenarioStudy(Study):
             "end_limit",
             "der_strategy",
             "der_configuration",
+            "meter_group",
             "load_serving_entity",
             "rate_plan",
         )
@@ -105,6 +108,19 @@ class SingleScenarioStudy(Study):
             )
 
         super().clean(*args, **kwargs)
+
+    @property
+    def der_simulations(self):
+        """
+        Return DERSimulations related to self.
+        """
+        return DERSimulation.objects.filter(
+            start=self.start,
+            end_limit=self.end_limit,
+            meter__in=self.meters.all(),
+            der_configuration=self.der_configuration,
+            der_strategy=self.der_strategy,
+        )
 
     @property
     def pre_der_intervalframe(self):
@@ -142,29 +158,40 @@ class SingleScenarioStudy(Study):
         """
         return self.pre_der_intervalframe + self.der_intervalframe
 
-    @property
-    def base_meters(self):
+    @cached_property
+    def report(self):
         """
-        QuerySet of Meters from all meter_groups.
+        Return pandas Dataframe with meter SA IDs and all cost impacts.
         """
-        return reduce(
-            lambda x, y: x | y,
-            [x.meters.all() for x in self.meter_groups.all()],
-            Meter.objects.none(),
+        return (
+            self.usage_report.join(self.bill_report, how="outer")
+            .join(self.ghg_report, how="outer")
+            .join(self.resource_adequacy_report, how="outer")
+        )
+
+    @cached_property
+    def detailed_report(self):
+        """
+        Return pandas Dataframe with meter SA IDs, DERConfiguration details,
+        RatePlan details, and all cost impacts.
+
+        This report is used in MultipleScenarioStudy reports.
+        """
+        report = self.report_with_id
+        report["DERConfiguration"] = self.der_configuration.detailed_name
+        report["DERStrategy"] = self.der_strategy.name
+        report["SimulationRatePlan"] = self.rate_plan.name
+
+        return report.join(self.customer_meter_report, how="outer").join(
+            self.reference_meter_report, how="outer"
         )
 
     @property
-    def der_simulations(self):
+    def detailed_report_html_table(self):
         """
-        Return DERSimulations related to self.
+        Return Django-formatted HTML detailed report.
         """
-        return DERSimulation.objects.filter(
-            start=self.start,
-            end_limit=self.end_limit,
-            meter__in=self.meters.all(),
-            der_configuration=self.der_configuration,
-            der_strategy=self.der_strategy,
-        )
+        return dataframe_to_html(self.detailed_report)
 
     @property
     def charge_schedule(self):
@@ -210,30 +237,6 @@ class SingleScenarioStudy(Study):
         )
 
     @cached_property
-    def detailed_report(self):
-        """
-        Return pandas Dataframe with self.report_with_id and
-        DERConfiguration details, Simulation RatePlan, and Meter RatePlan.
-
-        This report is used in MultipleScenarioStudy reports.
-        """
-        report = self.report_with_id
-        report["DERConfiguration"] = self.der_configuration.detailed_name
-        report["DERStrategy"] = self.der_strategy.name
-        report["SimulationRatePlan"] = self.rate_plan.name
-
-        return report.join(self.customer_meter_report, how="outer").join(
-            self.reference_meter_report, how="outer"
-        )
-
-    @property
-    def detailed_report_html_table(self):
-        """
-        Return Django-formatted HTML detailed report.
-        """
-        return dataframe_to_html(self.detailed_report)
-
-    @cached_property
     def report_with_id(self):
         """
         Return pandas Dataframe self.report and SingleScenarioStudy id.
@@ -242,17 +245,6 @@ class SingleScenarioStudy(Study):
         report["SingleScenarioStudy"] = self.id
 
         return report
-
-    @cached_property
-    def report(self):
-        """
-        Return pandas Dataframe with meter SA IDs and all bill and GHG impacts.
-        """
-        return (
-            self.usage_report.join(self.bill_report, how="outer")
-            .join(self.ghg_report, how="outer")
-            .join(self.resource_adequacy_report, how="outer")
-        )
 
     @cached_property
     def usage_report(self):
@@ -462,6 +454,37 @@ class SingleScenarioStudy(Study):
         else:
             return pd.DataFrame()
 
+    def run_single_meter_simulation_and_cost(self, meter):
+        """
+        Run a single Meter's DERSimultion and cost calculations.
+        """
+        der_simulation_set = StoredBatterySimulation.generate(
+            battery=self.der_configuration.battery,
+            start=self.start,
+            end_limit=self.end_limit,
+            meter_set={meter},
+            charge_schedule=self.charge_schedule.frame288,
+            discharge_schedule=self.discharge_schedule.frame288,
+            multiprocess=False,
+        )
+
+        StoredBillCalculation.generate(
+            der_simulation_set=der_simulation_set,
+            rate_plan=self.rate_plan,  # TODO: link to meter
+            multiprocess=False,
+        )
+
+        for ghg_rate in self.ghg_rates.all():
+            StoredGHGCalculation.generate(
+                der_simulation_set=der_simulation_set, ghg_rate=ghg_rate
+            )
+
+        for system_profile in self.system_profiles.all():
+            StoredResourceAdequacyCalculation.generate(
+                der_simulation_set=der_simulation_set,
+                system_profile=system_profile,
+            )
+
     def run(self, multiprocess=False):
         """
         Run related DERSimulations, StoredBillCalculations and
@@ -475,32 +498,10 @@ class SingleScenarioStudy(Study):
         # add Meters from MeterGroups
         self.initialize()
 
-        der_simulation_set = StoredBatterySimulation.generate(
-            battery=self.der_configuration.battery,
-            start=self.start,
-            end_limit=self.end_limit,
-            meter_set=self.meters.all(),
-            charge_schedule=self.charge_schedule.frame288,
-            discharge_schedule=self.discharge_schedule.frame288,
-            multiprocess=multiprocess,
-        )
+        # TODO: multiprocess run_single_meter_simulation_and_cost()?
 
-        StoredBillCalculation.generate(
-            der_simulation_set=der_simulation_set,
-            rate_plan=self.rate_plan,
-            multiprocess=multiprocess,
-        )
-
-        for ghg_rate in self.ghg_rates.all():
-            StoredGHGCalculation.generate(
-                der_simulation_set=der_simulation_set, ghg_rate=ghg_rate
-            )
-
-        for system_profile in self.system_profiles.all():
-            StoredResourceAdequacyCalculation.generate(
-                der_simulation_set=der_simulation_set,
-                system_profile=system_profile,
-            )
+        for meter in self.meters.all():
+            self.run_single_meter_simulation_and_cost(meter=meter)
 
     def filter_by_query(self, query):
         """
@@ -525,7 +526,7 @@ class SingleScenarioStudy(Study):
         method allows many optimizations to be tried.
         """
         self.meters.clear()
-        self.meters.add(*self.base_meters)
+        self.meters.add(*self.meter_group.meters.all())
 
 
 @receiver(m2m_changed, sender=SingleScenarioStudy.meters.through)
@@ -691,6 +692,37 @@ class MultipleScenarioStudy(Study):
             ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
         )
 
+    @cached_property
+    def report(self):
+        """
+        Return pandas DataFrame of all single_scenario_studies' report_with_id
+        appended together.
+        """
+        return reduce(
+            lambda x, y: x.append(y, sort=False),
+            [x.report_with_id for x in self.single_scenario_studies.all()],
+            pd.DataFrame(),
+        ).sort_index()
+
+    @cached_property
+    def detailed_report(self):
+        """
+        Return pandas DataFrame of all single_scenario_studies'
+        detailed_report appended together.
+        """
+        return reduce(
+            lambda x, y: x.append(y, sort=False),
+            [x.detailed_report for x in self.single_scenario_studies.all()],
+            pd.DataFrame(),
+        ).sort_index()
+
+    @property
+    def detailed_report_html_table(self):
+        """
+        Return Django-formatted HTML detailed report.
+        """
+        return dataframe_to_html(self.detailed_report)
+
     @property
     def bill_calculations(self):
         """
@@ -732,37 +764,6 @@ class MultipleScenarioStudy(Study):
             ],
             StoredResourceAdequacyCalculation.objects.none(),
         ).distinct()
-
-    @cached_property
-    def detailed_report(self):
-        """
-        Return pandas DataFrame of all single_scenario_studies'
-        detailed_report appended together.
-        """
-        return reduce(
-            lambda x, y: x.append(y, sort=False),
-            [x.detailed_report for x in self.single_scenario_studies.all()],
-            pd.DataFrame(),
-        ).sort_index()
-
-    @property
-    def detailed_report_html_table(self):
-        """
-        Return Django-formatted HTML detailed report.
-        """
-        return dataframe_to_html(self.detailed_report)
-
-    @cached_property
-    def report(self):
-        """
-        Return pandas DataFrame of all single_scenario_studies' report_with_id
-        appended together.
-        """
-        return reduce(
-            lambda x, y: x.append(y, sort=False),
-            [x.report_with_id for x in self.single_scenario_studies.all()],
-            pd.DataFrame(),
-        ).sort_index()
 
     def validate_unique_meters(self):
         """

@@ -472,13 +472,8 @@ class Study(PolymorphicValidationModel):
         )
 
     @property
-    def meter_groups(self):
-        """
-        Associated MeterGroup queryset.
-        """
-        raise NotImplementedError(
-            "meter_groups must be set in {}".format(self.__class__)
-        )
+    def meter_count(self):
+        return self.meters.count()
 
     @property
     def der_simulations(self):
@@ -488,10 +483,6 @@ class Study(PolymorphicValidationModel):
         raise NotImplementedError(
             "der_simulations must be set in {}".format(self.__class__)
         )
-
-    @property
-    def meter_count(self):
-        return self.meters.count()
 
     @property
     def pre_der_intervalframe(self):
@@ -521,4 +512,23 @@ class Study(PolymorphicValidationModel):
         """
         raise NotImplementedError(
             "post_der_intervalframe must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def report(self):
+        """
+        Return pandas Dataframe with meter SA IDs and all cost impacts.
+        """
+        raise NotImplementedError(
+            "report must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def detailed_report(self):
+        """
+        Return pandas Dataframe with meter SA IDs, DERConfiguration details,
+        RatePlan details, and all cost impacts.
+        """
+        raise NotImplementedError(
+            "report must be set in {}".format(self.__class__)
         )
