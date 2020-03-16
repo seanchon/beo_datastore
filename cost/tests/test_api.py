@@ -40,7 +40,7 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         )
 
         # test following endpoints using BasicAuthenticationTestMixin
-        self.endpoints = ["/v1/cost/study/"]
+        self.endpoints = ["/v1/cost/study/?ids=true&report=true"]
 
         # create MeterGroup
         meter_group = MeterGroup.objects.create()

@@ -472,6 +472,15 @@ class Study(PolymorphicValidationModel):
         )
 
     @property
+    def meter_groups(self):
+        """
+        Associated MeterGroup queryset.
+        """
+        raise NotImplementedError(
+            "meter_groups must be set in {}".format(self.__class__)
+        )
+
+    @property
     def meter_count(self):
         return self.meters.count()
 
