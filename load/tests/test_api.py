@@ -40,7 +40,10 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
         )
 
         # test following endpoints using BasicAuthenticationTestMixin
-        self.endpoints = ["/v1/load/meter/"]
+        self.endpoints = [
+            "/v1/load/meter/?data_types=average",
+            "/v1/load/meter_group/?data_types=average&ids=true",
+        ]
 
         # aggregate Meter data in OriginFile
         for origin_file in OriginFile.objects.all():

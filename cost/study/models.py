@@ -110,6 +110,13 @@ class SingleScenarioStudy(Study):
         super().clean(*args, **kwargs)
 
     @property
+    def meter_groups(self):
+        """
+        QuerySet alias of related MeterGroup.
+        """
+        return MeterGroup.objects.filter(id=self.meter_group.id)
+
+    @property
     def der_simulations(self):
         """
         Return DERSimulations related to self.
@@ -616,10 +623,10 @@ class MultipleScenarioStudy(Study):
         """
         Return QuerySet of MeterGroups in all self.single_scenario_studies.
         """
-        return MeterGroup.objects.filter(
-            id__in=self.single_scenario_studies.values_list(
-                "meter_group__id", flat=True
-            )
+        return reduce(
+            lambda x, y: x | y,
+            [x.meter_groups.all() for x in self.single_scenario_studies.all()],
+            MeterGroup.objects.none(),
         ).distinct()
 
     @property
