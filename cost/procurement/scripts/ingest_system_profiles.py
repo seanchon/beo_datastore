@@ -13,7 +13,7 @@ import pandas as pd
 from django.db import transaction
 
 from cost.procurement.models import SystemProfile
-from reference.reference_model.models import LoadServingEntity
+from reference.auth_user.models import LoadServingEntity
 
 
 # BEO source file located at https://tvrp.app.box.com/file/503104443108

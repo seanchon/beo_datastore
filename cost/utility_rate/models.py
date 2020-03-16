@@ -14,10 +14,10 @@ from beo_datastore.libs.views import dataframe_to_html
 
 from reference.reference_model.models import (
     DERSimulation,
-    LoadServingEntity,
     Sector,
     VoltageCategory,
 )
+from reference.auth_user.models import LoadServingEntity
 
 
 class RatePlan(ValidationModel):

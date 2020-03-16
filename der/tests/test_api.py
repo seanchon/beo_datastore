@@ -17,9 +17,10 @@ from der.simulation.models import (
     StoredBatterySimulation,
 )
 from load.customer.models import CustomerMeter
+from reference.reference_model.models import Meter, MeterGroup
 
 
-class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
+class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
     """
     Ensures endpoints are only accessible to logged-in users and are rendered
     without errors.
@@ -63,6 +64,11 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
             minimize=True,  # objective is to minimize GHG
             discharge_threshold=0,  # only discharge down to 0kW
         )
+
+        # create MeterGroup
+        meter_group = MeterGroup.objects.create()
+        meter_group.meters.add(*Meter.objects.all())
+        meter_group.owners.add(self.user)
 
         # create a battery simulation
         StoredBatterySimulation.generate(

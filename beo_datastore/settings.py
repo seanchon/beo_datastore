@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     "load.openei.apps.OpenEIConfig",
     "reference",
     "reference.reference_model.apps.ReferenceModelConfig",
+    "reference.auth_user.apps.AuthUserConfig",
 ]
 
 MIDDLEWARE = [

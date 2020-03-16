@@ -13,7 +13,7 @@ from beo_datastore.settings import BASE_DIR
 
 from load.customer.models import CustomerMeter, OriginFile
 from load.tasks import ingest_origin_file, ingest_meters
-from reference.reference_model.models import LoadServingEntity
+from reference.auth_user.models import LoadServingEntity
 
 
 MIDNIGHT_2018 = datetime(2018, 1, 1, 0, 0)

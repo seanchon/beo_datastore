@@ -37,7 +37,7 @@ class DERSimulationViewSet(ListRetrieveViewSet):
     DER simulations.
     """
 
-    queryset = DERSimulation.objects.all()
+    model = DERSimulation
     serializer_class = DERSimulationSerializer
 
     schema = AutoSchema(
@@ -86,6 +86,13 @@ class DERSimulationViewSet(ListRetrieveViewSet):
             ),
         ]
     )
+
+    def get_queryset(self):
+        """
+        Return only DERSimulation objects associated with authenticated user.
+        """
+        user = self.request.user
+        return DERSimulation.objects.filter(meter__meter_groups__owners=user)
 
 
 class DERStrategyViewSet(ListRetrieveViewSet):

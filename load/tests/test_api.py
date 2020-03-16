@@ -38,6 +38,8 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
         self.user = User.objects.create(
             username=faker.user_name(), email=faker.email(), is_superuser=False
         )
+        for o in OriginFile.objects.all():
+            o.owners.add(self.user)
 
         # test following endpoints using BasicAuthenticationTestMixin
         self.endpoints = [
@@ -192,7 +194,9 @@ class TestFileUpload(APITestCase):
         get_endpoint = "/v1/load/meter_group/"
         post_endpoint = "/v1/load/origin_file/"
         file_location = "load/tests/files/test.csv"
-        self.client.force_authenticate(user=self.user)
+
+        user = User.objects.create(username="PG&E User", email="user@pge.com")
+        self.client.force_authenticate(user=user)
 
         # 0 OriginFiles
         OriginFile.objects.all().delete()
@@ -227,3 +231,99 @@ class TestFileUpload(APITestCase):
 
     def tearDown(self):
         flush_intervalframe_files()
+
+
+class TestFileProtection(APITestCase):
+    """
+    Ensure expected file-upload behavior.
+    """
+
+    fixtures = ["reference_model"]
+
+    def test_file_protection(self):
+        """
+        Test that when two users upload files, they cannot see each other's
+        data.
+        """
+        get_endpoint = "/v1/load/meter_group/"
+        post_endpoint = "/v1/load/origin_file/"
+
+        # user_1 uploads a file
+        user_1 = User.objects.create(
+            username="PG&E User", email="user@pge.com"
+        )
+        self.client.force_authenticate(user=user_1)
+
+        file_location = "load/tests/files/test.csv"
+        with open(os.path.join(BASE_DIR, file_location), "rb") as file:
+            name = ntpath.basename(file.name)
+            response = self.client.post(
+                post_endpoint,
+                {"file": file, "name": name, "load_serving_entity_id": 2},
+                format="multipart",
+            )
+            origin_file_1_id = response.data["id"]
+
+        # user_2 uploads a file
+        user_2 = User.objects.create(
+            username="MCE User", email="user@mcecleanenergy.org"
+        )
+        self.client.force_authenticate(user=user_2)
+
+        file_location = "load/tests/files/test2.csv"
+        with open(os.path.join(BASE_DIR, file_location), "rb") as file:
+            name = ntpath.basename(file.name)
+            response = self.client.post(
+                post_endpoint,
+                {"file": file, "name": name, "load_serving_entity_id": 2},
+                format="multipart",
+            )
+            origin_file_2_id = response.data["id"]
+
+        # user_2 can see user_2's files and cannot see user_1's files
+        response = self.client.get(get_endpoint)
+        self.assertTrue(
+            origin_file_2_id in [x["id"] for x in response.data["results"]]
+        )
+        self.assertFalse(
+            origin_file_1_id in [x["id"] for x in response.data["results"]]
+        )
+
+    def test_multiple_users_same_lse(self):
+        """
+        Test that when two Users from the same LoadServingEntity upload the
+        same file that the file is shared.
+        """
+        post_endpoint = "/v1/load/origin_file/"
+
+        # user_1 uploads a file
+        user_1 = User.objects.create(
+            username="MCE User 1", email="user2@mcecleanenergy.org"
+        )
+        self.client.force_authenticate(user=user_1)
+
+        file_location = "load/tests/files/test.csv"
+        with open(os.path.join(BASE_DIR, file_location), "rb") as file:
+            name = ntpath.basename(file.name)
+            response = self.client.post(
+                post_endpoint, {"file": file, "name": name}, format="multipart"
+            )
+            origin_file_1_id = response.data["id"]
+
+        # user_2 uploads a file
+        user_2 = User.objects.create(
+            username="MCE User 2", email="user2@mcecleanenergy.org"
+        )
+        self.client.force_authenticate(user=user_2)
+
+        with open(os.path.join(BASE_DIR, file_location), "rb") as file:
+            name = ntpath.basename(file.name)
+            response = self.client.post(
+                post_endpoint, {"file": file, "name": name}, format="multipart"
+            )
+            origin_file_2_id = response.data["id"]
+
+        self.assertEqual(origin_file_1_id, origin_file_2_id)
+        origin_file = OriginFile.objects.get(id=origin_file_1_id)
+        self.assertTrue(user_1 in origin_file.owners.all())
+        self.assertTrue(user_2 in origin_file.owners.all())

@@ -1,7 +1,6 @@
-from localflavor.us.models import USStateField
-from localflavor.us.us_states import STATE_CHOICES
 import uuid
 
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.functional import cached_property
@@ -14,6 +13,8 @@ from beo_datastore.libs.plot_intervalframe import (
     plot_intervalframe,
     plot_frame288_monthly_comparison,
 )
+
+from reference.auth_user.models import LoadServingEntity
 
 
 class BuildingType(ValidationModel):
@@ -75,54 +76,6 @@ class RateUnit(ValidationModel):
 
     def __str__(self):
         return "{}/{}".format(self.numerator, self.denominator)
-
-
-class LoadServingEntity(ValidationModel):
-    """
-    Load serving entity (ex. Utility, CCA).
-    """
-
-    name = models.CharField(max_length=32, unique=True)
-    short_name = models.CharField(max_length=8, unique=False)
-    state = USStateField(choices=STATE_CHOICES)
-    _parent_utility = models.ForeignKey(
-        to="LoadServingEntity",
-        related_name="load_serving_entities",
-        on_delete=models.PROTECT,
-        blank=True,
-        null=True,
-    )
-
-    class Meta:
-        ordering = ["id"]
-        verbose_name_plural = "load serving entities"
-
-    def __str__(self):
-        return self.name
-
-    @property
-    def parent_utility(self):
-        if self._parent_utility:
-            return self._parent_utility
-        else:
-            return self
-
-    @parent_utility.setter
-    def parent_utility(self, parent_utility):
-        self._parent_utility = parent_utility
-
-    @classmethod
-    def menu(cls):
-        """
-        Return a list of IDs and LoadServingEntity names. This menu is used in
-        various scripts that require a LoadServingEntity as an input.
-        """
-        return "\n".join(
-            [
-                "ID: {} NAME: {}".format(x[0], x[1])
-                for x in cls.objects.values_list("id", "name")
-            ]
-        )
 
 
 class VoltageCategory(ValidationModel):
@@ -234,6 +187,9 @@ class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=128, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    owners = models.ManyToManyField(
+        to=User, related_name="meter_groups", blank=True
+    )
 
     class Meta:
         ordering = ["-created_at"]

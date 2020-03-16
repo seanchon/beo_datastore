@@ -5,11 +5,8 @@ import os
 import urllib
 
 from cost.utility_rate.models import RateCollection, RatePlan
-from reference.reference_model.models import (
-    LoadServingEntity,
-    Sector,
-    VoltageCategory,
-)
+from reference.reference_model.models import Sector, VoltageCategory
+from reference.auth_user.models import LoadServingEntity
 
 
 SOURCE_FILE_URL = "https://openei.org/apps/USURDB/download/usurdb.json.gz"

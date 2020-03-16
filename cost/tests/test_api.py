@@ -44,6 +44,7 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         # create MeterGroup
         meter_group = MeterGroup.objects.create()
         meter_group.meters.add(*Meter.objects.all())
+        meter_group.owners.add(self.user)
 
         # create battery
         configuration, _ = BatteryConfiguration.objects.get_or_create(
@@ -123,3 +124,19 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(SingleScenarioStudy.objects.count(), 1)
         self.assertEqual(MultipleScenarioStudy.objects.count(), 1)
+
+    def test_study_ownership(self):
+        """
+        Test Study only appears for owner of MeterGroup.
+        """
+        get_endpoint = "/v1/cost/study/"
+        self.client.force_authenticate(user=self.user)
+
+        # 1 SingleScenarioStudy, 1 MultipleScenarioStudy related to MeterGroup
+        response = self.client.get(get_endpoint)
+        self.assertEqual(response.data["count"], 2)
+
+        # 0 SingleScenarioStudy, 0 MultipleScenarioStudy
+        self.user.meter_groups.clear()
+        response = self.client.get(get_endpoint)
+        self.assertEqual(response.data["count"], 0)
