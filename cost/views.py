@@ -1,5 +1,4 @@
 import coreapi
-import json
 import pandas as pd
 from rest_framework import serializers, status
 from rest_framework.schemas import AutoSchema
@@ -69,14 +68,9 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
     def create(self, request):
         require_request_data(request, ["name", "meter_group_ids", "ders"])
 
-        try:
-            name = request.data["name"]
-            meter_group_ids = json.loads(request.data["meter_group_ids"])
-            ders = json.loads(request.data["ders"])
-        except json.JSONDecodeError:
-            raise serializers.ValidationError(
-                "Cannot parse JSON input fields."
-            )
+        name = request.data["name"]
+        meter_group_ids = request.data["meter_group_ids"]
+        ders = request.data["ders"]
 
         with transaction.atomic():
             single_scenario_study_ids = set()

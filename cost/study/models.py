@@ -1,5 +1,6 @@
 from functools import reduce
 import pandas as pd
+import re
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -407,9 +408,8 @@ class SingleScenarioStudy(Study):
         )
 
         if not dataframe.empty:
-            name = "{}{}".format(
-                ghg_rate.name.replace(" ", ""), ghg_rate.effective.year
-            )
+            ghg_rate_name = re.sub(r"\W+", "", ghg_rate.name)
+            name = "{}{}".format(ghg_rate_name, ghg_rate.effective.year)
             return dataframe.rename(
                 columns={
                     0: "ID",

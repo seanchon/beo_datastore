@@ -1,6 +1,5 @@
 from datetime import datetime
 from faker import Factory
-import json
 
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -100,15 +99,13 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
 
         data = {
             "name": "test",
-            "meter_group_ids": json.dumps([str(meter_group.id)]),
-            "ders": json.dumps(
-                [
-                    {
-                        "der_configuration_id": str(configuration.id),
-                        "der_strategy_id": str(strategy.id),
-                    }
-                ]
-            ),
+            "meter_group_ids": [str(meter_group.id)],
+            "ders": [
+                {
+                    "der_configuration_id": str(configuration.id),
+                    "der_strategy_id": str(strategy.id),
+                }
+            ],
         }
 
         # 0 count
@@ -116,13 +113,13 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         self.assertEqual(MultipleScenarioStudy.objects.count(), 0)
 
         # 1 count
-        response = self.client.post(post_endpoint, data)
+        response = self.client.post(post_endpoint, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(SingleScenarioStudy.objects.count(), 1)
         self.assertEqual(MultipleScenarioStudy.objects.count(), 1)
 
         # 1 count - do not create duplicates
-        response = self.client.post(post_endpoint, data)
+        response = self.client.post(post_endpoint, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(SingleScenarioStudy.objects.count(), 1)
         self.assertEqual(MultipleScenarioStudy.objects.count(), 1)
