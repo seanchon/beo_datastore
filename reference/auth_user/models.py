@@ -106,23 +106,17 @@ class Profile(ValidationModel):
 
 
 @receiver(post_save, sender=User)
-def create_user_profile(sender, instance, created, **kwargs):
+def create_user_profile(sender, instance, **kwargs):
     """
-    On User creation:
+    If User has no profile:
         - create Profile.
         - assign related LoadServingEntity based on email address.
     """
     if not hasattr(instance, "profile"):
         profile = Profile.objects.create(user=instance)
-    else:
-        profile = instance.profile
+        domain = "@" + instance.email.split("@")[-1]
+        for email_domain in EmailDomain.objects.filter(domain=domain):
+            profile.load_serving_entity = email_domain.load_serving_entity
+            profile.save()
 
-    domain = "@" + instance.email.split("@")[-1]
-    for email_domain in EmailDomain.objects.filter(domain=domain):
-        profile.load_serving_entity = email_domain.load_serving_entity
-        profile.save()
-
-
-@receiver(post_save, sender=User)
-def save_user_profile(sender, instance, **kwargs):
     instance.profile.save()
