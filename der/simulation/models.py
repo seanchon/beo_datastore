@@ -286,6 +286,8 @@ class BatteryConfiguration(DERConfiguration):
 def assign_battery_configuration_name(sender, instance, **kwargs):
     """
     If BatteryConfiguration has no name, automatically assign one.
+
+    # TODO: Remove if DERConfiguration.name is set to null=False.
     """
     if not instance.name:
         instance.name = instance.detailed_name
