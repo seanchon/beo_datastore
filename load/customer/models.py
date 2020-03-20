@@ -5,7 +5,6 @@ import re
 import us
 import uuid
 
-from django.contrib.auth.models import User
 from django.db import connection, models, transaction
 from django.utils.functional import cached_property
 
@@ -29,12 +28,8 @@ from beo_datastore.libs.postgresql import PostgreSQL, format_bulk_insert
 from beo_datastore.settings import DATABASES, MEDIA_ROOT
 from beo_datastore.libs.utils import bytes_to_str, file_md5sum
 
-from reference.reference_model.models import (
-    DataUnit,
-    LoadServingEntity,
-    Meter,
-    MeterGroup,
-)
+from reference.reference_model.models import DataUnit, Meter, MeterGroup
+from reference.auth_user.models import LoadServingEntity
 
 
 class OriginFileIntervalFrame(IntervalFrameFile):
@@ -61,9 +56,6 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         on_delete=models.PROTECT,
         blank=False,
         null=False,
-    )
-    owners = models.ManyToManyField(
-        to=User, related_name="origin_files", blank=True
     )
 
     # Required by IntervalFrameFileMixin.
@@ -155,20 +147,23 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
             origin_file.file.save(os.path.basename(file.name), file, save=True)
             origin_file.md5sum = file_md5sum(origin_file.file.file)
             origin_file.save()
-            if owner:
-                origin_file.owners.add(owner)
 
-            # TODO: delete duplicate files
             existing_files = OriginFile.objects.filter(
                 load_serving_entity=load_serving_entity,
                 md5sum=origin_file.md5sum,
             ).exclude(id=origin_file.id)
 
             if not existing_files:
-                return (origin_file, True)
+                created = True
             else:
                 origin_file.delete()
-                return (existing_files.first(), False)
+                origin_file = existing_files.first()
+                created = False
+
+            if owner:
+                origin_file.owners.add(owner)
+
+            return (origin_file, created)
 
     def db_connect(self):
         """

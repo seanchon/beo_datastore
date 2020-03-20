@@ -2,7 +2,7 @@ from django.db import transaction
 
 from load.customer.models import OriginFile
 from load.tasks import ingest_origin_file_meters
-from reference.reference_model.models import LoadServingEntity
+from reference.auth_user.models import LoadServingEntity
 
 
 def run(*args):

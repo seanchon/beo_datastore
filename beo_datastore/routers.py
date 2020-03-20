@@ -10,13 +10,17 @@ from load.views import MeterViewSet, MeterGroupViewSet, OriginFileViewSet
 
 
 v1_router = DefaultRouter()
-v1_router.register(r"cost/study", StudyViewSet)
+v1_router.register(r"cost/study", StudyViewSet, basename="Study")
 v1_router.register(
     r"cost/multiple_scenario_study", MultipleScenarioStudyViewSet
 )
 v1_router.register(r"der/configuration", DERConfigurationViewSet)
-v1_router.register(r"der/simulation", DERSimulationViewSet)
+v1_router.register(
+    r"der/simulation", DERSimulationViewSet, basename="DERSimulation"
+)
 v1_router.register(r"der/strategy", DERStrategyViewSet)
 v1_router.register(r"load/origin_file", OriginFileViewSet)
-v1_router.register(r"load/meter", MeterViewSet)
-v1_router.register(r"load/meter_group", MeterGroupViewSet)
+v1_router.register(r"load/meter", MeterViewSet, basename="Meter")
+v1_router.register(
+    r"load/meter_group", MeterGroupViewSet, basename="MeterGroup"
+)

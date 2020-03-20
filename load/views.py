@@ -1,5 +1,5 @@
 import coreapi
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.exceptions import UnsupportedMediaType
 from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
@@ -13,11 +13,8 @@ from beo_datastore.libs.api.viewsets import (
 
 from load.tasks import ingest_origin_file_meters
 from load.customer.models import OriginFile
-from reference.reference_model.models import (
-    LoadServingEntity,
-    Meter,
-    MeterGroup,
-)
+from reference.reference_model.models import Meter, MeterGroup
+from reference.auth_user.models import LoadServingEntity
 
 from .serializers import (
     MeterSerializer,
@@ -58,20 +55,29 @@ class OriginFileViewSet(CreateViewSet):
     )
 
     def create(self, request):
-        require_request_data(
-            request, ["file", "name", "load_serving_entity_id"]
-        )
+        require_request_data(request, ["file", "name"])
 
         file = request.data["file"]
         name = request.data["name"]
+        if request.user.profile.load_serving_entity:
+            load_serving_entity = request.user.profile.load_serving_entity
+        elif request.user.is_staff or request.user.is_superuser:
+            require_request_data(request, ["load_serving_entity_id"])
+            load_serving_entity = LoadServingEntity.objects.get(
+                id=request.data["load_serving_entity_id"]
+            )
+        else:
+            raise serializers.ValidationError(
+                "User must be associated with LoadServingEntity or User must "
+                "staff or superuser and LoadServingEntity id must be provided."
+            )
         # TODO: add additional file validation
+
         if file.content_type == "text/csv":
             origin_file, _ = OriginFile.get_or_create(
                 file=file,
                 name=name,
-                load_serving_entity=LoadServingEntity.objects.get(
-                    id=request.data["load_serving_entity_id"]
-                ),
+                load_serving_entity=load_serving_entity,
                 owner=request.user,
             )
             ingest_origin_file_meters.delay(origin_file.id, overwrite=True)
@@ -89,7 +95,7 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
     aggregated interval data.
     """
 
-    queryset = MeterGroup.objects.all()
+    model = MeterGroup
     serializer_class = MeterGroupSerializer
 
     schema = AutoSchema(
@@ -136,13 +142,20 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
         ]
     )
 
+    def get_queryset(self):
+        """
+        Return only MeterGroup objects associated with authenticated user.
+        """
+        user = self.request.user
+        return MeterGroup.objects.filter(owners=user)
+
 
 class MeterViewSet(ListRetrieveViewSet):
     """
     CustomerMeters and/or ReferenceMeters with associated interval data.
     """
 
-    queryset = Meter.objects.all()
+    model = Meter
     serializer_class = MeterSerializer
     filterset_fields = ("meter_groups",)
 
@@ -189,3 +202,10 @@ class MeterViewSet(ListRetrieveViewSet):
             ),
         ]
     )
+
+    def get_queryset(self):
+        """
+        Return only Meter objects associated with authenticated user.
+        """
+        user = self.request.user
+        return Meter.objects.filter(meter_groups__owners=user)

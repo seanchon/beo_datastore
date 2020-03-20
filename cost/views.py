@@ -150,7 +150,7 @@ class StudyViewSet(ListRetrieveDestroyViewSet):
     der_intervalframe, and post_der_intervalframe data and report data.
     """
 
-    queryset = Study.objects.all()
+    model = Study
     serializer_class = StudySerializer
 
     schema = AutoSchema(
@@ -180,3 +180,23 @@ class StudyViewSet(ListRetrieveDestroyViewSet):
             ),
         ]
     )
+
+    def get_queryset(self):
+        """
+        Return only Study objects associated with authenticated user.
+        """
+        user = self.request.user
+        single_scenario_study_ids = set(
+            SingleScenarioStudy.objects.filter(
+                meter_group__owners=user
+            ).values_list("id", flat=True)
+        )
+        multiple_scenario_study_ids = set(
+            MultipleScenarioStudy.objects.filter(
+                single_scenario_studies__meter_group__owners=user
+            ).values_list("id", flat=True)
+        )
+
+        return Study.objects.filter(
+            id__in=(single_scenario_study_ids | multiple_scenario_study_ids)
+        )

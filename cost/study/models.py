@@ -24,11 +24,11 @@ from reference.reference_model.models import (
     DERConfiguration,
     DERStrategy,
     DERSimulation,
-    LoadServingEntity,
     Meter,
     MeterGroup,
     Study,
 )
+from reference.auth_user.models import LoadServingEntity
 
 
 class SingleScenarioStudy(Study):
