@@ -3,6 +3,8 @@ import os
 
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models, transaction
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.battery import Battery, FixedScheduleBatterySimulation
@@ -278,6 +280,18 @@ class BatteryConfiguration(DERConfiguration):
             return (objects.first(), False)
         else:
             return (cls.create_from_battery(battery), True)
+
+
+@receiver(post_save, sender=BatteryConfiguration)
+def assign_battery_configuration_name(sender, instance, **kwargs):
+    """
+    If BatteryConfiguration has no name, automatically assign one.
+
+    # TODO: Remove if DERConfiguration.name is set to null=False.
+    """
+    if not instance.name:
+        instance.name = instance.detailed_name
+        instance.save()
 
 
 class StoredBatterySimulationFrame(BatteryIntervalFrameFile):
