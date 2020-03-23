@@ -5,7 +5,9 @@ import re
 import us
 import uuid
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection, models, transaction
+from django.db.models import Count
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.clustering import KMeansLoadClustering
@@ -90,6 +92,47 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         character constraints.
         """
         return ['"{}"'.format(x) for x in self.file_header.split(",")]
+
+    @property
+    def linked_rate_plans(self):
+        """
+        Return QuerySet of possible RatePlans linked to OriginFile.
+        """
+        return reduce(
+            lambda x, y: x | y,
+            [x.linked_rate_plans for x in self.meters.all()],
+        )
+
+    @property
+    def primary_linked_rate_plan(self):
+        """
+        Return linked RatePlan with the highest Meter count.
+        """
+        if self.linked_rate_plans.count() == 0:
+            raise ObjectDoesNotExist
+        elif self.linked_rate_plans.count() == 1:
+            return self.linked_rate_plans.first()
+        else:
+            # return RatePlan appearing most in self.meters's linked_rate_plans
+            query_result = (
+                self.meters.values("customermeter__rate_plan_name")
+                .order_by()
+                .annotate(Count("customermeter__rate_plan_name"))
+            )
+            maxval = max(
+                query_result,
+                key=lambda x: x["customermeter__rate_plan_name__count"],
+            )
+            # TODO: fix arbitary selection of first linked_rate_plans
+            return (
+                self.meters.filter(
+                    customermeter__rate_plan_name=maxval[
+                        "customermeter__rate_plan_name"
+                    ]
+                )
+                .first()
+                .linked_rate_plans.first()
+            )
 
     @property
     def db_exists(self):
@@ -347,7 +390,7 @@ class CustomerMeter(Meter):
 
     class Meta:
         ordering = ["id"]
-        unique_together = ("import_hash", "export_hash")
+        unique_together = ("load_serving_entity", "import_hash", "export_hash")
 
     def __str__(self):
         return "{} ({}: {})".format(
@@ -391,7 +434,7 @@ class CustomerMeter(Meter):
     @cached_property
     def linked_rate_plans(self):
         """
-        Possible rate plans linked to meter.
+        Return QuerySet of possible RatePlans linked to CustomerMeter.
         """
         if connection.vendor == "sqlite":
             regex = r"\b{}\b".format(self.rate_plan_alias)
@@ -404,16 +447,6 @@ class CustomerMeter(Meter):
             models.Q(name__contains=self.rate_plan_name)
             | models.Q(name__iregex=regex)
         ).distinct()
-
-    @cached_property
-    def linked_rate_plan(self):
-        """
-        Return unique rate plan if one exists.
-        """
-        if self.linked_rate_plans.count() == 1:
-            return self.linked_rate_plans.first()
-        else:
-            return self.linked_rate_plans.none()
 
     @property
     def intervalframe(self):

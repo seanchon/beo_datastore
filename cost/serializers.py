@@ -9,9 +9,17 @@ from reference.reference_model.models import Study
 
 
 class SingleScenarioStudySerializer(serializers.ModelSerializer):
+    rate_plan_name = serializers.CharField(source="rate_plan.name")
+
     class Meta:
         model = SingleScenarioStudy
-        fields = ("start", "end_limit", "der_strategy", "der_configuration")
+        fields = (
+            "start",
+            "end_limit",
+            "der_strategy",
+            "der_configuration",
+            "rate_plan_name",
+        )
 
 
 class MultipleScenarioStudySerializer(serializers.ModelSerializer):
