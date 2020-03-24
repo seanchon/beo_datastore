@@ -4,6 +4,7 @@ from rest_framework import serializers, status
 from rest_framework.schemas import AutoSchema
 from rest_framework.response import Response
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 
 from beo_datastore.libs.api.serializers import require_request_data
@@ -62,6 +63,12 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
                     "'der_strategy_id': '<id>'}, ]"
                 ),
             ),
+            coreapi.Field(
+                "rate_plan_id",
+                required=False,
+                location="body",
+                description=("RatePlan id to use for billing calculations."),
+            ),
         ]
     )
 
@@ -84,6 +91,20 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
                         raise serializers.ValidationError(
                             "MeterGroup does not exist."
                         )
+                    if "rate_plan_id" in request.data.keys():
+                        rate_plan = RatePlan.objects.get(
+                            id=request.data["rate_plan_id"]
+                        )
+                    else:
+                        try:
+                            rate_plan = meter_group.primary_linked_rate_plan
+                        except ObjectDoesNotExist:
+                            raise serializers.ValidationError(
+                                "Could not determine RatePlan for MeterGroup "
+                                "(name: {}, id: {}).".format(
+                                    meter_group.name, meter_group.id
+                                )
+                            )
                     try:
                         der_configuration = DERConfiguration.objects.get(
                             id=configuration_id
@@ -106,7 +127,7 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
                         der_configuration=der_configuration,
                         der_strategy=der_strategy,
                         meter_group=meter_group,
-                        rate_plan=RatePlan.objects.first(),  # TODO: fix this!
+                        rate_plan=rate_plan,
                     )
                     single.ghg_rates.add(
                         *GHGRate.objects.filter(

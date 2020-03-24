@@ -108,6 +108,13 @@ class SingleScenarioStudy(Study):
                 "LoadServingEntity."
             )
 
+        if self.der_strategy and (
+            self.der_configuration.der_type != self.der_strategy.der_type
+        ):
+            raise ValidationError(
+                "der_configuration.der_type must match der_strategy.der_type"
+            )
+
         super().clean(*args, **kwargs)
 
     @property

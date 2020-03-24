@@ -15,7 +15,8 @@ from cost.ghg.models import GHGRate
 from cost.study.models import SingleScenarioStudy, MultipleScenarioStudy
 from cost.utility_rate.models import RatePlan
 from der.simulation.models import BatteryConfiguration, BatteryStrategy
-from reference.reference_model.models import Meter, MeterGroup
+from load.customer.models import OriginFile
+from reference.reference_model.models import MeterGroup
 
 
 class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
@@ -42,8 +43,7 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         self.endpoints = ["/v1/cost/study/?ids=true&report=true"]
 
         # create MeterGroup
-        meter_group = MeterGroup.objects.create()
-        meter_group.meters.add(*Meter.objects.all())
+        meter_group = OriginFile.objects.first()
         meter_group.owners.add(self.user)
 
         # create battery
