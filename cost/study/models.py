@@ -125,6 +125,18 @@ class SingleScenarioStudy(Study):
         return MeterGroup.objects.filter(id=self.meter_group.id)
 
     @property
+    def ders(self):
+        """
+        Return DERConfiguration and DERStrategy objects related to self.
+        """
+        return [
+            {
+                "der_configuration": self.der_configuration,
+                "der_strategy": self.der_strategy,
+            }
+        ]
+
+    @property
     def der_simulations(self):
         """
         Return DERSimulations related to self.
@@ -635,6 +647,17 @@ class MultipleScenarioStudy(Study):
             [x.meter_groups.all() for x in self.single_scenario_studies.all()],
             MeterGroup.objects.none(),
         ).distinct()
+
+    @property
+    def ders(self):
+        """
+        Return DERConfiguration and DERStrategy objects related to self.
+        """
+        return reduce(
+            lambda x, y: x + y,
+            [x.ders for x in self.single_scenario_studies.all()],
+            [],
+        )
 
     @property
     def der_simulations(self):

@@ -441,6 +441,24 @@ class Study(PolymorphicValidationModel):
         return self.meters.count()
 
     @property
+    def ders(self):
+        """
+        Return list of dicts corresponding to the DERConfiguration objects and
+        DERStrategy objects contained within.
+
+        Ex.
+        [
+            {
+                "der_configuration": <DERConfiguration>,
+                "der_strategy": <DERStrategy>
+            }
+        ]
+        """
+        raise NotImplementedError(
+            "ders must be set in {}".format(self.__class__)
+        )
+
+    @property
     def der_simulations(self):
         """
         Associated DERSimulation queryset.

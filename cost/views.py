@@ -10,7 +10,7 @@ from django.db import transaction
 from beo_datastore.libs.api.serializers import require_request_data
 from beo_datastore.libs.api.viewsets import (
     CreateViewSet,
-    ListRetrieveDestroyViewSet,
+    DynamicReadOnlyViewSet,
 )
 from beo_datastore.libs.models import get_exact_many_to_many
 
@@ -165,7 +165,7 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
         )
 
 
-class StudyViewSet(ListRetrieveDestroyViewSet):
+class StudyViewSet(DynamicReadOnlyViewSet):
     """
     Study objects containing aggregate pre_der_intervalframe,
     der_intervalframe, and post_der_intervalframe data and report data.
@@ -207,17 +207,21 @@ class StudyViewSet(ListRetrieveDestroyViewSet):
         Return only Study objects associated with authenticated user.
         """
         user = self.request.user
-        single_scenario_study_ids = set(
-            SingleScenarioStudy.objects.filter(
-                meter_group__owners=user
-            ).values_list("id", flat=True)
-        )
-        multiple_scenario_study_ids = set(
-            MultipleScenarioStudy.objects.filter(
-                single_scenario_studies__meter_group__owners=user
-            ).values_list("id", flat=True)
-        )
 
-        return Study.objects.filter(
-            id__in=(single_scenario_study_ids | multiple_scenario_study_ids)
-        )
+        ids = set()
+        object_type = self.request.query_params.get("object_type")
+
+        if not object_type or object_type == "SingleScenarioStudy":
+            ids = ids | set(
+                SingleScenarioStudy.objects.filter(
+                    meter_group__owners=user
+                ).values_list("id", flat=True)
+            )
+        if not object_type or object_type == "MultipleScenarioStudy":
+            ids = ids | set(
+                MultipleScenarioStudy.objects.filter(
+                    single_scenario_studies__meter_group__owners=user
+                ).values_list("id", flat=True)
+            )
+
+        return Study.objects.filter(id__in=ids)
