@@ -59,6 +59,8 @@ class StudySerializer(DynamicModelSerializer):
             "object_type",
             "ders",
             "der_simulations",
+            "der_simulation_count",
+            "expected_der_simulation_count",
             "meter_count",
             "meters",
             "meter_groups",

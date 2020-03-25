@@ -468,6 +468,24 @@ class Study(PolymorphicValidationModel):
         )
 
     @property
+    def der_simulation_count(self):
+        """
+        Number of created DERSimulation objects.
+        """
+        return self.der_simulations.count()
+
+    @property
+    def expected_der_simulation_count(self):
+        """
+        Number of expected DERSimulation objects.
+        """
+        raise NotImplementedError(
+            "expected_der_simulation_count must be set in {}".format(
+                self.__class__
+            )
+        )
+
+    @property
     def pre_der_intervalframe(self):
         """
         ValidationIntervalFrame representing aggregate readings of all meters
