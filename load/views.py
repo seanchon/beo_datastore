@@ -47,9 +47,11 @@ class OriginFileViewSet(CreateViewSet):
             ),
             coreapi.Field(
                 "load_serving_entity_id",
-                required=True,
+                required=False,
                 location="body",
-                description=("LoadServingEntity ID."),
+                description=(
+                    "LoadServingEntity ID if user not associated with an LSE."
+                ),
             ),
         ]
     )
@@ -101,10 +103,10 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
     schema = AutoSchema(
         manual_fields=[
             coreapi.Field(
-                "ids",
+                "include[]",
                 required=False,
                 location="query",
-                description=("True to return Meter ids. Defaults to false."),
+                description=("deferred_fields disabled by default: meters."),
             ),
             coreapi.Field(
                 "data_types",
@@ -132,12 +134,6 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
                     "Filter data to include only timestamps starting before "
                     "end_limit. (Format: ISO 8601)"
                 ),
-            ),
-            coreapi.Field(
-                "metadata",
-                required=False,
-                location="query",
-                description=("False to remove metadata. Defaults to true."),
             ),
         ]
     )
@@ -157,16 +153,9 @@ class MeterViewSet(ListRetrieveViewSet):
 
     model = Meter
     serializer_class = MeterSerializer
-    filterset_fields = ("meter_groups",)
 
     schema = AutoSchema(
         manual_fields=[
-            coreapi.Field(
-                "meter_groups",
-                required=False,
-                location="query",
-                description="Filter meters by a single meter_group id.",
-            ),
             coreapi.Field(
                 "data_types",
                 required=False,
@@ -193,12 +182,6 @@ class MeterViewSet(ListRetrieveViewSet):
                     "Filter data to include only timestamps starting before "
                     "end_limit. (Format: ISO 8601)"
                 ),
-            ),
-            coreapi.Field(
-                "metadata",
-                required=False,
-                location="query",
-                description=("False to remove metadata. Defaults to true."),
             ),
         ]
     )

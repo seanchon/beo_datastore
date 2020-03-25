@@ -78,12 +78,6 @@ class DERSimulationViewSet(ListRetrieveViewSet):
                     "end_limit. (Format: ISO 8601)"
                 ),
             ),
-            coreapi.Field(
-                "metadata",
-                required=False,
-                location="query",
-                description=("False to remove metadata. Defaults to true."),
-            ),
         ]
     )
 
@@ -106,10 +100,10 @@ class DERStrategyViewSet(ListRetrieveViewSet):
     schema = AutoSchema(
         manual_fields=[
             coreapi.Field(
-                "data",
+                "include[]",
                 required=False,
                 location="query",
-                description=("True to return data. Defaults to false."),
+                description=("deferred_fields disabled by default: data. "),
             )
         ]
     )

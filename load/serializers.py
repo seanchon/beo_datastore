@@ -1,11 +1,7 @@
-from distutils.util import strtobool
-
+from dynamic_rest.serializers import DynamicModelSerializer
 from rest_framework import serializers
 
-from beo_datastore.libs.api.serializers import (
-    AbstractGetDataMixin,
-    get_context_request_param,
-)
+from beo_datastore.libs.api.serializers import AbstractGetDataMixin
 from load.customer.models import CustomerMeter, OriginFile
 from load.openei.models import ReferenceMeter
 from reference.reference_model.models import DERSimulation, Meter, MeterGroup
@@ -15,7 +11,7 @@ class GetMeterDataMixin(AbstractGetDataMixin):
     intervalframe_name = "meter_intervalframe"
 
 
-class OriginFileSerializer(serializers.ModelSerializer):
+class OriginFileSerializer(DynamicModelSerializer):
     filename = serializers.CharField(source="file.name")
     owners = serializers.StringRelatedField(many=True)
 
@@ -24,7 +20,7 @@ class OriginFileSerializer(serializers.ModelSerializer):
         fields = ("filename", "expected_meter_count", "owners")
 
 
-class MeterGroupSerializer(GetMeterDataMixin, serializers.ModelSerializer):
+class MeterGroupSerializer(GetMeterDataMixin, DynamicModelSerializer):
     data = serializers.SerializerMethodField()
     meters = serializers.SerializerMethodField()
     metadata = serializers.SerializerMethodField()
@@ -41,6 +37,7 @@ class MeterGroupSerializer(GetMeterDataMixin, serializers.ModelSerializer):
             "data",
             "metadata",
         )
+        deferred_fields = ("meters",)
 
     def get_meters(self, obj):
         """
@@ -49,41 +46,31 @@ class MeterGroupSerializer(GetMeterDataMixin, serializers.ModelSerializer):
 
         :field meters: True or False (optional)
         """
-        ids = get_context_request_param(self.context, "ids")
-
-        if ids and strtobool(ids):
-            return obj.meters.values_list("id", flat=True)
-        else:
-            return []
+        return MeterSerializer(obj.meters, many=True, read_only=True).data
 
     def get_metadata(self, obj):
         """
         Nest related serializer under "metadata".
         """
-        # allow metadata to be disabled
-        metadata = get_context_request_param(self.context, "metadata")
-        if metadata and not strtobool(metadata):
-            return {}
-
         if isinstance(obj, OriginFile):
             return OriginFileSerializer(obj, many=False, read_only=True).data
         else:
             return {}
 
 
-class CustomerMeterSerializer(serializers.ModelSerializer):
+class CustomerMeterSerializer(DynamicModelSerializer):
     class Meta:
         model = CustomerMeter
         fields = ("sa_id", "rate_plan_name", "state")
 
 
-class ReferenceMeterSerializer(serializers.ModelSerializer):
+class ReferenceMeterSerializer(DynamicModelSerializer):
     class Meta:
         model = ReferenceMeter
         fields = ("location", "state", "source_file_url")
 
 
-class DERSimulationSerialzier(serializers.ModelSerializer):
+class DERSimulationSerialzier(DynamicModelSerializer):
     class Meta:
         model = DERSimulation
         fields = (
@@ -95,7 +82,7 @@ class DERSimulationSerialzier(serializers.ModelSerializer):
         )
 
 
-class MeterSerializer(GetMeterDataMixin, serializers.ModelSerializer):
+class MeterSerializer(GetMeterDataMixin, DynamicModelSerializer):
     data = serializers.SerializerMethodField()
     metadata = serializers.SerializerMethodField()
 
@@ -107,11 +94,6 @@ class MeterSerializer(GetMeterDataMixin, serializers.ModelSerializer):
         """
         Nest related serializer under "metadata".
         """
-        # allow metadata to be disabled
-        metadata = get_context_request_param(self.context, "metadata")
-        if metadata and not strtobool(metadata):
-            return {}
-
         if isinstance(obj, CustomerMeter):
             return CustomerMeterSerializer(
                 obj, many=False, read_only=True

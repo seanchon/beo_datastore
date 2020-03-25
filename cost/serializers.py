@@ -51,7 +51,6 @@ class StudySerializer(DynamicModelSerializer):
 
     class Meta:
         model = Study
-        name = "study"
         fields = (
             "id",
             "name",
@@ -72,7 +71,6 @@ class StudySerializer(DynamicModelSerializer):
             "der_simulations",
             "meters",
             "meter_groups",
-            "metadata",
             "report",
         )
 

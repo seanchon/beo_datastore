@@ -1,11 +1,7 @@
-from distutils.util import strtobool
-
+from dynamic_rest.serializers import DynamicModelSerializer
 from rest_framework import serializers
 
-from beo_datastore.libs.api.serializers import (
-    AbstractGetDataMixin,
-    get_context_request_param,
-)
+from beo_datastore.libs.api.serializers import AbstractGetDataMixin
 from der.simulation.models import BatteryConfiguration, BatteryStrategy
 from reference.reference_model.models import (
     DERConfiguration,
@@ -18,13 +14,13 @@ class GetDERDataMixin(AbstractGetDataMixin):
     intervalframe_name = "der_intervalframe"
 
 
-class BatteryConfigurationSerializer(serializers.ModelSerializer):
+class BatteryConfigurationSerializer(DynamicModelSerializer):
     class Meta:
         model = BatteryConfiguration
         fields = ("rating", "discharge_duration_hours", "efficiency")
 
 
-class DERConfigurationSerializer(serializers.ModelSerializer):
+class DERConfigurationSerializer(DynamicModelSerializer):
     data = serializers.SerializerMethodField()
 
     class Meta:
@@ -35,11 +31,6 @@ class DERConfigurationSerializer(serializers.ModelSerializer):
         """
         Nest related serializer under "data".
         """
-        # allow data to be enabled
-        data = get_context_request_param(self.context, "data")
-        if not data or not strtobool(data):
-            return {}
-
         if isinstance(obj, BatteryConfiguration):
             return BatteryConfigurationSerializer(
                 obj, many=False, read_only=True
@@ -48,7 +39,7 @@ class DERConfigurationSerializer(serializers.ModelSerializer):
             return {}
 
 
-class DERSimulationSerializer(GetDERDataMixin, serializers.ModelSerializer):
+class DERSimulationSerializer(GetDERDataMixin, DynamicModelSerializer):
     data = serializers.SerializerMethodField()
 
     class Meta:
@@ -67,7 +58,7 @@ class DERSimulationSerializer(GetDERDataMixin, serializers.ModelSerializer):
         )
 
 
-class BatteryStrategySerializer(serializers.ModelSerializer):
+class BatteryStrategySerializer(DynamicModelSerializer):
     charge_schedule_frame = serializers.SerializerMethodField()
     discharge_schedule_frame = serializers.SerializerMethodField()
 
@@ -88,22 +79,18 @@ class BatteryStrategySerializer(serializers.ModelSerializer):
         return obj.discharge_schedule.frame288.dataframe.astype(str)
 
 
-class DERStrategySerializer(serializers.ModelSerializer):
+class DERStrategySerializer(DynamicModelSerializer):
     data = serializers.SerializerMethodField()
 
     class Meta:
         model = DERStrategy
         fields = ("id", "name", "created_at", "object_type", "data")
+        deferred_fields = ("data",)
 
     def get_data(self, obj):
         """
         Nest related serializer under "data".
         """
-        # allow data to be disabled
-        data = get_context_request_param(self.context, "data")
-        if not data or not strtobool(data):
-            return {}
-
         if isinstance(obj, BatteryStrategy):
             return BatteryStrategySerializer(
                 obj, many=False, read_only=True
