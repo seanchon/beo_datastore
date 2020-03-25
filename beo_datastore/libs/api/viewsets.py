@@ -1,5 +1,7 @@
+from dynamic_rest.viewsets import DynamicModelViewSet
 from rest_framework import mixins
 from rest_framework import viewsets
+from rest_framework.exceptions import MethodNotAllowed
 
 
 class CreateViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
@@ -40,3 +42,18 @@ class ListRetrieveDestroyViewSet(
     """
 
     pass
+
+
+class DynamicReadOnlyViewSet(DynamicModelViewSet):
+    """
+    A DynamicModelViewSet that does not allow anything but get
+    """
+
+    def create(self, request, *args, **kwargs):
+        raise MethodNotAllowed(request.method)
+
+    def update(self, request, *args, **kwargs):
+        raise MethodNotAllowed(request.method)
+
+    def destroy(self, request, *args, **kwargs):
+        raise MethodNotAllowed(request.method)

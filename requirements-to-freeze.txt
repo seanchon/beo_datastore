@@ -21,6 +21,7 @@ django-rest-auth
 django-rest-swagger
 django-storages
 djangorestframework
+dynamic-rest
 Faker
 ijson
 ipdb

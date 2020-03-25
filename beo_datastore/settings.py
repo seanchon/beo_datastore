@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "django_celery_results",
     "django_extensions",
     "django_filters",
+    "dynamic_rest",
     "polymorphic",
     "rest_auth",
     "rest_auth.registration",

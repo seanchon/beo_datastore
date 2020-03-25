@@ -40,7 +40,15 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         )
 
         # test following endpoints using BasicAuthenticationTestMixin
-        self.endpoints = ["/v1/cost/study/?ids=true&report=true"]
+        self.endpoints = [
+            "/v1/cost/study/"
+            + "?include[]=ders"
+            + "&include[]=der_simulations"
+            + "?include[]=meters"
+            + "?include[]=meter_groups"
+            + "?include[]=metadata"
+            + "?include[]=report"
+        ]
 
         # create MeterGroup
         meter_group = OriginFile.objects.first()
@@ -134,9 +142,9 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
 
         # 1 SingleScenarioStudy, 1 MultipleScenarioStudy related to MeterGroup
         response = self.client.get(get_endpoint)
-        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(len(response.data["studies"]), 2)
 
         # 0 SingleScenarioStudy, 0 MultipleScenarioStudy
         self.user.meter_groups.clear()
         response = self.client.get(get_endpoint)
-        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(len(response.data["studies"]), 0)
