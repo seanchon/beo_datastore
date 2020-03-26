@@ -139,7 +139,8 @@ class SingleScenarioStudy(Study):
     @property
     def der_simulations(self):
         """
-        Return DERSimulations related to self.
+        Return DERSimulations related to self with regards to any applied
+        filter_by_query() or filter_by_transform() operations.
         """
         return DERSimulation.objects.filter(
             start=self.start,
@@ -148,6 +149,14 @@ class SingleScenarioStudy(Study):
             der_configuration=self.der_configuration,
             der_strategy=self.der_strategy,
         )
+
+    @property
+    def expected_der_simulation_count(self):
+        """
+        Number of expected DERSimulation objects with regards to any applied
+        filter_by_query() or filter_by_transform() operations.
+        """
+        return self.meters.count()
 
     @property
     def pre_der_intervalframe(self):
@@ -662,7 +671,8 @@ class MultipleScenarioStudy(Study):
     @property
     def der_simulations(self):
         """
-        Return DERSimulations related to self.
+        Return DERSimulations related to self with regards to any applied
+        filter_by_query() or filter_by_transform() operations.
         """
         return reduce(
             lambda x, y: x | y,
@@ -672,6 +682,19 @@ class MultipleScenarioStudy(Study):
             ],
             DERSimulation.objects.none(),
         ).distinct()
+
+    @property
+    def expected_der_simulation_count(self):
+        """
+        Number of expected DERSimulation objects with regards to any applied
+        filter_by_query() or filter_by_transform() operations.
+        """
+        return sum(
+            [
+                x.expected_der_simulation_count
+                for x in self.single_scenario_studies.all()
+            ]
+        )
 
     @cached_property
     def pre_der_intervalframe(self):
