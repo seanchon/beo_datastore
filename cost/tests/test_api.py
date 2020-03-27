@@ -142,9 +142,9 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
 
         # 1 SingleScenarioStudy, 1 MultipleScenarioStudy related to MeterGroup
         response = self.client.get(get_endpoint)
-        self.assertEqual(len(response.data["studies"]), 2)
+        self.assertEqual(len(response.data["results"]["studies"]), 2)
 
         # 0 SingleScenarioStudy, 0 MultipleScenarioStudy
         self.user.meter_groups.clear()
         response = self.client.get(get_endpoint)
-        self.assertEqual(len(response.data["studies"]), 0)
+        self.assertEqual(len(response.data["results"]["studies"]), 0)

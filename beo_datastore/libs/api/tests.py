@@ -39,5 +39,9 @@ class BasicAuthenticationTestMixin(object):
 
         for endpoint in self.endpoints:
             response = self.client.get(endpoint, format="json")
-            # TODO: update assertion to handle dynamic-rest
-            self.assertNotEqual(response.data.get("results"), [], msg=endpoint)
+            for key, value in response.data.get("results").items():
+                self.assertNotEqual(
+                    response.data.get("results"),
+                    [],
+                    msg="endpoint: {}, key: {}".format(endpoint, key),
+                )

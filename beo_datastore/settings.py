@@ -210,7 +210,6 @@ ACCOUNT_LOGOUT_ON_GET = True
 
 # DRF Settings
 REST_FRAMEWORK = {
-    "DEFAULT_PAGINATION_CLASS": "beo_datastore.pagination.DefaultResultsSetPagination",
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.TokenAuthentication",

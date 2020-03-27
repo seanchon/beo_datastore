@@ -42,9 +42,9 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
 
         # test following endpoints using BasicAuthenticationTestMixin
         self.endpoints = [
-            "/v1/der/configuration/?data=true",
+            "/v1/der/configuration/?include[]=data",
             "/v1/der/simulation/?data_types=average",
-            "/v1/der/strategy/?data=true",
+            "/v1/der/strategy/?include[]=data",
         ]
 
         # create battery

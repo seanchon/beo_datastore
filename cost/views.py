@@ -8,10 +8,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 
 from beo_datastore.libs.api.serializers import require_request_data
-from beo_datastore.libs.api.viewsets import (
-    CreateViewSet,
-    DynamicReadOnlyViewSet,
-)
+from beo_datastore.libs.api.viewsets import CreateViewSet, ListRetrieveViewSet
 from beo_datastore.libs.models import get_exact_many_to_many
 
 from cost.ghg.models import GHGRate
@@ -165,7 +162,7 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
         )
 
 
-class StudyViewSet(DynamicReadOnlyViewSet):
+class StudyViewSet(ListRetrieveViewSet):
     """
     Study objects containing aggregate pre_der_intervalframe,
     der_intervalframe, and post_der_intervalframe data and report data.
@@ -177,28 +174,14 @@ class StudyViewSet(DynamicReadOnlyViewSet):
     schema = AutoSchema(
         manual_fields=[
             coreapi.Field(
-                "ids",
+                "include[]",
                 required=False,
                 location="query",
                 description=(
-                    "True to return DERSimulation, Meter, and MeterGroup ids. "
-                    "Defaults to false."
+                    "deferred_fields disabled by default: ders, "
+                    "der_simulations, meters, meter_groups, report. "
                 ),
-            ),
-            coreapi.Field(
-                "report",
-                required=False,
-                location="query",
-                description=(
-                    "True to return Study report. Defaults to false."
-                ),
-            ),
-            coreapi.Field(
-                "metadata",
-                required=False,
-                location="query",
-                description=("False to remove metadata. Defaults to true."),
-            ),
+            )
         ]
     )
 

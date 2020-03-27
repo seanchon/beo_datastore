@@ -44,7 +44,7 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
         # test following endpoints using BasicAuthenticationTestMixin
         self.endpoints = [
             "/v1/load/meter/?data_types=average",
-            "/v1/load/meter_group/?data_types=average&ids=true",
+            "/v1/load/meter_group/?data_types=average&include[]=meters",
         ]
 
         # aggregate Meter data in OriginFile
@@ -76,19 +76,24 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
         for data_type in data_types:
             for base_endpoint in base_endpoints:
                 endpoint = base_endpoint + data_type
-                response = self.client.get(endpoint, format="json")
+                response = self.client.get(endpoint)
                 self.assertEqual(
                     response.status_code, status.HTTP_200_OK, msg=endpoint
                 )
-                self.assertEqual(
-                    type(response.data["results"][0]["data"][data_type]),
-                    pd.DataFrame,
-                    msg=endpoint,
-                )
-                self.assertFalse(
-                    response.data["results"][0]["data"][data_type].empty,
-                    msg=endpoint,
-                )
+                for key in response.data["results"].keys():
+                    self.assertEqual(
+                        type(
+                            response.data["results"][key][0]["data"][data_type]
+                        ),
+                        pd.DataFrame,
+                        msg=endpoint,
+                    )
+                    self.assertFalse(
+                        response.data["results"][key][0]["data"][
+                            data_type
+                        ].empty,
+                        msg=endpoint,
+                    )
 
     def test_meter_multiple_data_exists(self):
         """
@@ -111,20 +116,25 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
 
         for base_endpoint in base_endpoints:
             endpoint = base_endpoint + ",".join(data_types)
-            response = self.client.get(endpoint, format="json")
+            response = self.client.get(endpoint)
             self.assertEqual(
                 response.status_code, status.HTTP_200_OK, msg=endpoint
             )
-            for data_type in data_types:
-                self.assertEqual(
-                    type(response.data["results"][0]["data"][data_type]),
-                    pd.DataFrame,
-                    msg=endpoint,
-                )
-                self.assertFalse(
-                    response.data["results"][0]["data"][data_type].empty,
-                    msg=endpoint,
-                )
+            for key in response.data["results"].keys():
+                for data_type in data_types:
+                    self.assertEqual(
+                        type(
+                            response.data["results"][key][0]["data"][data_type]
+                        ),
+                        pd.DataFrame,
+                        msg=endpoint,
+                    )
+                    self.assertFalse(
+                        response.data["results"][key][0]["data"][
+                            data_type
+                        ].empty,
+                        msg=endpoint,
+                    )
 
     def test_meter_data_does_not_exists(self):
         """
@@ -135,27 +145,14 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
         endpoints = ["/v1/load/meter/", "/v1/load/meter_group/"]
 
         for endpoint in endpoints:
-            response = self.client.get(endpoint, format="json")
+            response = self.client.get(endpoint)
             self.assertEqual(
                 response.status_code, status.HTTP_200_OK, msg=endpoint
             )
-            self.assertEqual(
-                response.data["results"][0]["data"], {}, msg=endpoint
-            )
-
-    def test_meter_ids_only_returned_on_request(self):
-        """
-        Test that meter ids are returned only on request.
-        """
-        self.client.force_authenticate(user=self.user)
-
-        endpoint = "/v1/load/meter_group/"
-        response = self.client.get(endpoint, format="json")
-        self.assertTrue(len(response.data["results"][0]["meters"]) == 0)
-
-        endpoint = "/v1/load/meter_group/?ids=true"
-        response = self.client.get(endpoint, format="json")
-        self.assertTrue(len(response.data["results"][0]["meters"]) > 0)
+            for key in response.data["results"].keys():
+                self.assertEqual(
+                    response.data["results"][key][0]["data"], {}, msg=endpoint
+                )
 
 
 class TestFileUpload(APITestCase):
@@ -182,7 +179,7 @@ class TestFileUpload(APITestCase):
         Test HTTP_403_FORBIDDEN status for anonymous access.
         """
         endpoint = "/v1/load/origin_file/"
-        response = self.client.get(endpoint, format="json")
+        response = self.client.get(endpoint)
         self.assertEqual(
             response.status_code, status.HTTP_403_FORBIDDEN, msg=endpoint
         )
@@ -200,7 +197,7 @@ class TestFileUpload(APITestCase):
 
         # 0 OriginFiles
         OriginFile.objects.all().delete()
-        response = self.client.get(get_endpoint, format="json")
+        response = self.client.get(get_endpoint)
         self.assertEqual(response.data.get("count"), 0)
 
         # 1 OriginFile
@@ -213,7 +210,7 @@ class TestFileUpload(APITestCase):
             )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        response = self.client.get(get_endpoint, format="json")
+        response = self.client.get(get_endpoint)
         self.assertEqual(response.data.get("count"), 1)
 
         # 1 OriginFile
@@ -226,7 +223,7 @@ class TestFileUpload(APITestCase):
             )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        response = self.client.get(get_endpoint, format="json")
+        response = self.client.get(get_endpoint)
         self.assertEqual(response.data.get("count"), 1)
 
     def tearDown(self):
@@ -283,10 +280,12 @@ class TestFileProtection(APITestCase):
         # user_2 can see user_2's files and cannot see user_1's files
         response = self.client.get(get_endpoint)
         self.assertTrue(
-            origin_file_2_id in [x["id"] for x in response.data["results"]]
+            origin_file_2_id
+            in [x["id"] for x in response.data["results"]["meter_groups"]]
         )
         self.assertFalse(
-            origin_file_1_id in [x["id"] for x in response.data["results"]]
+            origin_file_1_id
+            in [x["id"] for x in response.data["results"]["meter_groups"]]
         )
 
     def test_multiple_users_same_lse(self):
