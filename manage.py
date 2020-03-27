@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 import os
 import sys
-
 import dotenv
+
+from django.conf import settings
+
 
 if __name__ == "__main__":
     dotenv_file = os.path.join(os.path.dirname(__file__), ".env")
@@ -26,4 +28,11 @@ if __name__ == "__main__":
                 "forget to activate a virtual environment?"
             )
         raise
+
+    # disable certain manage.py commands production
+    if len(sys.argv) > 1 and sys.argv[1] in ["reset_db", "flush", "loaddata"]:
+        if settings.APP_ENV == "prod":
+            error_msg = "{} disabled in production".format(" ".join(sys.argv))
+            raise RuntimeError(error_msg)
+
     execute_from_command_line(sys.argv)
