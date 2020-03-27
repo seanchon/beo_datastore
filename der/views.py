@@ -23,10 +23,10 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
     schema = AutoSchema(
         manual_fields=[
             coreapi.Field(
-                "data",
+                "include[]",
                 required=False,
                 location="query",
-                description=("True to return data. Defaults to false."),
+                description=("deferred_fields disabled by default: data. "),
             )
         ]
     )

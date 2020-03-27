@@ -26,6 +26,7 @@ class DERConfigurationSerializer(DynamicModelSerializer):
     class Meta:
         model = DERConfiguration
         fields = ("id", "name", "created_at", "object_type", "data")
+        deferred_fields = ("data",)
 
     def get_data(self, obj):
         """
