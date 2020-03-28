@@ -87,15 +87,6 @@ class SingleScenarioStudy(Study):
 
     class Meta:
         ordering = ["id"]
-        unique_together = (
-            "start",
-            "end_limit",
-            "der_strategy",
-            "der_configuration",
-            "meter_group",
-            "load_serving_entity",
-            "rate_plan",
-        )
 
     def clean(self, *args, **kwargs):
         if (

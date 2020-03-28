@@ -25,7 +25,14 @@ class DERConfigurationSerializer(DynamicModelSerializer):
 
     class Meta:
         model = DERConfiguration
-        fields = ("id", "name", "created_at", "object_type", "data")
+        fields = (
+            "id",
+            "name",
+            "created_at",
+            "object_type",
+            "data",
+            "der_type",
+        )
         deferred_fields = ("data",)
 
     def get_data(self, obj):
@@ -85,7 +92,14 @@ class DERStrategySerializer(DynamicModelSerializer):
 
     class Meta:
         model = DERStrategy
-        fields = ("id", "name", "created_at", "object_type", "data")
+        fields = (
+            "id",
+            "name",
+            "created_at",
+            "object_type",
+            "data",
+            "der_type",
+        )
         deferred_fields = ("data",)
 
     def get_data(self, obj):

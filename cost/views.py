@@ -125,6 +125,7 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
                         der_strategy=der_strategy,
                         meter_group=meter_group,
                         rate_plan=rate_plan,
+                        name=name,
                     )
                     single.ghg_rates.add(
                         *GHGRate.objects.filter(
