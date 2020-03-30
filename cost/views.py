@@ -180,7 +180,8 @@ class StudyViewSet(ListRetrieveViewSet):
                 location="query",
                 description=(
                     "deferred_fields disabled by default: ders, "
-                    "der_simulations, meters, meter_groups, report. "
+                    "der_simulations, meters, meter_groups, report, "
+                    "report_summary."
                 ),
             )
         ]

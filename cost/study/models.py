@@ -6,7 +6,6 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
-from django.utils.functional import cached_property
 
 from beo_datastore.libs.intervalframe import ValidationIntervalFrame
 from beo_datastore.libs.views import dataframe_to_html
@@ -133,10 +132,10 @@ class SingleScenarioStudy(Study):
         Return DERSimulations related to self with regards to any applied
         filter_by_query() or filter_by_transform() operations.
         """
-        return DERSimulation.objects.filter(
+        return DERSimulation.objects.select_related("meter").filter(
+            meter__in=self.meters.all(),
             start=self.start,
             end_limit=self.end_limit,
-            meter__in=self.meters.all(),
             der_configuration=self.der_configuration,
             der_strategy=self.der_strategy,
         )
@@ -185,7 +184,7 @@ class SingleScenarioStudy(Study):
         """
         return self.pre_der_intervalframe + self.der_intervalframe
 
-    @cached_property
+    @property
     def report(self):
         """
         Return pandas Dataframe with meter SA IDs and all cost impacts.
@@ -196,10 +195,10 @@ class SingleScenarioStudy(Study):
             .join(self.resource_adequacy_report, how="outer")
         )
 
-    @cached_property
+    @property
     def detailed_report(self):
         """
-        Return pandas Dataframe with meter SA IDs, DERConfiguration details,
+        Return pandas DataFrame with meter SA IDs, DERConfiguration details,
         RatePlan details, and all cost impacts.
 
         This report is used in MultipleScenarioStudy reports.
@@ -211,6 +210,24 @@ class SingleScenarioStudy(Study):
 
         return report.join(self.customer_meter_report, how="outer").join(
             self.reference_meter_report, how="outer"
+        )
+
+    @property
+    def detailed_report_summary(self):
+        """
+        Return pandas DataFrame with totals for each column of a
+        detailed_report.
+        """
+
+        # TODO: calculate system RA
+        return pd.DataFrame(self.detailed_report.sum()).drop(
+            [
+                "SA ID",
+                "MeterRatePlan",
+                "DERConfiguration",
+                "DERStrategy",
+                "SimulationRatePlan",
+            ]
         )
 
     @property
@@ -239,7 +256,9 @@ class SingleScenarioStudy(Study):
         """
         Return StoredBillCalculations related to self.
         """
-        return StoredBillCalculation.objects.filter(
+        return StoredBillCalculation.objects.select_related(
+            "der_simulation__meter"
+        ).filter(
             der_simulation__in=self.der_simulations, rate_plan=self.rate_plan
         )
 
@@ -248,7 +267,9 @@ class SingleScenarioStudy(Study):
         """"
         Return StoredGHGCalculations related to self.
         """
-        return StoredGHGCalculation.objects.filter(
+        return StoredGHGCalculation.objects.select_related(
+            "der_simulation__meter"
+        ).filter(
             der_simulation__in=self.der_simulations,
             ghg_rate__in=self.ghg_rates.all(),
         )
@@ -258,12 +279,14 @@ class SingleScenarioStudy(Study):
         """
         Return StoredResourceAdequacyCalculations related to self.
         """
-        return StoredResourceAdequacyCalculation.objects.filter(
+        return StoredResourceAdequacyCalculation.objects.select_related(
+            "der_simulation__meter"
+        ).filter(
             der_simulation__in=self.der_simulations,
             system_profile__in=self.system_profiles.all(),
         )
 
-    @cached_property
+    @property
     def report_with_id(self):
         """
         Return pandas Dataframe self.report and SingleScenarioStudy id.
@@ -273,7 +296,7 @@ class SingleScenarioStudy(Study):
 
         return report
 
-    @cached_property
+    @property
     def usage_report(self):
         """
         Return pandas DataFrame with meter SA IDs and usage deltas.
@@ -305,7 +328,7 @@ class SingleScenarioStudy(Study):
         else:
             return pd.DataFrame()
 
-    @cached_property
+    @property
     def bill_report(self):
         """
         Return pandas DataFrame with meter SA IDs and bill deltas.
@@ -337,7 +360,7 @@ class SingleScenarioStudy(Study):
         else:
             return pd.DataFrame()
 
-    @cached_property
+    @property
     def ghg_report(self):
         """
         Return pandas DataFrame with meter SA IDs and GHG deltas from all
@@ -352,7 +375,7 @@ class SingleScenarioStudy(Study):
             pd.DataFrame(),
         )
 
-    @cached_property
+    @property
     def resource_adequacy_report(self):
         """
         Return pandas DataFrame with meter SA IDs and RA deltas from all
@@ -367,7 +390,7 @@ class SingleScenarioStudy(Study):
             pd.DataFrame(),
         )
 
-    @cached_property
+    @property
     def customer_meter_report(self):
         """
         Return pandas DataFrame with Meter SA IDs and RatePlans.
@@ -385,7 +408,7 @@ class SingleScenarioStudy(Study):
         else:
             return pd.DataFrame()
 
-    @cached_property
+    @property
     def reference_meter_report(self):
         """
         Return pandas DataFrame with ReferenceMeter location and building
@@ -687,7 +710,7 @@ class MultipleScenarioStudy(Study):
             ]
         )
 
-    @cached_property
+    @property
     def pre_der_intervalframe(self):
         """
         ValidationIntervalFrame representing aggregate readings of all meters
@@ -703,7 +726,7 @@ class MultipleScenarioStudy(Study):
             ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
         )
 
-    @cached_property
+    @property
     def der_intervalframe(self):
         """
         ValidationIntervalFrame representing aggregate readings of all DER
@@ -743,7 +766,7 @@ class MultipleScenarioStudy(Study):
             ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
         )
 
-    @cached_property
+    @property
     def report(self):
         """
         Return pandas DataFrame of all single_scenario_studies' report_with_id
@@ -755,7 +778,7 @@ class MultipleScenarioStudy(Study):
             pd.DataFrame(),
         ).sort_index()
 
-    @cached_property
+    @property
     def detailed_report(self):
         """
         Return pandas DataFrame of all single_scenario_studies'
@@ -766,6 +789,20 @@ class MultipleScenarioStudy(Study):
             [x.detailed_report for x in self.single_scenario_studies.all()],
             pd.DataFrame(),
         ).sort_index()
+
+    @property
+    def detailed_report_summary(self):
+        """
+        Return pandas DataFrame of all single_scenario_studies'
+        detailed_report_summary added together.
+        """
+        return reduce(
+            lambda x, y: x + y,
+            [
+                x.detailed_report_summary
+                for x in self.single_scenario_studies.all()
+            ],
+        )
 
     @property
     def detailed_report_html_table(self):
