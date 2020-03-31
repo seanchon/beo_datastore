@@ -1,5 +1,4 @@
 from datetime import datetime
-from functools import reduce
 from jsonfield import JSONField
 from multiprocessing import Pool
 
@@ -281,6 +280,8 @@ class StoredBillCalculation(ValidationModel):
     Container for storing AggregateBillCalculation.
     """
 
+    pre_DER_total = models.FloatField()
+    post_DER_total = models.FloatField()
     der_simulation = models.ForeignKey(
         to=DERSimulation,
         related_name="stored_bill_calculations",
@@ -302,28 +303,6 @@ class StoredBillCalculation(ValidationModel):
         Return total of all post-DER bill totals minus all pre-DER bill totals.
         """
         return self.post_DER_total - self.pre_DER_total
-
-    @cached_property
-    def pre_DER_total(self):
-        """
-        Return total of all pre-DER bills.
-        """
-        return reduce(
-            lambda a, b: a + b,
-            [x.pre_DER_total for x in self.bill_comparisons.all()],
-            0,
-        )
-
-    @cached_property
-    def post_DER_total(self):
-        """
-        Return total of all post-DER bills.
-        """
-        return reduce(
-            lambda a, b: a + b,
-            [x.post_DER_total for x in self.bill_comparisons.all()],
-            0,
-        )
 
     @property
     def meter(self):
@@ -421,30 +400,35 @@ class StoredBillCalculation(ValidationModel):
         )
         """
         with transaction.atomic():
+            agg_bill_calculation = AggregateBillCalculation.create(
+                agg_simulation=der_simulation.agg_simulation,
+                rate_plan=rate_plan,
+                date_ranges=cls.create_date_ranges(
+                    intervalframe=der_simulation.pre_der_intervalframe
+                ),
+                multiprocess=multiprocess,
+            )
             meter = der_simulation.meter
             bill_collection, new = cls.objects.get_or_create(
-                der_simulation=der_simulation, rate_plan=rate_plan
+                pre_DER_total=agg_bill_calculation.pre_DER_total,
+                post_DER_total=agg_bill_calculation.post_DER_total,
+                der_simulation=der_simulation,
+                rate_plan=rate_plan,
             )
 
             if new:
-                agg_bill_calculation = AggregateBillCalculation.create(
-                    agg_simulation=der_simulation.agg_simulation,
-                    rate_plan=rate_plan,
-                    date_ranges=cls.create_date_ranges(
-                        intervalframe=der_simulation.pre_der_intervalframe
-                    ),
-                    multiprocess=multiprocess,
-                )
                 for start, end_limit in agg_bill_calculation.date_ranges:
+                    pre_DER_total = agg_bill_calculation.pre_bills[meter][
+                        start
+                    ].total
+                    post_DER_total = agg_bill_calculation.post_bills[meter][
+                        start
+                    ].total
                     BillComparison.objects.create(
                         start=start,
                         end_limit=end_limit,
-                        pre_DER_total=(
-                            agg_bill_calculation.pre_bills[meter][start].total
-                        ),
-                        post_DER_total=(
-                            agg_bill_calculation.post_bills[meter][start].total
-                        ),
+                        pre_DER_total=pre_DER_total,
+                        post_DER_total=post_DER_total,
                         bill_collection=bill_collection,
                     )
 

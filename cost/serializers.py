@@ -48,6 +48,7 @@ class StudySerializer(DynamicModelSerializer):
     meters = serializers.SerializerMethodField()
     metadata = serializers.SerializerMethodField()
     report = serializers.SerializerMethodField()
+    report_summary = serializers.SerializerMethodField()
 
     class Meta:
         model = Study
@@ -65,6 +66,7 @@ class StudySerializer(DynamicModelSerializer):
             "meter_groups",
             "metadata",
             "report",
+            "report_summary",
         )
         deferred_fields = (
             "ders",
@@ -72,6 +74,7 @@ class StudySerializer(DynamicModelSerializer):
             "meters",
             "meter_groups",
             "report",
+            "report_summary",
         )
 
     def get_ders(self, obj):
@@ -131,4 +134,14 @@ class StudySerializer(DynamicModelSerializer):
         """
         return json.loads(
             obj.detailed_report.reset_index().to_json(default_handler=str)
+        )
+
+    def get_report_summary(self, obj):
+        """
+        Report summary associated with Study.
+        """
+        return json.loads(
+            obj.detailed_report_summary.reset_index().to_json(
+                default_handler=str
+            )
         )
