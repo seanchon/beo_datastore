@@ -251,6 +251,8 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_DEFAULT_QUEUE = os.environ.get("CELERY_DEFAULT_QUEUE", "beo_datastore")
 BROKER_TRANSPORT_OPTIONS = {"region": "us-west-1", "polling_interval": 1}
 
+TEST_RUNNER = "beo_datastore.libs.test_runner.CeleryTestSuiteRunner"
+
 # SMTP settings
 EMAIL_HOST = "email-smtp.us-west-2.amazonaws.com"
 EMAIL_PORT = 587
