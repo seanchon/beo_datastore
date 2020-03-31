@@ -110,6 +110,12 @@ redis-server
 celery worker -A beo_datastore --loglevel=info
 ```
 
+A custom test-runner has been implemented to run all celery tasks synchronously within tests, which has the impact of better integrity, but slower tests. To enable tests to run asynchronously, the following line can be commented out in `settings.py` while redis and celery are running. This can aid in development speed, however, running tests synchronously should be the final check.
+
+```
+TEST_RUNNER = "beo_datastore.libs.test_runner.CeleryTestSuiteRunner"
+```
+
 # DEMO NOTEBOOK
 
 To get a feel for the underlying data, a Jupyter Notebook can be launched which contains demo scripts. These scripts can be modified and run against data after it is loaded, which is covered in [LOADING DATA](#loading-data).
