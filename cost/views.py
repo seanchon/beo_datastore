@@ -8,7 +8,10 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 
 from beo_datastore.libs.api.serializers import require_request_data
-from beo_datastore.libs.api.viewsets import CreateViewSet, ListRetrieveViewSet
+from beo_datastore.libs.api.viewsets import (
+    CreateViewSet,
+    ListRetrieveUpdateDestroyViewSet,
+)
 from beo_datastore.libs.models import get_exact_many_to_many
 
 from cost.ghg.models import GHGRate
@@ -163,7 +166,7 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
         )
 
 
-class StudyViewSet(ListRetrieveViewSet):
+class StudyViewSet(ListRetrieveUpdateDestroyViewSet):
     """
     Study objects containing aggregate pre_der_intervalframe,
     der_intervalframe, and post_der_intervalframe data and report data.
