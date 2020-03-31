@@ -1,3 +1,11 @@
+"""
+Custom test runner to allow testing of celery delayed tasks.
+
+Copied due to package deprecation and requirements conflicts.
+https://github.com/celery/django-celery/blob/master/djcelery/contrib/test_runner.py
+"""
+
+
 from __future__ import absolute_import, unicode_literals
 
 from django.conf import settings
@@ -8,14 +16,6 @@ except ImportError:
     from django.test.simple import DjangoTestSuiteRunner as DiscoverRunner
 
 from celery import current_app
-
-
-USAGE = """\
-Custom test runner to allow testing of celery delayed tasks.
-
-Copied due to package deprecation and requirements conflicts.
-https://github.com/celery/django-celery/blob/master/djcelery/contrib/test_runner.py
-"""
 
 
 def _set_eager():
@@ -29,7 +29,7 @@ class CeleryTestSuiteRunner(DiscoverRunner):
     """Django test runner allowing testing of celery delayed tasks.
     All tasks are run locally, not in a worker.
     To use this runner set ``settings.TEST_RUNNER``::
-        TEST_RUNNER = 'djcelery.contrib.test_runner.CeleryTestSuiteRunner'
+        TEST_RUNNER = "beo_datastore.libs.test_runner.CeleryTestSuiteRunner"
     """
 
     def setup_test_environment(self, **kwargs):
