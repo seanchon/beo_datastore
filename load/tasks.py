@@ -1,14 +1,15 @@
 from functools import reduce
-
 from celery.utils.log import get_task_logger
+
 from django.db import transaction
+from django.contrib.auth.models import User
 
 from beo_datastore.celery import app
 from beo_datastore.libs.ingest import reformat_item_17
 from beo_datastore.libs.intervalframe import ValidationIntervalFrame
 from beo_datastore.libs.utils import chunks
 
-from load.customer.models import CustomerMeter, OriginFile
+from load.customer.models import CustomerMeter, CustomerPopulation, OriginFile
 from reference.reference_model.models import MeterGroup
 
 
@@ -145,3 +146,19 @@ def aggregate_meter_group_intervalframes(meter_group_id, in_db=True):
             ),
         )
     meter_group.save()
+
+
+@app.task(soft_time_limit=180)
+def create_clusters(customer_population_id, owner_id):
+    """
+    Create CustomerCluster objects using k-means clustering.
+    """
+    customer_population = CustomerPopulation.objects.get(
+        id=customer_population_id
+    )
+    owner = User.objects.get(id=owner_id)
+
+    customer_population.generate(owner)
+
+    for cluster in customer_population.customer_clusters.all():
+        aggregate_meter_group_intervalframes.delay(cluster.id)

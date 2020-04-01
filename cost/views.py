@@ -69,6 +69,12 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
                 location="body",
                 description=("RatePlan id to use for billing calculations."),
             ),
+            coreapi.Field(
+                "object_type",
+                required=False,
+                location="query",
+                description=("Filter by object_type field."),
+            ),
         ]
     )
 

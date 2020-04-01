@@ -1,3 +1,5 @@
+from distutils.util import strtobool
+
 import coreapi
 from rest_framework import serializers, status
 from rest_framework.exceptions import UnsupportedMediaType
@@ -10,13 +12,19 @@ from beo_datastore.libs.api.viewsets import (
     ListRetrieveViewSet,
     ListRetrieveDestroyViewSet,
 )
+from beo_datastore.libs.models import get_model_from_any_app
 
-from load.tasks import ingest_origin_file_meters
-from load.customer.models import OriginFile
+from load.tasks import create_clusters, ingest_origin_file_meters
+from load.customer.models import (
+    CustomerCluster,
+    CustomerPopulation,
+    OriginFile,
+)
 from reference.reference_model.models import Meter, MeterGroup
 from reference.auth_user.models import LoadServingEntity
 
 from .serializers import (
+    CustomerClusterSerializer,
     MeterSerializer,
     MeterGroupSerializer,
     OriginFileSerializer,
@@ -91,6 +99,71 @@ class OriginFileViewSet(CreateViewSet):
             raise UnsupportedMediaType("Upload must be a .csv file.")
 
 
+class CustomerClusterViewSet(CreateViewSet):
+    """
+    K-means clustered MeterGroup.
+    """
+
+    queryset = CustomerCluster.objects.all()
+    serializer_class = CustomerClusterSerializer
+
+    schema = AutoSchema(
+        manual_fields=[
+            coreapi.Field(
+                "meter_group_id",
+                required=True,
+                location="body",
+                description=("MeterGroup id."),
+            ),
+            coreapi.Field(
+                "type",
+                required=True,
+                location="body",
+                description=("Choices: average, maximum, minimum, total"),
+            ),
+            coreapi.Field(
+                "number_of_clusters",
+                required=True,
+                location="body",
+                description=("Number of k-means clusters to create."),
+            ),
+            coreapi.Field(
+                "normalize",
+                required=True,
+                location="body",
+                description=("Normalize meter data: true or false."),
+            ),
+        ]
+    )
+
+    def create(self, request):
+        require_request_data(
+            request,
+            ["meter_group_id", "type", "number_of_clusters", "normalize"],
+        )
+
+        try:
+            meter_group = MeterGroup.objects.get(
+                id=request.data["meter_group_id"]
+            )
+        except MeterGroup.DoesNotExist():
+            raise serializers.ValidationError("MeterGroup does not exist.")
+
+        customer_population, _ = CustomerPopulation.objects.get_or_create(
+            name=meter_group.name,
+            frame288_type=request.data["type"] + "_frame288",
+            number_of_clusters=request.data["number_of_clusters"],
+            normalize=strtobool(request.data["normalize"]),
+            meter_group=meter_group,
+        )
+        create_clusters.delay(
+            customer_population_id=customer_population.id,
+            owner_id=request.user.id,
+        )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class MeterGroupViewSet(ListRetrieveDestroyViewSet):
     """
     OriginFiles, CustomerPopulations, and/or CustomerClusters with associated
@@ -135,6 +208,12 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
                     "end_limit. (Format: ISO 8601)"
                 ),
             ),
+            coreapi.Field(
+                "object_type",
+                required=False,
+                location="query",
+                description=("Filter by object_type field."),
+            ),
         ]
     )
 
@@ -143,7 +222,17 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
         Return only MeterGroup objects associated with authenticated user.
         """
         user = self.request.user
-        return MeterGroup.objects.filter(owners=user)
+
+        object_type = self.request.query_params.get("object_type")
+
+        if object_type:
+            model = get_model_from_any_app(object_type)
+            if not model:
+                raise serializers.ValidationError("Invalid object_type.")
+        else:
+            model = MeterGroup
+
+        return model.objects.filter(owners=user)
 
 
 class MeterViewSet(ListRetrieveViewSet):
@@ -183,6 +272,12 @@ class MeterViewSet(ListRetrieveViewSet):
                     "end_limit. (Format: ISO 8601)"
                 ),
             ),
+            coreapi.Field(
+                "object_type",
+                required=False,
+                location="query",
+                description=("Filter by object_type field."),
+            ),
         ]
     )
 
@@ -191,4 +286,16 @@ class MeterViewSet(ListRetrieveViewSet):
         Return only Meter objects associated with authenticated user.
         """
         user = self.request.user
-        return Meter.objects.filter(meter_groups__owners=user)
+
+        user = self.request.user
+
+        object_type = self.request.query_params.get("object_type")
+
+        if object_type:
+            model = get_model_from_any_app(object_type)
+            if not model:
+                raise serializers.ValidationError("Invalid object_type.")
+        else:
+            model = Meter
+
+        return model.objects.filter(meter_groups__owners=user)

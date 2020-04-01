@@ -632,7 +632,7 @@ class Channel(IntervalFrameFileMixin, ValidationModel):
 class CustomerPopulation(ValidationModel):
     """
     A CustomerPopulation begins with a starting population of customers and
-    based on k-means clustering, breaks the populatin of customer into a
+    based on k-means clustering, breaks the population of customer into a
     pre-defined number of CustomerClusters.
     """
 
@@ -645,30 +645,21 @@ class CustomerPopulation(ValidationModel):
         ("total_frame288", "total_frame288"),
     )
     frame288_type = models.CharField(max_length=16, choices=FRAME288_TYPES)
+    number_of_clusters = models.IntegerField()
     normalize = models.BooleanField()
-    load_serving_entity = models.ForeignKey(
-        to=LoadServingEntity,
+    meter_group = models.ForeignKey(
+        to=MeterGroup,
         related_name="customer_populations",
         on_delete=models.CASCADE,
-        blank=True,
-        null=True,
     )
 
     class Meta:
         ordering = ["id"]
-        unique_together = [
-            "name",
-            "frame288_type",
-            "normalize",
-            "load_serving_entity",
-        ]
+        unique_together = ["name", "frame288_type", "normalize", "meter_group"]
 
     @property
-    def number_of_clusters(self):
-        """
-        Number of associated CustomerCluster objects.
-        """
-        return self.customer_clusters.count()
+    def cluster_type(self):
+        return self.frame288_type.replace("_frame288", "")
 
     @property
     def meters(self):
@@ -689,50 +680,31 @@ class CustomerPopulation(ValidationModel):
         """
         return self.meters.count()
 
-    @classmethod
-    def generate(
-        cls,
-        name,
-        meters,
-        frame288_type,
-        number_of_clusters,
-        normalize,
-        load_serving_entity=None,
-    ):
+    def generate(self, owner=None):
         """
-        Create a CustomerPopulation and related CustomerClusters.
+        Create related CustomerClusters.
 
-        :param name: name of CustomerPopulation
-        :param meters: Meter QuerySet
-        :param frame288_type: choice - "average_frame288", "minimum_frame288",
-            "maximum_frame288", "total_frame288", "count_frame288"
-        :param number_of_clusters: number of clusters to create
-        :param normalize: True to normalize all ValidationFrame288s to create
-            values ranging between -1 and 1
-        :param load_serving_entity: LoadServingEntity
-        :return CustomerPopulation:
+        :param owner: User
         """
-        # return exising CustomerPopulation with same meters
-        existing_populations = cls.objects.filter(
-            frame288_type=frame288_type,
-            normalize=normalize,
-            customer_clusters__meters__in=meters,
-        ).distinct()
-        if existing_populations:
-            return existing_populations.first()
+        # do not recreate clusters
+        if self.customer_clusters.count() > 0:
+            return
+
+        # create CustomerCluster objects immediately then update later
+        for i in range(1, self.number_of_clusters + 1):
+            cluster = CustomerCluster.objects.create(
+                name=self.meter_group.name,
+                cluster_id=i,
+                customer_population=self,
+            )
+            if owner:
+                cluster.owners.add(owner)
 
         clustering = KMeansLoadClustering(
-            objects=meters,
-            frame288_type=frame288_type,
-            number_of_clusters=number_of_clusters,
-            normalize=normalize,
-        )
-
-        population = cls.objects.create(
-            name=name,
-            frame288_type=frame288_type,
-            normalize=normalize,
-            load_serving_entity=load_serving_entity,
+            objects=self.meter_group.meters.all(),
+            frame288_type=self.frame288_type,
+            number_of_clusters=self.number_of_clusters,
+            normalize=self.normalize,
         )
 
         for i in sorted(set(clustering.cluster_labels)):
@@ -744,14 +716,14 @@ class CustomerPopulation(ValidationModel):
                     i
                 ).dataframe
             )
-            cluster = CustomerCluster.objects.create(
+            cluster = CustomerCluster.objects.get(
+                name=self.meter_group.name,
                 cluster_id=i + 1,
-                customer_population=population,
-                cluster_classifier=cluster_classifier,
+                customer_population=self,
             )
+            cluster.cluster_classifier = cluster_classifier
             cluster.meters.add(*clustering.get_objects_by_cluster_id(i))
-
-        return population
+            cluster.save()
 
 
 class ClusterClassifierFrame288(Frame288File):
@@ -798,6 +770,8 @@ class CustomerCluster(IntervalFrameFileMixin, MeterGroup):
         to=ClusterClassifier,
         related_name="customer_cluster",
         on_delete=models.CASCADE,
+        blank=True,
+        null=True,
     )
     customer_population = models.ForeignKey(
         to=CustomerPopulation,
@@ -822,6 +796,18 @@ class CustomerCluster(IntervalFrameFileMixin, MeterGroup):
             self.customer_population.number_of_clusters,
             self.id,
         )
+
+    @property
+    def number_of_clusters(self):
+        return self.customer_population.number_of_clusters
+
+    @property
+    def cluster_type(self):
+        return self.customer_population.cluster_type
+
+    @property
+    def normalize(self):
+        return self.customer_population.normalize
 
     @property
     def meter_count(self):

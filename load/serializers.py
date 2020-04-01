@@ -3,7 +3,7 @@ from dynamic_rest.serializers import DynamicModelSerializer
 from rest_framework import serializers
 
 from beo_datastore.libs.api.serializers import AbstractGetDataMixin
-from load.customer.models import CustomerMeter, OriginFile
+from load.customer.models import CustomerCluster, CustomerMeter, OriginFile
 from load.openei.models import ReferenceMeter
 from reference.reference_model.models import DERSimulation, Meter, MeterGroup
 
@@ -14,17 +14,33 @@ class GetMeterDataMixin(AbstractGetDataMixin):
 
 class OriginFileSerializer(DynamicModelSerializer):
     filename = serializers.CharField(source="file.name")
-    owners = serializers.StringRelatedField(many=True)
 
     class Meta:
         model = OriginFile
-        fields = ("filename", "expected_meter_count", "owners")
+        fields = ("filename", "expected_meter_count")
+
+
+class CustomerClusterSerializer(DynamicModelSerializer):
+    meter_group_id = serializers.CharField(
+        source="customer_population.meter_group.id"
+    )
+
+    class Meta:
+        model = CustomerCluster
+        fields = (
+            "cluster_type",
+            "normalize",
+            "cluster_id",
+            "number_of_clusters",
+            "meter_group_id",
+        )
 
 
 class MeterGroupSerializer(GetMeterDataMixin, DynamicModelSerializer):
     data = serializers.SerializerMethodField()
     meters = serializers.SerializerMethodField()
     metadata = serializers.SerializerMethodField()
+    owners = serializers.StringRelatedField(many=True)
 
     class Meta:
         model = MeterGroup
@@ -34,6 +50,7 @@ class MeterGroupSerializer(GetMeterDataMixin, DynamicModelSerializer):
             "created_at",
             "object_type",
             "meter_count",
+            "owners",
             "meters",
             "data",
             "metadata",
@@ -55,6 +72,10 @@ class MeterGroupSerializer(GetMeterDataMixin, DynamicModelSerializer):
         """
         if isinstance(obj, OriginFile):
             return OriginFileSerializer(obj, many=False, read_only=True).data
+        if isinstance(obj, CustomerCluster):
+            return CustomerClusterSerializer(
+                obj, many=False, read_only=True
+            ).data
         else:
             return {}
 
