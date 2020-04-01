@@ -220,15 +220,11 @@ class SingleScenarioStudy(Study):
         """
 
         # TODO: calculate system RA
-        return pd.DataFrame(self.detailed_report.sum()).drop(
-            [
-                "SA ID",
-                "MeterRatePlan",
-                "DERConfiguration",
-                "DERStrategy",
-                "SimulationRatePlan",
-            ]
-        )
+        # only return PreDER, PostDER, and Delta columns
+        summary = pd.DataFrame(self.detailed_report.sum())
+        return summary.ix[
+            [x for x in summary.index if "DER" in x or "Delta" in x]
+        ]
 
     @property
     def detailed_report_html_table(self):
