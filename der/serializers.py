@@ -1,3 +1,4 @@
+from dynamic_rest.fields import DynamicRelationField
 from dynamic_rest.serializers import DynamicModelSerializer
 from rest_framework import serializers
 
@@ -49,6 +50,7 @@ class DERConfigurationSerializer(DynamicModelSerializer):
 
 class DERSimulationSerializer(GetDERDataMixin, DynamicModelSerializer):
     data = serializers.SerializerMethodField()
+    meter = DynamicRelationField("load.serializers.MeterSerializer")
 
     class Meta:
         model = DERSimulation
