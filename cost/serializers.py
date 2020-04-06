@@ -141,7 +141,5 @@ class StudySerializer(DynamicModelSerializer):
         Report summary associated with Study.
         """
         return json.loads(
-            obj.detailed_report_summary.reset_index().to_json(
-                default_handler=str
-            )
+            obj.detailed_report_summary.to_json(default_handler=str)
         )

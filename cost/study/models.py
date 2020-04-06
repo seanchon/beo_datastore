@@ -223,7 +223,11 @@ class SingleScenarioStudy(Study):
         # only return PreDER, PostDER, and Delta columns
         summary = pd.DataFrame(self.detailed_report.sum())
         return summary.ix[
-            [x for x in summary.index if "DER" in x or "Delta" in x]
+            [
+                x
+                for x in summary.index
+                if "PreDER" in x or "PostDER" in x or "Delta" in x
+            ]
         ]
 
     @property
