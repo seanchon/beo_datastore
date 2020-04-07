@@ -6,6 +6,8 @@ from rest_framework.exceptions import UnsupportedMediaType
 from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
 
+from django.core.exceptions import ValidationError
+
 from beo_datastore.libs.api.serializers import require_request_data
 from beo_datastore.libs.api.viewsets import (
     CreateViewSet,
@@ -149,13 +151,16 @@ class CustomerClusterViewSet(CreateViewSet):
         except MeterGroup.DoesNotExist():
             raise serializers.ValidationError("MeterGroup does not exist.")
 
-        customer_population, _ = CustomerPopulation.objects.get_or_create(
-            name=meter_group.name,
-            frame288_type=request.data["type"] + "_frame288",
-            number_of_clusters=request.data["number_of_clusters"],
-            normalize=strtobool(request.data["normalize"]),
-            meter_group=meter_group,
-        )
+        try:
+            customer_population, _ = CustomerPopulation.objects.get_or_create(
+                name=meter_group.name,
+                frame288_type=request.data["type"] + "_frame288",
+                number_of_clusters=request.data["number_of_clusters"],
+                normalize=strtobool(request.data["normalize"]),
+                meter_group=meter_group,
+            )
+        except (ValueError, ValidationError) as e:
+            raise serializers.ValidationError(e)
         create_clusters.delay(
             customer_population_id=customer_population.id,
             owner_id=request.user.id,
@@ -226,7 +231,7 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
         object_type = self.request.query_params.get("object_type")
 
         if object_type:
-            model = get_model_from_any_app(object_type)
+            model = get_model_from_any_app(object_type, MeterGroup)
             if not model:
                 raise serializers.ValidationError("Invalid object_type.")
         else:
@@ -287,12 +292,10 @@ class MeterViewSet(ListRetrieveViewSet):
         """
         user = self.request.user
 
-        user = self.request.user
-
         object_type = self.request.query_params.get("object_type")
 
         if object_type:
-            model = get_model_from_any_app(object_type)
+            model = get_model_from_any_app(object_type, Meter)
             if not model:
                 raise serializers.ValidationError("Invalid object_type.")
         else:
