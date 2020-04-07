@@ -6,7 +6,12 @@ from der.views import (
     DERSimulationViewSet,
     DERStrategyViewSet,
 )
-from load.views import MeterViewSet, MeterGroupViewSet, OriginFileViewSet
+from load.views import (
+    CustomerClusterViewSet,
+    MeterViewSet,
+    MeterGroupViewSet,
+    OriginFileViewSet,
+)
 
 
 v1_router = DefaultRouter()
@@ -19,6 +24,7 @@ v1_router.register(
     r"der/simulation", DERSimulationViewSet, basename="DERSimulation"
 )
 v1_router.register(r"der/strategy", DERStrategyViewSet)
+v1_router.register(r"load/cluster", CustomerClusterViewSet)
 v1_router.register(r"load/origin_file", OriginFileViewSet)
 v1_router.register(r"load/meter", MeterViewSet, basename="Meter")
 v1_router.register(

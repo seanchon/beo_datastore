@@ -3,6 +3,7 @@ from functools import reduce
 from django_auto_repr import AutoRepr
 from polymorphic.models import PolymorphicModel
 
+from django.apps import apps
 from django.db import models, transaction
 from django.utils.functional import cached_property
 
@@ -23,6 +24,32 @@ def get_exact_many_to_many(model, m2m_field, ids):
         cnt=len(ids)
     )
     return reduce(lambda qs, pk: qs.filter(**{m2m_field: pk}), ids, initial_qs)
+
+
+def get_model_from_any_app(model_name, parent_class=None):
+    """
+    Return the first Django model found that matches a string. If parent_class
+    is passed, the results are limited to the parent_class or its childrens.
+
+    Caution: The same model name can exist across different applications.
+
+    :param model_name: string
+    :param parent_class: Django model
+    :return: Django model
+    """
+    for app_config in apps.get_app_configs():
+        try:
+            model = app_config.get_model(model_name)
+            if parent_class and (
+                model != parent_class
+                and model not in parent_class.__subclasses__()
+            ):
+                return None
+            else:
+                return model
+        except LookupError:
+            pass
+    return None
 
 
 class ValidationModel(AutoRepr, models.Model):
