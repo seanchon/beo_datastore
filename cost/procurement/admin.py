@@ -12,8 +12,8 @@ from cost.procurement.models import (
 @admin.register(SystemProfile)
 class SystemProfile(admin.ModelAdmin):
     readonly_fields = [
-        "intervalframe_html_plot",
-        "average_vs_maximum_html_plot",
+        "average_frame288_html_plot",
+        "maximum_frame288_html_plot",
     ]
     search_fields = ["id", "name"]
 
