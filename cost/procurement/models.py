@@ -4,12 +4,10 @@ from django.db import models, transaction
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.controller import AggregateResourceAdequacyCalculation
+from beo_datastore.libs.intervalframe import ValidationFrame288
 from beo_datastore.libs.intervalframe_file import IntervalFrameFile
 from beo_datastore.libs.models import ValidationModel, IntervalFrameFileMixin
-from beo_datastore.libs.plot_intervalframe import (
-    plot_intervalframe,
-    plot_frame288_monthly_comparison,
-)
+from beo_datastore.libs.plot_intervalframe import plot_frame288
 from beo_datastore.settings import MEDIA_ROOT
 from beo_datastore.libs.views import dataframe_to_html
 
@@ -44,22 +42,28 @@ class SystemProfile(IntervalFrameFileMixin, ValidationModel):
         return self.load_serving_entity.name + ": " + self.name
 
     @property
-    def intervalframe_html_plot(self):
+    def average_frame288_html_plot(self):
         """
-        Return Django-formatted HTML intervalframe plt.
+        Return Django-formatted HTML average 288 plt.
         """
-        return plot_intervalframe(
-            intervalframe=self.intervalframe, y_label="kw", to_html=True
+        return plot_frame288(
+            frame288=ValidationFrame288(
+                self.intervalframe.average_frame288.dataframe / 1000
+            ),
+            y_label="MW",
+            to_html=True,
         )
 
     @property
-    def average_vs_maximum_html_plot(self):
+    def maximum_frame288_html_plot(self):
         """
-        Return Django-formatted HTML average vs maximum 288 plt.
+        Return Django-formatted HTML maximum 288 plt.
         """
-        return plot_frame288_monthly_comparison(
-            original_frame288=self.intervalframe.average_frame288,
-            modified_frame288=self.intervalframe.maximum_frame288,
+        return plot_frame288(
+            frame288=ValidationFrame288(
+                self.intervalframe.maximum_frame288.dataframe / 1000
+            ),
+            y_label="MW",
             to_html=True,
         )
 
