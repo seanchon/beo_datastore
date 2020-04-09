@@ -3,6 +3,7 @@ import json
 
 
 SOURCE = "https://tvrp.app.box.com/file/503531851026"
+EFFECTIVE_DATETIME = datetime(2018, 1, 1, 0, 0)
 
 BASIC_SCHED = [[0] * 24] * 12
 
@@ -145,7 +146,7 @@ def create_energy_dict(
 def run(*args):
     """
     Usage:
-        - python manage.py runscript cost.utility_rate.scripts.generate_cca_residential_rates --script-args DESTINATION
+        - python manage.py runscript cost.utility_rate.scripts.generate_residential_rates_vce --script-args DESTINATION
     """
     if len(args) < 1:
         print(
@@ -247,7 +248,7 @@ def run(*args):
             rate_data[i]["sourceReference"] = SOURCE
         rate_data[i]["sector"] = "Residential"
         rate_data[i]["effectiveDate"] = {
-            "$date": int(datetime(2018, 1, 1, 0, 0).timestamp() * 1000)
+            "$date": int(EFFECTIVE_DATETIME.timestamp() * 1000)
         }
 
     with open(destination, "w") as fp:
