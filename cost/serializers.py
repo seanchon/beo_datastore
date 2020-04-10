@@ -3,6 +3,7 @@ import json
 from dynamic_rest.serializers import DynamicModelSerializer
 from rest_framework import serializers
 
+from beo_datastore.libs.api.serializers import AbstractGetDataMixin
 from cost.study.models import SingleScenarioStudy, MultipleScenarioStudy
 from der.serializers import (
     DERConfigurationSerializer,
@@ -11,6 +12,10 @@ from der.serializers import (
 )
 from load.serializers import MeterGroupSerializer, MeterSerializer
 from reference.reference_model.models import Study
+
+
+class GetStudyDataMixin(AbstractGetDataMixin):
+    intervalframe_name = "post_der_intervalframe"
 
 
 class SingleScenarioStudySerializer(DynamicModelSerializer):
@@ -41,7 +46,8 @@ class MultipleScenarioStudySerializer(DynamicModelSerializer):
         ).data
 
 
-class StudySerializer(DynamicModelSerializer):
+class StudySerializer(GetStudyDataMixin, DynamicModelSerializer):
+    data = serializers.SerializerMethodField()
     ders = serializers.SerializerMethodField()
     der_simulations = serializers.SerializerMethodField()
     meter_groups = serializers.SerializerMethodField()
@@ -64,6 +70,7 @@ class StudySerializer(DynamicModelSerializer):
             "meter_count",
             "meters",
             "meter_groups",
+            "data",
             "metadata",
             "report",
             "report_summary",
