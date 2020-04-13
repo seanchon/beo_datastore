@@ -12,7 +12,7 @@ from cost.ghg.models import GHGRate
 from cost.study.models import MultipleScenarioStudy, SingleScenarioStudy
 from cost.utility_rate.models import RatePlan
 from der.simulation.models import BatteryConfiguration, BatteryStrategy
-from load.customer.models import CustomerPopulation, CustomerMeter
+from load.customer.models import CustomerPopulation, OriginFile
 
 
 class TestStudy(TestCase):
@@ -44,18 +44,21 @@ class TestStudy(TestCase):
         flush_intervalframe_files()
 
     def test_study(self):
-        meters = CustomerMeter.objects.filter(rate_plan_name__contains="EV")
+        meter_group = OriginFile.objects.first()
 
         # 1. Create and choose k-means clusters (load)
         number_of_clusters = 1
-        customer_population = CustomerPopulation.generate(
+        customer_population = CustomerPopulation.objects.create(
             name="Django Test",
-            meters=meters,
             frame288_type="average_frame288",
             number_of_clusters=number_of_clusters,
             normalize=True,
+            meter_group=meter_group,
         )
-        self.assertEqual(customer_population.meter_count, meters.count())
+        customer_population.generate()
+        self.assertEqual(
+            customer_population.meter_count, meter_group.meters.count()
+        )
         self.assertEqual(
             customer_population.customer_clusters.count(), number_of_clusters
         )
@@ -89,7 +92,6 @@ class TestStudy(TestCase):
             der_configuration=battery_configuration,
             meter_group=customer_population.customer_clusters.first(),
             rate_plan=rate_plan,
-            load_serving_entity=meters.first().load_serving_entity,
         )
         single.ghg_rates.add(*GHGRate.objects.filter(name="Clean Net Short"))
         multi.single_scenario_studies.add(single)

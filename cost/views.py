@@ -184,6 +184,15 @@ class StudyViewSet(ListRetrieveUpdateDestroyViewSet):
     schema = AutoSchema(
         manual_fields=[
             coreapi.Field(
+                "data_types",
+                required=False,
+                location="query",
+                description=(
+                    "One or many data types to return. Choices are 'default', "
+                    "'total', 'average', 'maximum', 'minimum', and 'count'."
+                ),
+            ),
+            coreapi.Field(
                 "include[]",
                 required=False,
                 location="query",
@@ -192,7 +201,7 @@ class StudyViewSet(ListRetrieveUpdateDestroyViewSet):
                     "der_simulations, meters, meter_groups, report, "
                     "report_summary."
                 ),
-            )
+            ),
         ]
     )
 
