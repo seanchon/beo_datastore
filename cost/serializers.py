@@ -15,7 +15,7 @@ from reference.reference_model.models import Study
 
 
 class GetStudyDataMixin(AbstractGetDataMixin):
-    intervalframe_name = "post_der_intervalframe"
+    intervalframe_name = "meter_intervalframe"
 
 
 class SingleScenarioStudySerializer(DynamicModelSerializer):

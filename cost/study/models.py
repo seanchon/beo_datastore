@@ -1,4 +1,5 @@
 from functools import reduce
+import os
 import pandas as pd
 import re
 
@@ -8,7 +9,10 @@ from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
 
 from beo_datastore.libs.intervalframe import ValidationIntervalFrame
+from beo_datastore.libs.intervalframe_file import IntervalFrameFile
+from beo_datastore.libs.models import IntervalFrameFileMixin
 from beo_datastore.libs.views import dataframe_to_html
+from beo_datastore.settings import MEDIA_ROOT
 
 from cost.ghg.models import GHGRate, StoredGHGCalculation
 from cost.procurement.models import (
@@ -30,7 +34,17 @@ from reference.reference_model.models import (
 from reference.auth_user.models import LoadServingEntity
 
 
-class SingleScenarioStudy(Study):
+class StudyIntervalFrame(IntervalFrameFile):
+    """
+    Model for handling Study IntervalFrameFiles, which have timestamps and
+    values.
+    """
+
+    # directory for parquet file storage
+    file_directory = os.path.join(MEDIA_ROOT, "study")
+
+
+class SingleScenarioStudy(IntervalFrameFileMixin, Study):
     """
     Container for a single-scenario study.
 
@@ -84,6 +98,9 @@ class SingleScenarioStudy(Study):
         to=Meter, related_name="single_scenario_studies", blank=True
     )
 
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = StudyIntervalFrame
+
     class Meta:
         ordering = ["id"]
 
@@ -106,6 +123,57 @@ class SingleScenarioStudy(Study):
             )
 
         super().clean(*args, **kwargs)
+
+    @property
+    def meter_intervalframe(self):
+        """
+        Cached ValidationIntervalFrame representing entire self.meter_group
+        buildings' load after running many DERSimulations.
+        """
+        return self.intervalframe
+
+    @property
+    def pre_der_intervalframe(self):
+        """
+        Dynamically calculated ValidationIntervalFrame representing aggregate
+        readings of all attached Meters before running DER simulations.
+
+        NOTE: Use self.meter_group.meter_intervalframe to get the
+        pre_der_intervalframe equivalent on the entire MeterGroup.
+        """
+        return reduce(
+            lambda x, y: x + y,
+            [x.meter_intervalframe for x in self.meters.all()],
+            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
+        )
+
+    @property
+    def der_intervalframe(self):
+        """
+        Dynamically calculated ValidationIntervalFrame representing aggregate
+        readings of all DER operations.
+
+        NOTE: Use the difference of self.meter_intervalframe and
+        self.meter_group.meter_intervalframe to get the der_intervalframe
+        equivalent on the entire MeterGroup.
+        """
+        if self.der_simulations.count() > 0:
+            return reduce(
+                lambda x, y: x + y,
+                [x.der_intervalframe for x in self.der_simulations.all()],
+            )
+        else:
+            return ValidationIntervalFrame(
+                ValidationIntervalFrame.default_dataframe
+            )
+
+    @property
+    def post_der_intervalframe(self):
+        """
+        ValidationIntervalFrame representing aggregate readings of all meters
+        after running DER simulations.
+        """
+        return self.pre_der_intervalframe + self.der_intervalframe
 
     @property
     def meter_groups(self):
@@ -149,42 +217,6 @@ class SingleScenarioStudy(Study):
         return self.meters.count()
 
     @property
-    def pre_der_intervalframe(self):
-        """
-        ValidationIntervalFrame representing aggregate readings of all meters
-        before running DER simulations.
-        """
-        return reduce(
-            lambda x, y: x + y,
-            [x.meter_intervalframe for x in self.meters.all()],
-            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
-        )
-
-    @property
-    def der_intervalframe(self):
-        """
-        ValidationIntervalFrame representing aggregate readings of all DER
-        operations.
-        """
-        if self.der_simulations.count() > 0:
-            return reduce(
-                lambda x, y: x + y,
-                [x.der_intervalframe for x in self.der_simulations.all()],
-            )
-        else:
-            return ValidationIntervalFrame(
-                ValidationIntervalFrame.default_dataframe
-            )
-
-    @property
-    def post_der_intervalframe(self):
-        """
-        ValidationIntervalFrame representing aggregate readings of all meters
-        after running DER simulations.
-        """
-        return self.pre_der_intervalframe + self.der_intervalframe
-
-    @property
     def report(self):
         """
         Return pandas Dataframe with meter SA IDs and all cost impacts.
@@ -215,20 +247,69 @@ class SingleScenarioStudy(Study):
     @property
     def detailed_report_summary(self):
         """
-        Return pandas DataFrame with totals for each column of a
+        pandas DataFrame with RA and non-RA totals for each column of
         detailed_report.
         """
+        return self.non_ra_report_summary.append(self.ra_report_summary)
 
-        # TODO: calculate system RA
-        # only return PreDER, PostDER, and Delta columns
+    @property
+    def non_ra_report_summary(self):
+        """
+        pandas DataFrame with non-RA totals for each column of detailed_report.
+        """
         summary = pd.DataFrame(self.detailed_report.sum())
-        return summary.ix[
-            [
-                x
-                for x in summary.index
-                if "PreDER" in x or "PostDER" in x or "Delta" in x
-            ]
+        indices = [
+            x
+            for x in summary.index
+            if "PreDER" in x or "PostDER" in x or "Delta" in x
         ]
+        # exclude RA columns
+        indices = [
+            x
+            for x in indices
+            if "RAPreDER" not in x
+            or "RAPostDER" not in x
+            or "RADelta" not in x
+        ]
+
+        return summary.loc[indices]
+
+    @property
+    def ra_report_summary(self):
+        """
+        pandas DataFrame with RA totals for each column of detailed_report.
+        Filtering disabled.
+        """
+        dataframe = pd.DataFrame()
+
+        for system_profile in self.system_profiles.all():
+            pre_DER_RA = (
+                system_profile.intervalframe.maximum_frame288.dataframe.max().sum()
+            )
+            inverse_pre_der_intervalframe = ValidationIntervalFrame(
+                dataframe=self.meter_group.meter_intervalframe.dataframe * -1
+            )
+            post_DER_RA = (
+                (
+                    system_profile.intervalframe
+                    + self.meter_intervalframe
+                    + inverse_pre_der_intervalframe
+                )
+                .maximum_frame288.dataframe.max()
+                .sum()
+            )
+            name = system_profile.name.replace(" ", "")
+            dataframe.append(
+                pd.DataFrame(
+                    {
+                        "{}RAPreDER".format(name): [pre_DER_RA],
+                        "{}RAPostDER".format(name): [post_DER_RA],
+                        "{}RADelta".format(name): [(post_DER_RA - pre_DER_RA)],
+                    }
+                ).transpose()
+            )
+
+        return dataframe
 
     @property
     def detailed_report_html_table(self):
@@ -488,16 +569,13 @@ class SingleScenarioStudy(Study):
         )
 
         if not dataframe.empty:
-            name = "{}{}".format(
-                system_profile.name.replace(" ", ""),
-                system_profile.load_serving_entity.name.replace(" ", ""),
-            )
+            name = system_profile.name.replace(" ", "")
             return dataframe.rename(
                 columns={
                     0: "ID",
-                    1: "{}PeakPreDER".format(name),
-                    2: "{}PeakPostDER".format(name),
-                    3: "{}PeakDelta".format(name),
+                    1: "{}RAPreDER".format(name),
+                    2: "{}RAPostDER".format(name),
+                    3: "{}RADelta".format(name),
                 }
             ).set_index("ID")
         else:
@@ -505,7 +583,7 @@ class SingleScenarioStudy(Study):
 
     def run_single_meter_simulation_and_cost(self, meter):
         """
-        Run a single Meter's DERSimultion and cost calculations.
+        Run a single Meter's DERSimulation and cost calculations.
         """
         der_simulation_set = StoredBatterySimulation.generate(
             battery=self.der_configuration.battery,
@@ -629,7 +707,7 @@ def reset_cached_properties_update_ghg_rates(sender, **kwargs):
     simulation_optimization._reset_cached_properties()
 
 
-class MultipleScenarioStudy(Study):
+class MultipleScenarioStudy(IntervalFrameFileMixin, Study):
     """
     Container for a multiple-scenario study.
 
@@ -646,8 +724,21 @@ class MultipleScenarioStudy(Study):
         to=SingleScenarioStudy, related_name="multiple_scenario_studies"
     )
 
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = StudyIntervalFrame
+
     class Meta:
         ordering = ["id"]
+
+    @property
+    def meter_intervalframe(self):
+        """
+        Blank ValidationIntervalFrame. This property is error-prone if the same
+        Meter exists in many SingleScenarioStudy objects.
+        # TODO: Return self.post_der_intervalframe after filtering is
+            performed.
+        """
+        return self.intervalframe
 
     @property
     def meters(self):

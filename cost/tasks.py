@@ -33,12 +33,28 @@ def run_study(study_id):
 @app.task(soft_time_limit=120, max_retries=3)
 def run_simulation_and_cost(single_scenario_study_id, meter_id):
     """
-    Run a single Meter's DERSimultion and cost calculations with a
+    Run a single Meter's DERSimulation and cost calculations with a
     SingleScenarioStudy.
     """
-    single_scenario_study = SingleScenarioStudy.objects.get(
-        id=single_scenario_study_id
-    )
-    single_scenario_study.run_single_meter_simulation_and_cost(
+    study = SingleScenarioStudy.objects.get(id=single_scenario_study_id)
+    study.run_single_meter_simulation_and_cost(
         meter=Meter.objects.get(id=meter_id)
     )
+
+    if study.der_simulation_count == study.expected_der_simulation_count:
+        # all DERSimulation objects created, cache meter_intervalframe
+        aggregate_study_intervalframes.delay(study.id)
+
+
+@app.task(soft_time_limit=1800)
+def aggregate_study_intervalframes(study_id):
+    """
+    Store post_der_intervalframe as meter_intervalframe
+
+    :param study_id: Study id
+    """
+    study = Study.objects.get(id=study_id)
+    study.meter_intervalframe.dataframe = (
+        study.post_der_intervalframe.dataframe
+    )
+    study.save()

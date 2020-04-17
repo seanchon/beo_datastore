@@ -15,6 +15,7 @@ from beo_datastore.libs.api.viewsets import (
 from beo_datastore.libs.models import get_exact_many_to_many
 
 from cost.ghg.models import GHGRate
+from cost.procurement.models import SystemProfile
 from cost.study.models import SingleScenarioStudy, MultipleScenarioStudy
 from cost.utility_rate.models import RatePlan
 from reference.reference_model.models import (
@@ -143,6 +144,10 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
                     )
                     single.ghg_rates.add(
                         *GHGRate.objects.filter(name__contains="CARB")
+                    )
+                    lse = request.user.profile.load_serving_entity
+                    single.system_profiles.add(
+                        *SystemProfile.objects.filter(load_serving_entity=lse)
                     )
                     single_scenario_study_ids.add(single.id)
 

@@ -405,7 +405,7 @@ class DERSimulation(Meter):
 # STUDY BASE MODELS
 
 
-class Study(PolymorphicValidationModel):
+class Study(PolymorphicValidationModel, MeterDataMixin):
     """
     Base model containing many meters run under DER simulations and cost
     calculations.
@@ -417,6 +417,46 @@ class Study(PolymorphicValidationModel):
 
     class Meta:
         ordering = ["-created_at"]
+
+    @property
+    def meter_intervalframe(self):
+        """
+        ValidationIntervalFrame representing buildings' load after DER has been
+        introduced.
+        """
+        raise NotImplementedError(
+            "meter_intervalframe must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def pre_der_intervalframe(self):
+        """
+        ValidationIntervalFrame representing aggregate readings of all meters
+        before running DER simulations.
+        """
+        raise NotImplementedError(
+            "pre_der_intervalframe must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def der_intervalframe(self):
+        """
+        ValidationIntervalFrame representing aggregate readings of all DER
+        operations.
+        """
+        raise NotImplementedError(
+            "der_intervalframe must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def post_der_intervalframe(self):
+        """
+        ValidationIntervalFrame representing aggregate readings of all meters
+        after running DER simulations.
+        """
+        raise NotImplementedError(
+            "post_der_intervalframe must be set in {}".format(self.__class__)
+        )
 
     @property
     def meters(self):
@@ -483,36 +523,6 @@ class Study(PolymorphicValidationModel):
             "expected_der_simulation_count must be set in {}".format(
                 self.__class__
             )
-        )
-
-    @property
-    def pre_der_intervalframe(self):
-        """
-        ValidationIntervalFrame representing aggregate readings of all meters
-        before running DER simulations.
-        """
-        raise NotImplementedError(
-            "pre_der_intervalframe must be set in {}".format(self.__class__)
-        )
-
-    @property
-    def der_intervalframe(self):
-        """
-        ValidationIntervalFrame representing aggregate readings of all DER
-        operations.
-        """
-        raise NotImplementedError(
-            "der_intervalframe must be set in {}".format(self.__class__)
-        )
-
-    @property
-    def post_der_intervalframe(self):
-        """
-        ValidationIntervalFrame representing aggregate readings of all meters
-        after running DER simulations.
-        """
-        raise NotImplementedError(
-            "post_der_intervalframe must be set in {}".format(self.__class__)
         )
 
     @property
