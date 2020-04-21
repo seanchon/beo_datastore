@@ -19,10 +19,3 @@ chown root:root /etc/init.d/celerybeat
 # Copy celerybeat config to the correct location.
 -rm /etc/default/celerybeat
 cp /opt/python/ondeck/app/etc/default/celerybeat /etc/default/celerybeat
-
-# Make sure django log files exists
-mkdir -p /var/log/django/
-touch /var/log/django/django.log
-# log files needs to be readable/writable by both wsgi and ec2-user
-chmod 666 /var/log/django/*
-chown -R wsgi:wsgi /var/log/django/
