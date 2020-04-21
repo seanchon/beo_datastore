@@ -1,10 +1,9 @@
 import numpy as np
 import os
-import pandas as pd
 
 
 from beo_datastore.libs.battery import BatteryIntervalFrame
-from beo_datastore.libs.dataframe import convert_columns_type
+from beo_datastore.libs.dataframe import convert_columns_type, read_parquet
 from beo_datastore.libs.intervalframe import (
     ValidationDataFrame,
     ValidationFrame288,
@@ -102,7 +101,7 @@ class DataFrameFile(ValidationDataFrame):
 
         try:
             return cls(
-                dataframe=pd.read_parquet(file_path),
+                dataframe=read_parquet(file_path),
                 reference_object=reference_object,
             )
         except OSError:
@@ -152,7 +151,7 @@ class Frame288File(ValidationFrame288, DataFrameFile):
             file_path = cls.get_file_path(reference_object)
 
         try:
-            dataframe = pd.read_parquet(file_path)
+            dataframe = read_parquet(file_path)
             dataframe = convert_columns_type(dataframe, np.int64)
             return cls(dataframe=dataframe, reference_object=reference_object)
         except OSError:

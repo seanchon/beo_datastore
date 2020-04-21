@@ -15,6 +15,7 @@ from beo_datastore.libs.dataframe import (
     merge_dataframe,
     resample_dataframe,
     set_dataframe_index,
+    read_csv,
 )
 
 
@@ -310,7 +311,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         :param convert_to_datetime: convert index_column to datetime if True
         :return: pandas DataFrame
         """
-        dataframe = pd.read_csv(csv_location)
+        dataframe = read_csv(csv_location)
         if index_column:
             dataframe = set_dataframe_index(
                 dataframe, index_column, convert_to_datetime

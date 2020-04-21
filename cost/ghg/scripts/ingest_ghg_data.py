@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import re
 
+from beo_datastore.libs.dataframe import read_csv
 from beo_datastore.settings import BASE_DIR
 
 from cost.ghg.models import GHGRate
@@ -16,7 +17,7 @@ def get_year_from_filename(filename):
 
 
 def create_cns_object(csv_path, year):
-    dataframe = pd.read_csv(csv_path, index_col=0)
+    dataframe = read_csv(csv_path, index_col=0)
     dataframe.columns = dataframe.columns.astype(np.int64)
 
     # convert from hours 1 through 24 to 0 through 23
