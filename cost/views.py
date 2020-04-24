@@ -146,9 +146,12 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
                         *GHGRate.objects.filter(name__contains="CARB")
                     )
                     lse = request.user.profile.load_serving_entity
-                    single.system_profiles.add(
-                        *SystemProfile.objects.filter(load_serving_entity=lse)
-                    )
+                    # TODO: Account for CCA's with multiple system profiles
+                    system_profile = SystemProfile.objects.filter(
+                        load_serving_entity=lse
+                    ).last()
+                    if system_profile:
+                        single.system_profiles.add(system_profile)
                     single_scenario_study_ids.add(single.id)
 
         existing_multiple_scenario_studies = get_exact_many_to_many(

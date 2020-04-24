@@ -264,13 +264,9 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
             if "PreDER" in x or "PostDER" in x or "Delta" in x
         ]
         # exclude RA columns
-        indices = [
-            x
-            for x in indices
-            if "RAPreDER" not in x
-            or "RAPostDER" not in x
-            or "RADelta" not in x
-        ]
+        for index in ["RAPreDER", "RAPostDER", "RADelta"]:
+            if index in indices:
+                indices.remove(index)
 
         return summary.loc[indices]
 
@@ -280,34 +276,33 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         pandas DataFrame with RA totals for each column of detailed_report.
         Filtering disabled.
         """
-        dataframe = pd.DataFrame()
+        # TODO: Account for CCA's with multiple system profiles
+        system_profile = self.system_profiles.last()
+        if not system_profile:
+            return pd.DataFrame()
 
-        for system_profile in self.system_profiles.all():
-            pre_DER_RA = (
-                system_profile.intervalframe.maximum_frame288.dataframe.max().sum()
+        pre_DER_RA = (
+            system_profile.intervalframe.maximum_frame288.dataframe.max().sum()
+        )
+        inverse_pre_der_intervalframe = ValidationIntervalFrame(
+            dataframe=self.meter_group.meter_intervalframe.dataframe * -1
+        )
+        post_DER_RA = (
+            (
+                system_profile.intervalframe
+                + self.meter_intervalframe
+                + inverse_pre_der_intervalframe
             )
-            inverse_pre_der_intervalframe = ValidationIntervalFrame(
-                dataframe=self.meter_group.meter_intervalframe.dataframe * -1
-            )
-            post_DER_RA = (
-                (
-                    system_profile.intervalframe
-                    + self.meter_intervalframe
-                    + inverse_pre_der_intervalframe
-                )
-                .maximum_frame288.dataframe.max()
-                .sum()
-            )
-            name = system_profile.name.replace(" ", "")
-            dataframe.append(
-                pd.DataFrame(
-                    {
-                        "{}RAPreDER".format(name): [pre_DER_RA],
-                        "{}RAPostDER".format(name): [post_DER_RA],
-                        "{}RADelta".format(name): [(post_DER_RA - pre_DER_RA)],
-                    }
-                ).transpose()
-            )
+            .maximum_frame288.dataframe.max()
+            .sum()
+        )
+        dataframe = pd.DataFrame(
+            {
+                "RAPreDER": [pre_DER_RA],
+                "RAPostDER": [post_DER_RA],
+                "RADelta": [(post_DER_RA - pre_DER_RA)],
+            }
+        ).transpose()
 
         return dataframe
 
@@ -462,14 +457,12 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         Return pandas DataFrame with meter SA IDs and RA deltas from all
         associated GHGRates.
         """
-        return reduce(
-            lambda x, y: x.join(y, how="outer"),
-            [
-                self.get_resource_adequacy_report(system_profile)
-                for system_profile in self.system_profiles.all()
-            ],
-            pd.DataFrame(),
-        )
+        # TODO: Account for CCA's with multiple system profiles
+        system_profile = SystemProfile.objects.first()
+        if system_profile:
+            return self.get_resource_adequacy_report(system_profile)
+        else:
+            return pd.DataFrame()
 
     @property
     def customer_meter_report(self):
@@ -544,11 +537,12 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         else:
             return pd.DataFrame()
 
-    def get_resource_adequacy_report(self, system_profile):
+    def get_resource_adequacy_report(self, system_profile, name_prefix=False):
         """
         Return pandas DataFrame with meter SA IDs and RA impacts.
 
         :param system_profile: SystemProfile
+        :param name_prefix: True to disambiguate RA headers
         :return: pandas DataFrame
         """
         dataframe = pd.DataFrame(
@@ -569,7 +563,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         )
 
         if not dataframe.empty:
-            name = system_profile.name.replace(" ", "")
+            name = system_profile.name.replace(" ", "") if name_prefix else ""
             return dataframe.rename(
                 columns={
                     0: "ID",
