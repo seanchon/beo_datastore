@@ -47,14 +47,14 @@ def run_simulation_and_cost(single_scenario_study_id, meter_id):
 
 
 @app.task(soft_time_limit=1800)
-def aggregate_study_intervalframes(study_id):
+def aggregate_study_intervalframes(study_id, force=False):
     """
     Store post_der_intervalframe as meter_intervalframe
 
     :param study_id: Study id
+    :param force: force recomputation
     """
     study = Study.objects.get(id=study_id)
-    study.meter_intervalframe.dataframe = (
-        study.post_der_intervalframe.dataframe
-    )
-    study.save()
+    if study.meter_intervalframe.dataframe.empty or force:
+        study.intervalframe.dataframe = study.post_der_intervalframe.dataframe
+        study.save()
