@@ -27,8 +27,8 @@ from beo_datastore.libs.plot_intervalframe import (
     plot_frame288_monthly_comparison,
 )
 from beo_datastore.libs.postgresql import PostgreSQL, format_bulk_insert
-from beo_datastore.settings import DATABASES, MEDIA_ROOT
 from beo_datastore.libs.utils import bytes_to_str, file_md5sum
+from beo_datastore.settings import DATABASES, MEDIA_ROOT
 
 from reference.reference_model.models import DataUnit, Meter, MeterGroup
 from reference.auth_user.models import LoadServingEntity
@@ -174,8 +174,7 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
     @classmethod
     def get_or_create(cls, file, name, load_serving_entity, owner=None):
         """
-        Create OriginFile and assign ownership. If OriginFile already exists,
-        only assign ownership.
+        Create OriginFile unique on owners, file contents, and LSE.
 
         :param file: file path
         :param name: string
@@ -194,6 +193,7 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
             existing_files = OriginFile.objects.filter(
                 load_serving_entity=load_serving_entity,
                 md5sum=origin_file.md5sum,
+                owners=owner,
             ).exclude(id=origin_file.id)
 
             if not existing_files:
@@ -205,6 +205,13 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
 
             if owner:
                 origin_file.owners.add(owner)
+
+            if owner and not created:
+                # rename exlusively owned files on subsequent upload
+                for file in existing_files:
+                    if file.owners.count() == 1:
+                        file.name = name
+                        file.save()
 
             return (origin_file, created)
 

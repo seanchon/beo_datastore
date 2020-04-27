@@ -17,6 +17,7 @@ from beo_datastore.settings import BASE_DIR
 
 from load.customer.models import OriginFile
 from load.tasks import aggregate_meter_group_intervalframes
+from reference.reference_model.models import Meter
 
 
 class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
@@ -291,7 +292,8 @@ class TestFileProtection(APITestCase):
     def test_multiple_users_same_lse(self):
         """
         Test that when two Users from the same LoadServingEntity upload the
-        same file that the file is shared.
+        same file that separate OriginFiles are created, but Meter count
+        remains the same.
         """
         post_endpoint = "/v1/load/origin_file/"
 
@@ -309,6 +311,8 @@ class TestFileProtection(APITestCase):
             )
             origin_file_1_id = response.data["id"]
 
+        meter_count = Meter.objects.count()
+
         # user_2 uploads a file
         user_2 = User.objects.create(
             username="MCE User 2", email="user2@mcecleanenergy.org"
@@ -322,7 +326,8 @@ class TestFileProtection(APITestCase):
             )
             origin_file_2_id = response.data["id"]
 
-        self.assertEqual(origin_file_1_id, origin_file_2_id)
+        self.assertEqual(meter_count, Meter.objects.count())
+        self.assertNotEqual(origin_file_1_id, origin_file_2_id)
         origin_file = OriginFile.objects.get(id=origin_file_1_id)
         self.assertTrue(user_1 in origin_file.owners.all())
-        self.assertTrue(user_2 in origin_file.owners.all())
+        self.assertFalse(user_2 in origin_file.owners.all())
