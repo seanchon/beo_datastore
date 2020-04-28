@@ -33,6 +33,19 @@ from .serializers import (
 )
 
 
+CSV_MIME_TYPES = [
+    "text/plain",
+    "text/x-csv",
+    "application/vnd.ms-excel",
+    "application/csv",
+    "application/x-csv",
+    "text/csv",
+    "text/comma-separated-values",
+    "text/x-comma-separated-values",
+    "text/tab-separated-values",
+]
+
+
 class OriginFileViewSet(CreateViewSet):
     """
     Files containing customer Meter data.
@@ -85,7 +98,7 @@ class OriginFileViewSet(CreateViewSet):
             )
         # TODO: add additional file validation
 
-        if file.content_type == "text/csv":
+        if file.content_type in CSV_MIME_TYPES:
             origin_file, _ = OriginFile.get_or_create(
                 file=file,
                 name=name,
