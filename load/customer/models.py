@@ -687,6 +687,13 @@ class CustomerPopulation(ValidationModel):
         """
         return self.meters.count()
 
+    @property
+    def primary_linked_rate_plan(self):
+        """
+        Primary RatePlan associated with related MeterGroup.
+        """
+        return self.meter_group.primary_linked_rate_plan
+
     def generate(self, owner=None):
         """
         Create related CustomerClusters.
@@ -805,6 +812,18 @@ class CustomerCluster(IntervalFrameFileMixin, MeterGroup):
         )
 
     @property
+    def meter_count(self):
+        return self.meters.count()
+
+    @property
+    def meter_intervalframe(self):
+        return self.intervalframe
+
+    @property
+    def primary_linked_rate_plan(self):
+        return self.customer_population.primary_linked_rate_plan
+
+    @property
     def number_of_clusters(self):
         return self.customer_population.number_of_clusters
 
@@ -815,14 +834,6 @@ class CustomerCluster(IntervalFrameFileMixin, MeterGroup):
     @property
     def normalize(self):
         return self.customer_population.normalize
-
-    @property
-    def meter_count(self):
-        return self.meters.count()
-
-    @property
-    def meter_intervalframe(self):
-        return self.intervalframe
 
     @property
     def frame288_html_plot(self):

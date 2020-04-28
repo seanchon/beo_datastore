@@ -207,6 +207,15 @@ class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
             "meter_intervalframe must be set in {}".format(self.__class__)
         )
 
+    @property
+    def primary_linked_rate_plan(self):
+        """
+        Primary RatePlan associated with MeterGroup.
+        """
+        raise NotImplementedError(
+            "primary_linked_rate_plan must be set in {}".format(self.__class__)
+        )
+
 
 class Meter(PolymorphicValidationModel, MeterDataMixin):
     """
