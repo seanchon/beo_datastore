@@ -4,6 +4,7 @@ from beo_datastore.celery import app
 
 from cost.study.models import MultipleScenarioStudy, SingleScenarioStudy
 from reference.reference_model.models import Meter, Study
+from ws.triggers import update_scenario
 
 
 logger = get_task_logger(__name__)
@@ -40,6 +41,9 @@ def run_simulation_and_cost(single_scenario_study_id, meter_id):
     study.run_single_meter_simulation_and_cost(
         meter=Meter.objects.get(id=meter_id)
     )
+
+    # Trigger an update message after the meter simulation has finished
+    update_scenario(single_scenario_study_id)
 
     if study.der_simulation_count == study.expected_der_simulation_count:
         # all DERSimulation objects created, cache meter_intervalframe

@@ -1,6 +1,7 @@
 amqp==2.5.2
 appdirs==1.4.3
 appnope==0.1.0
+asgiref==3.2.7
 aspy.yaml==1.3.0
 attrs==19.3.0
 backcall==0.1.0
@@ -15,6 +16,8 @@ cached-property==1.5.1
 celery==4.4.0
 certifi==2019.11.28
 cfgv==3.1.0
+channels==2.4.0
+channels-redis==2.4.2
 chardet==3.0.4
 Click==7.0
 coreapi==2.3.3

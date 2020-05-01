@@ -35,6 +35,7 @@ except AttributeError:
 # Application definition
 
 INSTALLED_APPS = [
+    "channels",
     "django.contrib.admin",
     "django.contrib.admindocs",
     "django.contrib.auth",
@@ -59,6 +60,7 @@ INSTALLED_APPS = [
     "rest_framework_swagger",
     "storages",
     # apps
+    "ws",
     "beo_datastore",
     "cost",
     "cost.ghg.apps.GhgConfig",
@@ -301,3 +303,12 @@ if APP_ENV != "local":
             },
         },
     }
+
+# Channels
+ASGI_APPLICATION = "beo_datastore.routing.application"
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {"hosts": [("127.0.0.1", 6379)]},
+    },
+}
