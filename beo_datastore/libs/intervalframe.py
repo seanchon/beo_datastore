@@ -8,14 +8,15 @@ import pandas as pd
 from beo_datastore.libs.dataframe import (
     add_interval_dataframe,
     csv_url_to_dataframe,
+    downsample_dataframe,
     filter_dataframe_by_datetime,
     filter_dataframe_by_weekday,
     filter_dataframe_by_weekend,
     get_dataframe_period,
     merge_dataframe,
-    resample_dataframe,
     set_dataframe_index,
     read_csv,
+    upsample_dataframe,
 )
 
 
@@ -395,19 +396,44 @@ class ValidationIntervalFrame(ValidationDataFrame):
             dataframe=self.dataframe[self.dataframe.index.month.isin(months)]
         )
 
-    def resample_intervalframe(self, rule, aggfunc):
+    def downsample_intervalframe(self, target_period, aggfunc):
         """
-        Resamples ValidationIntervalFrame to a new period based on rule and
-        aggfunc, where rule is an offset alias (ex. "1min") and aggfunc is an
-        aggregation function (ex. np.mean).
+        Downsample a ValidationIntervalFrame to create an equivalent
+        ValidationIntervalFrame with intervals occuring on a less-frequent
+        basis.
 
-        :param rule: timeseries offset alias
-        :param aggfunc: aggregation function
+        :param target_period: timedelta object
+        :param aggfunc: aggregation function (ex. np.mean)
+        :return: pandas ValidationIntervalFrame
+        """
+        return self.__class__(
+            dataframe=downsample_dataframe(
+                dataframe=self.dataframe,
+                target_period=target_period,
+                aggfunc=aggfunc,
+            )
+        )
+
+    def upsample_intervalframe(self, target_period, method):
+        """
+        Upsample a ValidationIntervalFrame to create an equivalent
+        ValidationIntervalFrame with intervals occuring on a more-frequent
+        basis. The final interval is extrapolated forward.
+
+        Example:
+        This takes into consideration the final hour when upsampling 1-hour
+        intervals to 15-minute intervals in order to not lose the final 3
+        intervals.
+
+        :param target_period: timedelta object
+        :param method: None, ‘backfill’/’bfill’, ‘pad’/’ffill’, ‘nearest’
         :return: ValidationIntervalFrame
         """
         return self.__class__(
-            dataframe=resample_dataframe(
-                dataframe=self.dataframe, rule=rule, aggfunc=aggfunc
+            dataframe=upsample_dataframe(
+                dataframe=self.dataframe,
+                target_period=target_period,
+                method=method,
             )
         )
 
@@ -444,8 +470,10 @@ class ValidationIntervalFrame(ValidationDataFrame):
         dataframe = self.dataframe[[self.aggregation_column]].dropna()
 
         if convert_to_kwh:
-            dataframe = resample_dataframe(
-                dataframe=dataframe, rule=timedelta(hours=1), aggfunc=np.mean
+            dataframe = downsample_dataframe(
+                dataframe=dataframe,
+                target_period=timedelta(hours=1),
+                aggfunc=np.mean,
             )
 
         if not dataframe.empty:

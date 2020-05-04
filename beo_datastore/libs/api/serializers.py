@@ -105,7 +105,7 @@ class AbstractGetDataMixin(object):
             intervalframe = getattr(obj, self.intervalframe_name)
             intervalframe = intervalframe.filter_by_datetime(
                 start=start, end_limit=end_limit
-            ).resample_intervalframe(timedelta(hours=1), np.mean)
+            ).downsample_intervalframe(timedelta(hours=1), np.mean)
 
             if column and column not in intervalframe.dataframe.columns:
                 raise serializers.ValidationError(

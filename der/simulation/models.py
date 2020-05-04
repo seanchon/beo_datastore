@@ -538,7 +538,9 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
                 battery=battery,
                 start=start,
                 end_limit=end_limit,
-                meter_set=new_meters,
+                meter_dict={
+                    meter: meter.intervalframe for meter in new_meters
+                },
                 charge_schedule=charge_schedule.frame288,
                 discharge_schedule=discharge_schedule.frame288,
                 multiprocess=multiprocess,
