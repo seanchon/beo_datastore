@@ -22,29 +22,13 @@ class UUIDEncoder(json.JSONEncoder):
 
 class ScenarioUpdatesConsumer(AsyncJsonWebsocketConsumer):
     group_name = "scenario_update"
+    groups = [group_name]
 
     async def connect(self):
         """
         Joins the `scenario_update` channel group
         """
-        await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
-
-    async def disconnect(self, close_code):
-        """
-        Leaves the channel group
-        """
-        await self.channel_layer.group_discard(
-            self.group_name, self.channel_name
-        )
-
-    async def receive_json(self, content, **kwargs):
-        """
-        Callback when a message is received from the WebSocket.
-
-        :param content: the JSON-decoded payload
-        """
-        pass
 
     async def send_update(self, event):
         """
