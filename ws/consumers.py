@@ -1,6 +1,8 @@
 import json
 from uuid import UUID
+from asgiref.sync import async_to_sync
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from channels.layers import get_channel_layer
 
 from cost.serializers import StudySerializer
 from reference.reference_model.models import Study
@@ -44,7 +46,7 @@ class ScenarioUpdatesConsumer(AsyncJsonWebsocketConsumer):
         """
         pass
 
-    async def scenario_update(self, event):
+    async def send_update(self, event):
         """
         Callback when a message is sent to the group
 
@@ -70,3 +72,16 @@ class ScenarioUpdatesConsumer(AsyncJsonWebsocketConsumer):
         :return: string representation of the payload
         """
         return json.dumps(content, cls=UUIDEncoder)
+
+    @classmethod
+    def update_scenario(cls, scenario_id):
+        """
+        Sends a message to `ScenarioUpdatesConsumer`s, instructing them to
+        inform WebSocket clients of an update to a scenario
+
+        :param scenario_id: the ID of the scenario that has been updated
+        """
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            cls.group_name, {"type": "send_update", "id": str(scenario_id)}
+        )
