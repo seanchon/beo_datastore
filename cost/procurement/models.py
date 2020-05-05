@@ -5,7 +5,7 @@ from django.utils.functional import cached_property
 
 from beo_datastore.libs.controller import AggregateResourceAdequacyCalculation
 from beo_datastore.libs.intervalframe import ValidationFrame288
-from beo_datastore.libs.intervalframe_file import IntervalFrameFile
+from beo_datastore.libs.intervalframe_file import PowerIntervalFrameFile
 from beo_datastore.libs.models import ValidationModel, IntervalFrameFileMixin
 from beo_datastore.libs.plot_intervalframe import plot_frame288
 from beo_datastore.settings import MEDIA_ROOT
@@ -14,7 +14,7 @@ from beo_datastore.libs.views import dataframe_to_html
 from reference.reference_model.models import DERSimulation, LoadServingEntity
 
 
-class SystemProfileIntervalFrame(IntervalFrameFile):
+class SystemProfileIntervalFrame(PowerIntervalFrameFile):
     """
     Model for handling SystemProfile IntervalFrameFiles.
     """

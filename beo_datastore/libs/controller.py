@@ -14,7 +14,7 @@ from beo_datastore.libs.battery import (
 )
 from beo_datastore.libs.intervalframe import (
     ValidationFrame288,
-    ValidationIntervalFrame,
+    PowerIntervalFrame,
 )
 
 
@@ -32,7 +32,7 @@ class DERAggregateSimulation(object):
     def pre_DER_results(self):
         """
         Return a dictionary of key, value pairs where each key is a meter and
-        each value is a ValidationIntervalFrame before introducing a DER.
+        each value is a PowerIntervalFrame before introducing a DER.
         """
         raise NotImplementedError(
             "pre_DER_results must be set in {}".format(self.__class__)
@@ -42,7 +42,7 @@ class DERAggregateSimulation(object):
     def post_DER_results(self):
         """
         Return a dictionary of key, value pairs where each key is a meter and
-        each value is a ValidationIntervalFrame after introducing a DER.
+        each value is a PowerIntervalFrame after introducing a DER.
         """
         raise NotImplementedError(
             "post_DER_results must be set in {}".format(self.__class__)
@@ -51,7 +51,7 @@ class DERAggregateSimulation(object):
     @property
     def pre_der_intervalframe(self):
         """
-        Return a ValidationIntervalFrame that represents the aggregate interval
+        Return a PowerIntervalFrame that represents the aggregate interval
         readings before introducing a DER.
         """
         raise NotImplementedError(
@@ -61,7 +61,7 @@ class DERAggregateSimulation(object):
     @property
     def post_der_intervalframe(self):
         """
-        Return a ValidationIntervalFrame that represents the aggregate interval
+        Return a PowerIntervalFrame that represents the aggregate interval
         readings after introducing a DER.
         """
         raise NotImplementedError(
@@ -71,7 +71,7 @@ class DERAggregateSimulation(object):
     @property
     def net_intervalframe(self):
         """
-        Return a ValidationIntervalFrame that represents the aggregate changes
+        Return a PowerIntervalFrame that represents the aggregate changes
         between a pre-DER and post-DER scenario.
         """
         raise NotImplementedError(
@@ -138,7 +138,7 @@ class AggregateBatterySimulation(DERAggregateSimulation):
     def pre_DER_results(self):
         """
         Return a dictionary of key, value pairs where each key is a meter and
-        each value is a ValidationIntervalFrame after introducing a Battery.
+        each value is a PowerIntervalFrame after introducing a Battery.
         """
         return {
             meter: intervalframe
@@ -151,7 +151,7 @@ class AggregateBatterySimulation(DERAggregateSimulation):
     @property
     def post_DER_results(self):
         """
-        Return a ValidationIntervalFrame that represents the interval readings
+        Return a PowerIntervalFrame that represents the interval readings
         before introducing a Battery.
         """
         return {
@@ -165,25 +165,25 @@ class AggregateBatterySimulation(DERAggregateSimulation):
     @cached_property
     def pre_der_intervalframe(self):
         """
-        Return a single ValidationIntervalFrame represeting the aggregate
+        Return a single PowerIntervalFrame represeting the aggregate
         readings of all meter readings before a battery simulation.
         """
         return reduce(
             lambda x, y: x + y,
             [x.pre_intervalframe for x in self.battery_simulations],
-            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
+            PowerIntervalFrame(PowerIntervalFrame.default_dataframe),
         )
 
     @cached_property
     def post_der_intervalframe(self):
         """
-        Return a single ValidationIntervalFrame represeting the aggregate
+        Return a single PowerIntervalFrame represeting the aggregate
         readings of all meter reading after a battery simulation.
         """
         return reduce(
             lambda x, y: x + y,
             [x.post_intervalframe for x in self.battery_simulations],
-            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
+            PowerIntervalFrame(PowerIntervalFrame.default_dataframe),
         )
 
     @cached_property
@@ -201,11 +201,11 @@ class AggregateBatterySimulation(DERAggregateSimulation):
     @cached_property
     def net_intervalframe(self):
         """
-        Return a ValidationIntervalFrame that represents the changes between a
+        Return a PowerIntervalFrame that represents the changes between a
         pre-battery and post-battery scenario.
         """
         return (
-            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe)
+            PowerIntervalFrame(PowerIntervalFrame.default_dataframe)
             + self.aggregate_battery_intervalframe
         )
 
@@ -580,7 +580,7 @@ class AggregateResourceAdequacyCalculation(DERCostCalculation):
 
     agg_simulation = attr.ib(validator=instance_of(DERAggregateSimulation))
     system_profile_intervalframe = attr.ib(
-        validator=instance_of(ValidationIntervalFrame)
+        validator=instance_of(PowerIntervalFrame)
     )
 
     @cached_property
@@ -626,17 +626,15 @@ class AggregateResourceAdequacyCalculation(DERCostCalculation):
     @cached_property
     def post_DER_system_intervalframe(self):
         """
-        Add ValidationIntervalFrame consisting of net kW changes due to a DER.
-        The ValidationIntervalFrame index year will be changed so that the
-        SystemProfile dates align with ValidationIntervalFrame dates.
+        Add PowerIntervalFrame consisting of net kW changes due to a DER.
+        The PowerIntervalFrame index year will be changed so that the
+        SystemProfile dates align with PowerIntervalFrame dates.
         """
         intervalframe = self.agg_simulation.net_intervalframe
         if (
             intervalframe.end_limit_timestamp - intervalframe.start_timestamp
         ) > timedelta(days=366):
-            raise RuntimeError(
-                "ValidationIntervalFrame must be one year or less."
-            )
+            raise RuntimeError("PowerIntervalFrame must be one year or less.")
 
         # shift BatteryIntervalFrame year to align with SystemProfile
         updated_index = intervalframe.dataframe.index.map(

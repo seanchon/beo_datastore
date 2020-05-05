@@ -7,7 +7,7 @@ from functools import lru_cache
 from math import floor
 import pandas as pd
 
-from beo_datastore.libs.intervalframe import ValidationIntervalFrame
+from beo_datastore.libs.intervalframe import PowerIntervalFrame
 from beo_datastore.libs.utils import timedelta_to_hours
 
 
@@ -127,7 +127,7 @@ class Battery(object):
         return next_charge
 
 
-class BatteryIntervalFrame(ValidationIntervalFrame):
+class BatteryIntervalFrame(PowerIntervalFrame):
     """
     Base class for generating and storing battery operation intervals.
     """
@@ -187,7 +187,7 @@ class BatterySimulation(object):
     ):
         """
         :param battery: Battery
-        :param load_intervalframe: ValidationIntervalFrame
+        :param load_intervalframe: PowerIntervalFrame
         :param battery_intervalframe: BatteryIntervalFrame
         """
         self.cached_operations = []
@@ -203,14 +203,14 @@ class BatterySimulation(object):
     @property
     def pre_intervalframe(self):
         """
-        Return a ValidationIntervalFrame representing load before battery.
+        Return a PowerIntervalFrame representing load before battery.
         """
         return self.load_intervalframe
 
     @property
     def post_intervalframe(self):
         """
-        Return a ValidationIntervalFrame representing load after battery.
+        Return a PowerIntervalFrame representing load after battery.
         """
         return self.load_intervalframe + self.battery_intervalframe
 
@@ -456,7 +456,7 @@ class FixedScheduleBatterySimulation(BatterySimulation):
         self._commit_battery_operations() for speed.
 
         :param battery: Battery
-        :param load_intervalframe: ValidationIntervalFrame
+        :param load_intervalframe: PowerIntervalFrame
         :param charge_schedule: ValidationFrame288
         :param discharge_schedule: ValidationFrame288
         :param battery_intervalframe: BatteryIntervalFrame

@@ -124,7 +124,7 @@ class PeakShavingScheduleOptimizer(object):
         load.
 
         :param battery: Battery
-        :param load_intervalframe: ValidationIntervalFrame
+        :param load_intervalframe: PowerIntervalFrame
         :param month: integer
         :param charge_threshold: integer
         :param discharge_threshold: integer
@@ -170,7 +170,7 @@ class PeakShavingScheduleOptimizer(object):
         threshold for peak shaving.
 
         :param battery: Battery
-        :param load_intervalframe: ValidationIntervalFrame
+        :param load_intervalframe: PowerIntervalFrame
         :param month: integer
         :param charge_threshold: fixed level to charge below (int)
         :param number_of_checks: number of discharge thresholds to try (int)
@@ -234,7 +234,7 @@ class PeakShavingScheduleOptimizer(object):
         loads based on charging using meter energy exports only.
 
         :param battery: Battery
-        :param load_intervalframe: ValidationIntervalFrame
+        :param load_intervalframe: PowerIntervalFrame
         :param multiprocess: True to multiprocess
         :return: (charge schedule, discharge schedule)
             (ValidationFrame288, ValidationFrame288)
@@ -282,7 +282,7 @@ class PeakShavingScheduleOptimizer(object):
         loads based on charging using energy exports and grid energy.
 
         :param battery: Battery
-        :param load_intervalframe: ValidationIntervalFrame
+        :param load_intervalframe: PowerIntervalFrame
         :param multiprocess: True to multiprocess
         :param verbose: if True, print optimization steps
         :return: (charge schedule, discharge schedule)

@@ -92,7 +92,7 @@ def stack_dataframe(dataframe):
 
 def reformat_item_17(dataframe):
     """
-    Return a dataframe in ValidationIntervalFrame format.
+    Return a dataframe in PowerIntervalFrame format.
 
     :param dataframe: pandas DataFrame
     :return: dict

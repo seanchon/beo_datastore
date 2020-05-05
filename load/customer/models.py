@@ -11,10 +11,10 @@ from django.db.models import Count
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.clustering import KMeansLoadClustering
-from beo_datastore.libs.intervalframe import ValidationIntervalFrame
+from beo_datastore.libs.intervalframe import PowerIntervalFrame
 from beo_datastore.libs.intervalframe_file import (
     Frame288File,
-    IntervalFrameFile,
+    PowerIntervalFrameFile,
 )
 from beo_datastore.libs.models import (
     ValidationModel,
@@ -34,7 +34,7 @@ from reference.reference_model.models import DataUnit, Meter, MeterGroup
 from reference.auth_user.models import LoadServingEntity
 
 
-class OriginFileIntervalFrame(IntervalFrameFile):
+class OriginFileIntervalFrame(PowerIntervalFrameFile):
     """
     Model for handling OriginFile IntervalFrameFiles, which have timestamps and
     values.
@@ -329,7 +329,7 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         Return meter dataframe from database where SA ID in sa_ids.
 
         :param sa_id: SA ID
-        :param stack: if True, reformat in ValidationIntervalFrame format
+        :param stack: if True, reformat in PowerIntervalFrame format
         :return: (forward channel dataframe, reverse channel dataframe)
         """
         if sa_ids:
@@ -460,12 +460,12 @@ class CustomerMeter(Meter):
         """
         Return the sum of the import and export channel intervalframes.
 
-        :return: ValidationIntervalFrame
+        :return: PowerIntervalFrame
         """
         return reduce(
             lambda a, b: a + b,
             [x.intervalframe for x in self.channels.all()],
-            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
+            PowerIntervalFrame(PowerIntervalFrame.default_dataframe),
         )
 
     @property
@@ -503,8 +503,8 @@ class CustomerMeter(Meter):
         :param multiple_rate_plans: bool
         """
         # get dataframe hash values
-        import_hash = ValidationIntervalFrame(dataframe=forward_df).__hash__()
-        export_hash = ValidationIntervalFrame(dataframe=reverse_df).__hash__()
+        import_hash = PowerIntervalFrame(dataframe=forward_df).__hash__()
+        export_hash = PowerIntervalFrame(dataframe=reverse_df).__hash__()
 
         with transaction.atomic():
             meter, created = CustomerMeter.objects.get_or_create(
@@ -544,11 +544,11 @@ class CustomerMeter(Meter):
                 export=export,
                 data_unit=DataUnit.objects.get(name=data_unit_name),
                 meter=self,
-                dataframe=ValidationIntervalFrame.default_dataframe,
+                dataframe=PowerIntervalFrame.default_dataframe,
             )
 
 
-class ChannelIntervalFrame(IntervalFrameFile):
+class ChannelIntervalFrame(PowerIntervalFrameFile):
     """
     Model for handling Channel IntervalFrameFiles, which have timestamps and
     values.
@@ -763,7 +763,7 @@ class ClusterClassifier(Frame288FileMixin, ValidationModel):
         ordering = ["id"]
 
 
-class CustomerClusterIntervalFrame(IntervalFrameFile):
+class CustomerClusterIntervalFrame(PowerIntervalFrameFile):
     """
     Model for handling CustomerCluster IntervalFrameFiles, which is an
     aggregate of all Meter objects contained within.

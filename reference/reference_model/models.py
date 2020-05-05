@@ -201,7 +201,7 @@ class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
     @property
     def meter_intervalframe(self):
         """
-        Return ValidationIntervalFrame related to a group of buildings' load.
+        Return PowerIntervalFrame related to a group of buildings' load.
         """
         raise NotImplementedError(
             "meter_intervalframe must be set in {}".format(self.__class__)
@@ -235,7 +235,7 @@ class Meter(PolymorphicValidationModel, MeterDataMixin):
     @property
     def meter_intervalframe(self):
         """
-        Return ValidationIntervalFrame related to a building's load.
+        Return PowerIntervalFrame related to a building's load.
         """
         raise NotImplementedError(
             "meter_intervalframe must be set in {}".format(self.__class__)
@@ -368,14 +368,14 @@ class DERSimulation(Meter):
     @cached_property
     def pre_der_intervalframe(self):
         """
-        ValidationIntervalFrame before running a DERSimulation.
+        PowerIntervalFrame before running a DERSimulation.
         """
         return self.meter.meter_intervalframe
 
     @property
     def der_intervalframe(self):
         """
-        ValidationIntervalFrame related to a DER's impact to a building's load.
+        PowerIntervalFrame related to a DER's impact to a building's load.
         The original building's load plus the der_intervalframe would yield the
         post_der_intervalframe a.k.a. meter_intervalframe.
         """
@@ -393,7 +393,7 @@ class DERSimulation(Meter):
     @cached_property
     def post_der_intervalframe(self):
         """
-        ValidationIntervalFrame after running a DERSimulation.
+        PowerIntervalFrame after running a DERSimulation.
         """
         return (
             self.meter.intervalframe.filter_by_datetime(
@@ -405,7 +405,7 @@ class DERSimulation(Meter):
     @cached_property
     def meter_intervalframe(self):
         """
-        ValidationIntervalFrame representing building load after DER has been
+        PowerIntervalFrame representing building load after DER has been
         introduced.
         """
         return self.post_der_intervalframe
@@ -430,7 +430,7 @@ class Study(PolymorphicValidationModel, MeterDataMixin):
     @property
     def meter_intervalframe(self):
         """
-        ValidationIntervalFrame representing buildings' load after DER has been
+        PowerIntervalFrame representing buildings' load after DER has been
         introduced.
         """
         raise NotImplementedError(
@@ -440,7 +440,7 @@ class Study(PolymorphicValidationModel, MeterDataMixin):
     @property
     def pre_der_intervalframe(self):
         """
-        ValidationIntervalFrame representing aggregate readings of all meters
+        PowerIntervalFrame representing aggregate readings of all meters
         before running DER simulations.
         """
         raise NotImplementedError(
@@ -450,7 +450,7 @@ class Study(PolymorphicValidationModel, MeterDataMixin):
     @property
     def der_intervalframe(self):
         """
-        ValidationIntervalFrame representing aggregate readings of all DER
+        PowerIntervalFrame representing aggregate readings of all DER
         operations.
         """
         raise NotImplementedError(
@@ -460,7 +460,7 @@ class Study(PolymorphicValidationModel, MeterDataMixin):
     @property
     def post_der_intervalframe(self):
         """
-        ValidationIntervalFrame representing aggregate readings of all meters
+        PowerIntervalFrame representing aggregate readings of all meters
         after running DER simulations.
         """
         raise NotImplementedError(
