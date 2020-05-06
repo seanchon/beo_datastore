@@ -2,7 +2,6 @@ from distutils.util import strtobool
 
 import coreapi
 from rest_framework import serializers, status
-from rest_framework.exceptions import UnsupportedMediaType
 from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
 
@@ -31,19 +30,6 @@ from .serializers import (
     MeterGroupSerializer,
     OriginFileSerializer,
 )
-
-
-CSV_MIME_TYPES = [
-    "text/plain",
-    "text/x-csv",
-    "application/vnd.ms-excel",
-    "application/csv",
-    "application/x-csv",
-    "text/csv",
-    "text/comma-separated-values",
-    "text/x-comma-separated-values",
-    "text/tab-separated-values",
-]
 
 
 class OriginFileViewSet(CreateViewSet):
@@ -96,22 +82,19 @@ class OriginFileViewSet(CreateViewSet):
                 "User must be associated with LoadServingEntity or User must "
                 "staff or superuser and LoadServingEntity id must be provided."
             )
-        # TODO: add additional file validation
 
-        if file.content_type in CSV_MIME_TYPES:
-            origin_file, _ = OriginFile.get_or_create(
-                file=file,
-                name=name,
-                load_serving_entity=load_serving_entity,
-                owner=request.user,
-            )
-            ingest_origin_file_meters.delay(origin_file.id, overwrite=True)
-            return Response(
-                MeterGroupSerializer(origin_file, many=False).data,
-                status=status.HTTP_201_CREATED,
-            )
-        else:
-            raise UnsupportedMediaType("Upload must be a .csv file.")
+        # TODO: add additional file validation
+        origin_file, _ = OriginFile.get_or_create(
+            file=file,
+            name=name,
+            load_serving_entity=load_serving_entity,
+            owner=request.user,
+        )
+        ingest_origin_file_meters.delay(origin_file.id, overwrite=True)
+        return Response(
+            MeterGroupSerializer(origin_file, many=False).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class CustomerClusterViewSet(CreateViewSet):
