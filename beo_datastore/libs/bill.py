@@ -9,7 +9,7 @@ from beo_datastore.libs.dataframe import get_unique_values
 from beo_datastore.libs.intervalframe import (
     ValidationDataFrame,
     ValidationFrame288,
-    ValidationIntervalFrame,
+    PowerIntervalFrame,
 )
 from beo_datastore.libs.units import DataUnitEnum, RateUnitEnum
 
@@ -325,7 +325,7 @@ class ValidationBill(ValidationDataFrame):
         ]
     )
 
-    intervalframe = attr.ib(validator=instance_of(ValidationIntervalFrame))
+    intervalframe = attr.ib(validator=instance_of(PowerIntervalFrame))
     openei_rate_data = attr.ib(validator=instance_of(OpenEIRateData))
 
     @intervalframe.validator
@@ -513,7 +513,7 @@ class ValidationBill(ValidationDataFrame):
         """
         Return energy counts (kWh) based off of a tou_key.
 
-        :param intervalframe: ValidationIntervalFrame
+        :param intervalframe: PowerIntervalFrame
         :param weekday_schedule: ValidationFrame288
         :param weekend_schedule: ValidationFrame288
         :param tou_key: int
@@ -719,7 +719,7 @@ class ValidationBill(ValidationDataFrame):
         """
         Return flat-demand peak power (kW) based off of a tou_key.
 
-        :param intervalframe: ValidationIntervalFrame
+        :param intervalframe: PowerIntervalFrame
         :param schedule: array of ints
         :param tou_key: int
         :return: float
@@ -864,12 +864,12 @@ class BillingCollection(object):
     @property
     def intervalframe(self):
         """
-        Return ValidationIntervalFrame representing all bills.
+        Return PowerIntervalFrame representing meter readings from all bills.
         """
         return reduce(
             lambda x, y: x.merge_intervalframe(y),
             [x.intervalframe for x in self.bills],
-            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
+            PowerIntervalFrame(PowerIntervalFrame.default_dataframe),
         )
 
     @property

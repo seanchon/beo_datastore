@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 
 from beo_datastore.celery import app
 from beo_datastore.libs.ingest import reformat_item_17
-from beo_datastore.libs.intervalframe import ValidationIntervalFrame
+from beo_datastore.libs.intervalframe import PowerIntervalFrame
 from beo_datastore.libs.utils import chunks
 
 from load.customer.models import CustomerMeter, CustomerPopulation, OriginFile
@@ -141,9 +141,7 @@ def aggregate_meter_group_intervalframes(meter_group_id, in_db=True):
         meter_group.intervalframe = reduce(
             lambda x, y: x + y,
             [x.intervalframe for x in meter_group.meters.all()],
-            ValidationIntervalFrame(
-                dataframe=ValidationIntervalFrame.default_dataframe
-            ),
+            PowerIntervalFrame(dataframe=PowerIntervalFrame.default_dataframe),
         )
     meter_group.save()
 

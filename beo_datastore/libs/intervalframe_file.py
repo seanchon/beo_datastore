@@ -7,7 +7,7 @@ from beo_datastore.libs.dataframe import convert_columns_type, read_parquet
 from beo_datastore.libs.intervalframe import (
     ValidationDataFrame,
     ValidationFrame288,
-    ValidationIntervalFrame,
+    PowerIntervalFrame,
 )
 from beo_datastore.libs.utils import mkdir_p
 
@@ -92,7 +92,7 @@ class DataFrameFile(ValidationDataFrame):
         """
         Return DataFrameFile based on reference_object.id if it exists.
 
-        :param reference_object: reference object IntervalFrameFile belongs to
+        :param reference_object: reference object PowerIntervalFrameFile belongs to
         :param file_path: location of parquet file
         :return: cls instance
         """
@@ -111,9 +111,9 @@ class DataFrameFile(ValidationDataFrame):
             )
 
 
-class IntervalFrameFile(ValidationIntervalFrame, DataFrameFile):
+class PowerIntervalFrameFile(PowerIntervalFrame, DataFrameFile):
     """
-    Combines a ValidationIntervalFrame with file-handling capabilities of a
+    Combines a PowerIntervalFrame with file-handling capabilities of a
     DataFrameFile.
     """
 
@@ -122,7 +122,7 @@ class IntervalFrameFile(ValidationIntervalFrame, DataFrameFile):
 
 class Frame288File(ValidationFrame288, DataFrameFile):
     """
-    Combines a ValidationIntervalFrame with file-handling capabilities of a
+    Combines a PowerIntervalFrame with file-handling capabilities of a
     DataFrameFile.
     """
 
@@ -143,7 +143,7 @@ class Frame288File(ValidationFrame288, DataFrameFile):
         Return Frame288File based on reference_object.id if it exists. Convert
         columns to Int64 on get_frame_from_file().
 
-        :param reference_object: reference object IntervalFrameFile belongs to
+        :param reference_object: reference object PowerIntervalFrameFile belongs to
         :param file_path: location of parquet file
         :return: pandas Frame288File
         """

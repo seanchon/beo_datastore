@@ -60,7 +60,7 @@ class ValidationDataFrame(object):
     def default_dataframe(self):
         """
         Set as an attribute in child class to default pandas DataFrame. The
-        following example is the default for an IntervalFrameFile:
+        following example is the default for an PowerIntervalFrameFile:
 
         ex.
             default_dataframe = pd.DataFrame(
@@ -116,23 +116,44 @@ class ValidationDataFrame(object):
 
 class ValidationIntervalFrame(ValidationDataFrame):
     """
-    Container class for pandas DataFrames with the following format:
+    Container class for pandas DataFrame. Validations are made to ensure that
+    columns and index type match the default_dataframe.
 
-    DatetimeIndex   |   kw      |
-    datetime        |   float   |
+    The following must be set in child classes:
+    -   default_dataframe defining the structure of a dataframe.
+    -   default_aggregation_column defining the default column used for
+        aggregation calculations (i.e. 288 transforms).
 
-    The following attributes can be modified for additional use cases:
-    -   default_dataframe can be updated to reflect a different default
-        DataFrame structure.
+    The following attributes can be modified in an instance/object:
     -   aggregation_column can be updated to compute 288 summary tables on a
-        different column.
+        different column than the default_aggregation_column.
     """
 
-    # returns this blank dataframe if parquet file does not exist
-    default_dataframe = pd.DataFrame(columns=["kw"], index=pd.to_datetime([]))
+    @property
+    def default_dataframe(self):
+        """
+        Return this blank dataframe if parquet file does not exist.
 
-    # default column used for aggregation calculations, can be overwritten
-    default_aggregation_column = "kw"
+        Ex.
+            default_dataframe = pd.DataFrame(
+                columns=["kw"],
+                index=pd.to_datetime([])
+            )
+        """
+        raise NotImplementedError(
+            "default_dataframe must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def default_aggregation_column(self):
+        """
+        Default column used for aggregation calculations. Can be overwritten.
+        """
+        raise NotImplementedError(
+            "default_aggregation_column must be set in {}".format(
+                self.__class__
+            )
+        )
 
     def __add__(self, other):
         """
@@ -185,113 +206,77 @@ class ValidationIntervalFrame(ValidationDataFrame):
     @property
     def start_timestamp(self):
         """
-        Return earliest index value as pandas Timestamp.
+        Earliest index value as pandas Timestamp.
         """
         return self.dataframe.index.min()
 
     @property
     def start_datetime(self):
         """
-        Return earliest index value as datetime object.
+        Earliest index value as datetime object.
         """
         return self.start_timestamp.to_pydatetime()
 
     @property
     def end_timestamp(self):
         """
-        Return latest index value as pandas Timestamp.
+        Latest index value as pandas Timestamp.
         """
         return self.dataframe.index.max()
 
     @property
     def end_datetime(self):
         """
-        Return latest timestamp as datetime object.
+        Latest timestamp as datetime object.
         """
         return self.end_timestamp.to_pydatetime()
 
     @property
     def end_limit_timestamp(self):
         """
-        Return latest index value plus period as pandas Timestamp.
+        Latest index value plus period as pandas Timestamp.
         """
         return self.end_timestamp + self.period
 
     @property
     def end_limit_datetime(self):
         """
-        Return latest index value plus period as datetime object.
+        Latest index value plus period as datetime object.
         """
         return self.end_datetime + self.period
 
     @cached_property
     def period(self):
         """
-        Return the dataframe period as a datetime.timedelta object.
+        The dataframe period as a datetime.timedelta object.
         """
         return get_dataframe_period(self.dataframe)
 
     @property
     def days(self):
         """
-        Return the number of days in the ValidationIntervalFrame that have
-        interval data.
+        The number of days in the ValidationIntervalFrame that have interval
+        data.
         """
         return len(self.distinct_dates)
 
     @property
     def distinct_dates(self):
         """
-        Return a pandas Index of distinct dates within this
-        ValidationIntervalFrame.
+        pandas Index of distinct dates within this ValidationIntervalFrame.
         """
         return self.dataframe.index.map(pd.Timestamp.date).unique()
 
     @property
     def distinct_month_years(self):
         """
-        Return a list of distinct (month, year) tuples within this
+        List of distinct (month, year) tuples within this
         ValidationIntervalFrame.
         """
         return [
             (int(x.split("/")[0]), int(x.split("/")[1]))
             for x in np.unique(self.dataframe.index.strftime("%m/%Y")).tolist()
         ]
-
-    @cached_property
-    def average_frame288(self):
-        """
-        Return a ValidationFrame288 of hourly average values in kWh.
-        """
-        return self.compute_frame288(aggfunc=np.mean, convert_to_kwh=True)
-
-    @cached_property
-    def minimum_frame288(self):
-        """
-        Return a ValidationFrame288 of hourly minimum values in kW.
-        """
-        return self.compute_frame288(aggfunc=np.min)
-
-    @cached_property
-    def maximum_frame288(self):
-        """
-        Return a ValidationFrame288 of hourly maximum values in kW.
-        """
-        return self.compute_frame288(aggfunc=np.max)
-
-    @cached_property
-    def total_frame288(self):
-        """
-        Return a ValidationFrame288 of hourly totals in kWh.
-        """
-        return self.compute_frame288(aggfunc=sum, convert_to_kwh=True)
-
-    @cached_property
-    def count_frame288(self):
-        """
-        Return a ValidationFrame288 of counts.
-        """
-        return self.compute_frame288(aggfunc=len)
 
     @classmethod
     def csv_file_to_intervalframe(
@@ -303,9 +288,10 @@ class ValidationIntervalFrame(ValidationDataFrame):
         **kwargs
     ):
         """
-        Reads a csv from file and returns an IntervalFrameFile.
+        Reads a csv from file and returns an ValidationIntervalFrame.
 
-        :param reference_object: reference object IntervalFrameFile belongs to
+        :param reference_object: reference object ValidationIntervalFrame
+            belongs to
         :param csv_location: path of csv file
         :param index_column: column to use as index
         :param convert_to_datetime: convert index_column to datetime if True
@@ -329,9 +315,10 @@ class ValidationIntervalFrame(ValidationDataFrame):
         **kwargs
     ):
         """
-        Reads a csv from a url and returns an IntervalFrameFile.
+        Reads a csv from a url and returns an ValidationIntervalFrame.
 
-        :param reference_object: reference object IntervalFrameFile belongs to
+        :param reference_object: reference object ValidationIntervalFrame
+            belongs to
         :param csv_url: url of csv
         :param index_column: column to use as index
         :param convert_to_datetime: convert index_column to datetime if True
@@ -351,7 +338,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         overwrite_rows is True, rows in other_dataframe will overwrite any
         existing rows with colliding indices.
 
-        :param other: IntervalSetFrame object
+        :param other: ValidationIntervalFrame object
         :param overwrite_rows: boolean
         """
         return self.__class__(
@@ -489,6 +476,120 @@ class ValidationIntervalFrame(ValidationDataFrame):
             if isinstance(v, ValidationFrame288)
         ]:
             self.__dict__.pop(key, None)
+
+
+class PowerIntervalFrame(ValidationIntervalFrame):
+    """
+    Container class for pandas DataFrames with the following format:
+
+    DatetimeIndex   |   kw      |
+    datetime        |   float   |
+    """
+
+    default_dataframe = pd.DataFrame(columns=["kw"], index=pd.to_datetime([]))
+    default_aggregation_column = "kw"
+
+    @cached_property
+    def energy_intervalframe(self):
+        """
+        Equivalent EnergyIntervalFrame.
+        """
+        dataframe = self.dataframe.copy()
+        dataframe["kwh"] = dataframe["kw"] * (self.period / timedelta(0, 3600))
+
+        return EnergyIntervalFrame(dataframe=dataframe[["kwh"]])
+
+    @cached_property
+    def average_frame288(self):
+        """
+        ValidationFrame288 of hourly average values in kWh.
+        """
+        return self.compute_frame288(aggfunc=np.mean, convert_to_kwh=True)
+
+    @cached_property
+    def minimum_frame288(self):
+        """
+        ValidationFrame288 of hourly minimum values in kW.
+        """
+        return self.compute_frame288(aggfunc=np.min)
+
+    @cached_property
+    def maximum_frame288(self):
+        """
+        ValidationFrame288 of hourly maximum values in kW.
+        """
+        return self.compute_frame288(aggfunc=np.max)
+
+    @cached_property
+    def total_frame288(self):
+        """
+        ValidationFrame288 of hourly totals in kWh.
+        """
+        return self.compute_frame288(aggfunc=sum, convert_to_kwh=True)
+
+    @cached_property
+    def count_frame288(self):
+        """
+        ValidationFrame288 of counts.
+        """
+        return self.compute_frame288(aggfunc=len)
+
+
+class EnergyIntervalFrame(ValidationIntervalFrame):
+    """
+    Container class for pandas DataFrames with the following format:
+
+    DatetimeIndex   |   kwh     |
+    datetime        |   float   |
+    """
+
+    default_dataframe = pd.DataFrame(columns=["kwh"], index=pd.to_datetime([]))
+    default_aggregation_column = "kwh"
+
+    @cached_property
+    def power_intervalframe(self):
+        """
+        Equivalent PowerIntervalFrame.
+        """
+        dataframe = self.dataframe.copy()
+        dataframe["kw"] = dataframe["kwh"] * (timedelta(0, 3600) / self.period)
+
+        return PowerIntervalFrame(dataframe=dataframe[["kw"]])
+
+    @cached_property
+    def average_frame288(self):
+        """
+        ValidationFrame288 of hourly average values in kWh.
+        """
+        return self.power_intervalframe.average_frame288
+
+    @cached_property
+    def minimum_frame288(self):
+        """
+        ValidationFrame288 of hourly minimum values in kW.
+        """
+        return self.power_intervalframe.minimum_frame288
+
+    @cached_property
+    def maximum_frame288(self):
+        """
+        ValidationFrame288 of hourly maximum values in kW.
+        """
+        return self.power_intervalframe.maximum_frame288
+
+    @cached_property
+    def total_frame288(self):
+        """
+        ValidationFrame288 of hourly totals in kWh.
+        """
+        return self.power_intervalframe.total_frame288
+
+    @cached_property
+    def count_frame288(self):
+        """
+        ValidationFrame288 of counts.
+        """
+        return self.power_intervalframe.count_frame288
 
 
 class ValidationFrame288(ValidationDataFrame):

@@ -10,15 +10,15 @@ from django.db import models
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.dataframe import csv_url_to_dataframe
-from beo_datastore.libs.intervalframe import ValidationIntervalFrame
-from beo_datastore.libs.intervalframe_file import IntervalFrameFile
+from beo_datastore.libs.intervalframe import PowerIntervalFrame
+from beo_datastore.libs.intervalframe_file import PowerIntervalFrameFile
 from beo_datastore.libs.models import IntervalFrameFileMixin
 from beo_datastore.settings import MEDIA_ROOT
 
 from reference.reference_model.models import BuildingType, DataUnit, Meter
 
 
-class ReferenceMeterIntervalFrame(IntervalFrameFile):
+class ReferenceMeterIntervalFrame(PowerIntervalFrameFile):
     """
     Model for handling ReferenceMeter IntervalFrameFiles, which have
     timestamps with ambiguous year as well as multiple columns representing
@@ -118,7 +118,7 @@ class ReferenceMeter(IntervalFrameFileMixin, Meter):
     @cached_property
     def source_file_intervalframe(self):
         """
-        Creates IntervalFrameFile from csv_url.
+        Creates PowerIntervalFrameFile from csv_url.
         """
         dataframe = csv_url_to_dataframe(self.source_file_url)
 
@@ -137,7 +137,7 @@ class ReferenceMeter(IntervalFrameFileMixin, Meter):
     @cached_property
     def intervalframe_from_file(self):
         """
-        Creates IntervalFrameFile from local parquet copy.
+        Creates PowerIntervalFrameFile from local parquet copy.
         """
         return ReferenceMeterIntervalFrame.get_frame_from_file(
             reference_object=self
@@ -146,7 +146,7 @@ class ReferenceMeter(IntervalFrameFileMixin, Meter):
     @property
     def full_intervalframe(self):
         """
-        Return IntervalFrameFile sourced from the source_file_url or cached
+        Return PowerIntervalFrameFile sourced from the source_file_url or cached
         locally. If sourced from source_file_url, performs save() to disk.
         """
         if not hasattr(self, "_intervalframe"):
@@ -165,10 +165,10 @@ class ReferenceMeter(IntervalFrameFileMixin, Meter):
     @property
     def intervalframe(self):
         """
-        Return ValidationIntervalFrame using self.full_intervalframe using the
+        Return PowerIntervalFrame using self.full_intervalframe using the
         column representing building total usage.
         """
-        return ValidationIntervalFrame(
+        return PowerIntervalFrame(
             self.full_intervalframe.dataframe[
                 [self.full_intervalframe.aggregation_column]
             ].rename(

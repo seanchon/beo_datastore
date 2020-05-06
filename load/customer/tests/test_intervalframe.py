@@ -7,8 +7,10 @@ from beo_datastore.libs.fixtures import (
     flush_intervalframe_files,
     load_intervalframe_files,
 )
-from beo_datastore.libs.intervalframe import ValidationIntervalFrame
-
+from beo_datastore.libs.intervalframe import (
+    EnergyIntervalFrame,
+    PowerIntervalFrame,
+)
 from load.customer.models import Channel
 
 
@@ -36,7 +38,7 @@ class TestDataFrameFile(TestCase):
 
     def test_read_intervalframe(self):
         """
-        Test read IntervalFrameFile from file.
+        Test read PowerIntervalFrameFile from file.
         """
         channel = Channel.objects.first()
         self.assertTrue(channel.intervalframe)
@@ -44,7 +46,7 @@ class TestDataFrameFile(TestCase):
 
     def test_udpate_intervalframe(self):
         """
-        Test read IntervalFrameFile from file.
+        Test read PowerIntervalFrameFile from file.
         """
         channel_1 = Channel.objects.get(id=1)
         channel_2 = Channel.objects.get(id=2)
@@ -63,7 +65,7 @@ class TestDataFrameFile(TestCase):
 
     def test_delete_288_frame(self):
         """
-        Test the creation of default 288 frames after IntervalFrameFile is
+        Test the creation of default 288 frames after PowerIntervalFrameFile is
         deleted.
         """
         channel = Channel.objects.first()
@@ -76,11 +78,17 @@ class TestDataFrameFile(TestCase):
 class Test288Computation(TestCase):
     def setUp(self):
         """
-        Create the following two ValidationIntervalFrames for 2000/01/01:
+        Create four ValidationIntervalFrames representing the same readings.
+
+        Create the following two PowerIntervalFrames for 2000/01/01:
             - 1-hour intervals: 1kW constant
             - 15-minute intervals: 1kW constant
+
+        Create the following two EnergyIntervalFrames for 2000/01/01:
+            - 1-hour intervals: 1kWh constant
+            - 15-minute intervals: 0.25kWh constant
         """
-        dataframe_60 = pd.DataFrame(
+        power_60 = pd.DataFrame(
             1,
             columns=["kw"],
             index=pd.date_range(
@@ -89,9 +97,9 @@ class Test288Computation(TestCase):
                 freq="1H",
             ),
         )
-        self.intervalframe_60 = ValidationIntervalFrame(dataframe_60)
+        self.power_60 = PowerIntervalFrame(power_60)
 
-        dataframe_15 = pd.DataFrame(
+        power_15 = pd.DataFrame(
             1,
             columns=["kw"],
             index=pd.date_range(
@@ -100,59 +108,83 @@ class Test288Computation(TestCase):
                 freq="15min",
             ),
         )
-        self.intervalframe_15 = ValidationIntervalFrame(dataframe_15)
+        self.power_15 = PowerIntervalFrame(power_15)
+
+        energy_60 = pd.DataFrame(
+            1,
+            columns=["kwh"],
+            index=pd.date_range(
+                start=datetime(2000, 1, 1),
+                end=datetime(2000, 1, 1, 23),
+                freq="1H",
+            ),
+        )
+        self.energy_60 = EnergyIntervalFrame(energy_60)
+
+        energy_15 = pd.DataFrame(
+            0.25,
+            columns=["kwh"],
+            index=pd.date_range(
+                start=datetime(2000, 1, 1),
+                end=datetime(2000, 1, 1, 23, 59),
+                freq="15min",
+            ),
+        )
+        self.energy_15 = EnergyIntervalFrame(energy_15)
 
     def test_average_frame288(self):
         """
-        Test the average value is 1kWh at every hour in January.
+        Test the average value is 1kW at every hour in January.
         """
+        self.assertEqual({1}, set(self.power_60.average_frame288.dataframe[1]))
+        self.assertEqual({1}, set(self.power_15.average_frame288.dataframe[1]))
         self.assertEqual(
-            {1}, set(self.intervalframe_60.average_frame288.dataframe[1])
+            {1}, set(self.energy_60.average_frame288.dataframe[1])
         )
         self.assertEqual(
-            {1}, set(self.intervalframe_15.average_frame288.dataframe[1])
+            {1}, set(self.energy_15.average_frame288.dataframe[1])
         )
 
     def test_minimum_frame288(self):
         """
         Test the minimum value is 1kW at every hour in January.
         """
+        self.assertEqual({1}, set(self.power_60.minimum_frame288.dataframe[1]))
+        self.assertEqual({1}, set(self.power_15.minimum_frame288.dataframe[1]))
         self.assertEqual(
-            {1}, set(self.intervalframe_60.minimum_frame288.dataframe[1])
+            {1}, set(self.energy_60.minimum_frame288.dataframe[1])
         )
         self.assertEqual(
-            {1}, set(self.intervalframe_15.minimum_frame288.dataframe[1])
+            {1}, set(self.energy_15.minimum_frame288.dataframe[1])
         )
 
     def test_maximum_frame288(self):
         """
         Test the maximum value is 1kW at every hour in January.
         """
+        self.assertEqual({1}, set(self.power_60.maximum_frame288.dataframe[1]))
+        self.assertEqual({1}, set(self.power_15.maximum_frame288.dataframe[1]))
         self.assertEqual(
-            {1}, set(self.intervalframe_60.maximum_frame288.dataframe[1])
+            {1}, set(self.energy_60.maximum_frame288.dataframe[1])
         )
         self.assertEqual(
-            {1}, set(self.intervalframe_15.maximum_frame288.dataframe[1])
+            {1}, set(self.energy_15.maximum_frame288.dataframe[1])
         )
 
     def test_total_frame288(self):
         """
         Test the total value is 1kWh at every hour in January.
         """
-        self.assertEqual(
-            {1}, set(self.intervalframe_60.total_frame288.dataframe[1])
-        )
-        self.assertEqual(
-            {1}, set(self.intervalframe_15.total_frame288.dataframe[1])
-        )
+        self.assertEqual({1}, set(self.power_60.total_frame288.dataframe[1]))
+        self.assertEqual({1}, set(self.power_15.total_frame288.dataframe[1]))
+        self.assertEqual({1}, set(self.energy_60.total_frame288.dataframe[1]))
+        self.assertEqual({1}, set(self.energy_15.total_frame288.dataframe[1]))
 
     def test_count_frame288(self):
         """
         Test count at every hour in January is correct.
         """
-        self.assertEqual(
-            {1}, set(self.intervalframe_60.count_frame288.dataframe[1])
-        )
-        self.assertEqual(
-            {4}, set(self.intervalframe_15.count_frame288.dataframe[1])
-        )
+        self.assertEqual({1}, set(self.power_60.count_frame288.dataframe[1]))
+        self.assertEqual({4}, set(self.power_15.count_frame288.dataframe[1]))
+        self.assertEqual({1}, set(self.energy_60.count_frame288.dataframe[1]))
+        self.assertEqual({4}, set(self.energy_15.count_frame288.dataframe[1]))

@@ -8,8 +8,8 @@ from django.db import models
 from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
 
-from beo_datastore.libs.intervalframe import ValidationIntervalFrame
-from beo_datastore.libs.intervalframe_file import IntervalFrameFile
+from beo_datastore.libs.intervalframe import PowerIntervalFrame
+from beo_datastore.libs.intervalframe_file import PowerIntervalFrameFile
 from beo_datastore.libs.models import IntervalFrameFileMixin
 from beo_datastore.libs.views import dataframe_to_html
 from beo_datastore.settings import MEDIA_ROOT
@@ -34,7 +34,7 @@ from reference.reference_model.models import (
 from reference.auth_user.models import LoadServingEntity
 
 
-class StudyIntervalFrame(IntervalFrameFile):
+class StudyIntervalFrame(PowerIntervalFrameFile):
     """
     Model for handling Study IntervalFrameFiles, which have timestamps and
     values.
@@ -127,7 +127,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
     @property
     def meter_intervalframe(self):
         """
-        Cached ValidationIntervalFrame representing entire self.meter_group
+        Cached PowerIntervalFrame representing entire self.meter_group
         buildings' load after running many DERSimulations.
         """
         return self.intervalframe
@@ -135,7 +135,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
     @property
     def pre_der_intervalframe(self):
         """
-        Dynamically calculated ValidationIntervalFrame representing aggregate
+        Dynamically calculated PowerIntervalFrame representing aggregate
         readings of all attached Meters before running DER simulations.
 
         NOTE: Use self.meter_group.meter_intervalframe to get the
@@ -144,13 +144,13 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         return reduce(
             lambda x, y: x + y,
             [x.meter_intervalframe for x in self.meters.all()],
-            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
+            PowerIntervalFrame(PowerIntervalFrame.default_dataframe),
         )
 
     @property
     def der_intervalframe(self):
         """
-        Dynamically calculated ValidationIntervalFrame representing aggregate
+        Dynamically calculated PowerIntervalFrame representing aggregate
         readings of all DER operations.
 
         NOTE: Use the difference of self.meter_intervalframe and
@@ -163,14 +163,12 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
                 [x.der_intervalframe for x in self.der_simulations.all()],
             )
         else:
-            return ValidationIntervalFrame(
-                ValidationIntervalFrame.default_dataframe
-            )
+            return PowerIntervalFrame(PowerIntervalFrame.default_dataframe)
 
     @property
     def post_der_intervalframe(self):
         """
-        ValidationIntervalFrame representing aggregate readings of all meters
+        PowerIntervalFrame representing aggregate readings of all meters
         after running DER simulations.
         """
         return self.pre_der_intervalframe + self.der_intervalframe
@@ -284,7 +282,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         pre_DER_RA = (
             system_profile.intervalframe.maximum_frame288.dataframe.max().sum()
         )
-        inverse_pre_der_intervalframe = ValidationIntervalFrame(
+        inverse_pre_der_intervalframe = PowerIntervalFrame(
             dataframe=self.meter_group.meter_intervalframe.dataframe * -1
         )
         post_DER_RA = (
@@ -727,7 +725,7 @@ class MultipleScenarioStudy(IntervalFrameFileMixin, Study):
     @property
     def meter_intervalframe(self):
         """
-        Blank ValidationIntervalFrame. This property is error-prone if the same
+        Blank PowerIntervalFrame. This property is error-prone if the same
         Meter exists in many SingleScenarioStudy objects.
         # TODO: Return self.post_der_intervalframe after filtering is
             performed.
@@ -798,7 +796,7 @@ class MultipleScenarioStudy(IntervalFrameFileMixin, Study):
     @property
     def pre_der_intervalframe(self):
         """
-        ValidationIntervalFrame representing aggregate readings of all meters
+        PowerIntervalFrame representing aggregate readings of all meters
         before running DER simulations.
         """
         self.validate_unique_meters()
@@ -808,13 +806,13 @@ class MultipleScenarioStudy(IntervalFrameFileMixin, Study):
                 x.pre_der_intervalframe
                 for x in self.single_scenario_studies.all()
             ],
-            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
+            PowerIntervalFrame(PowerIntervalFrame.default_dataframe),
         )
 
     @property
     def der_intervalframe(self):
         """
-        ValidationIntervalFrame representing aggregate readings of all DER
+        PowerIntervalFrame representing aggregate readings of all DER
         operations.
         """
         self.validate_unique_meters()
@@ -829,16 +827,12 @@ class MultipleScenarioStudy(IntervalFrameFileMixin, Study):
                 lambda x, y: x + y, [x.der_intervalframe for x in studies]
             )
         else:
-            return (
-                ValidationIntervalFrame(
-                    ValidationIntervalFrame.default_dataframe
-                ),
-            )
+            return (PowerIntervalFrame(PowerIntervalFrame.default_dataframe),)
 
     @property
     def post_der_intervalframe(self):
         """
-        ValidationIntervalFrame representing aggregate readings of all meters
+        PowerIntervalFrame representing aggregate readings of all meters
         after running DER simulations.
         """
         self.validate_unique_meters()
@@ -848,7 +842,7 @@ class MultipleScenarioStudy(IntervalFrameFileMixin, Study):
                 x.post_der_intervalframe
                 for x in self.single_scenario_studies.all()
             ],
-            ValidationIntervalFrame(ValidationIntervalFrame.default_dataframe),
+            PowerIntervalFrame(PowerIntervalFrame.default_dataframe),
         )
 
     @property

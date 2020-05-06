@@ -6,7 +6,7 @@ from django.test import TestCase
 from beo_datastore.libs.battery import Battery, FixedScheduleBatterySimulation
 from beo_datastore.libs.battery_schedule import create_fixed_schedule
 from beo_datastore.libs.fixtures import flush_intervalframe_files
-from beo_datastore.libs.intervalframe import ValidationIntervalFrame
+from beo_datastore.libs.intervalframe import PowerIntervalFrame
 
 from der.simulation.models import StoredBatterySimulation
 from load.customer.models import CustomerMeter, Channel
@@ -36,7 +36,7 @@ class TestBattery(TestCase):
             - always attempt to charge on negative kW readings
             - always attempt to discharge when load is above 5 kW
         """
-        self.intervalframe = ValidationIntervalFrame(
+        self.intervalframe = PowerIntervalFrame(
             pd.DataFrame(
                 zip(
                     [datetime(2018, 1, 1, x) for x in range(0, 12)],
@@ -237,7 +237,7 @@ class TestBattery(TestCase):
         """
         Bug fix to catch ZeroDivisionError.
         """
-        single_intervalframe = ValidationIntervalFrame(
+        single_intervalframe = PowerIntervalFrame(
             pd.DataFrame(
                 zip(
                     [datetime(2018, 1, 1, x) for x in range(0, 1)],
