@@ -494,7 +494,7 @@ class PowerIntervalFrame(ValidationIntervalFrame):
         """
         Equivalent EnergyIntervalFrame.
         """
-        dataframe = self.dataframe
+        dataframe = self.dataframe.copy()
         dataframe["kwh"] = dataframe["kw"] * (self.period / timedelta(0, 3600))
 
         return EnergyIntervalFrame(dataframe=dataframe[["kwh"]])
@@ -551,7 +551,7 @@ class EnergyIntervalFrame(ValidationIntervalFrame):
         """
         Equivalent PowerIntervalFrame.
         """
-        dataframe = self.dataframe
+        dataframe = self.dataframe.copy()
         dataframe["kw"] = dataframe["kwh"] * (timedelta(0, 3600) / self.period)
 
         return PowerIntervalFrame(dataframe=dataframe[["kw"]])
