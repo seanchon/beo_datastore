@@ -736,3 +736,25 @@ class ValidationFrame288(ValidationDataFrame):
         :return: ValidationFrame288
         """
         return self.__class__(dataframe=self.dataframe == key)
+
+
+class ArbitraryDataFrame(ValidationDataFrame):
+    """
+    Container class for arbitrary DataFrames.
+    """
+
+    default_dataframe = pd.DataFrame([])
+
+    @classmethod
+    def validate_dataframe_index(cls, dataframe):
+        """
+        Ignore index checks.
+        """
+        pass
+
+    @classmethod
+    def validate_dataframe_columns(cls, dataframe):
+        """
+        Ignore column checks.
+        """
+        pass

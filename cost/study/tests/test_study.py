@@ -10,6 +10,7 @@ from beo_datastore.libs.fixtures import (
 
 from cost.ghg.models import GHGRate
 from cost.study.models import MultipleScenarioStudy, SingleScenarioStudy
+from cost.tasks import run_study
 from cost.utility_rate.models import RatePlan
 from der.simulation.models import BatteryConfiguration, BatteryStrategy
 from load.customer.models import CustomerPopulation, OriginFile
@@ -95,7 +96,7 @@ class TestStudy(TestCase):
         )
         single.ghg_rates.add(*GHGRate.objects.filter(name="Clean Net Short"))
         multi.single_scenario_studies.add(single)
-        multi.run()
+        run_study(multi.id)
 
         # all meters found in report
         self.assertEqual(

@@ -128,7 +128,9 @@ class FrameFileMixin(object):
         ex.
             frame_file_class = GHGRateFrame288
         """
-        raise NotImplementedError("frame_file_class property must be set.")
+        raise NotImplementedError(
+            "frame_file_class must be set in {}.".format(self.__class__)
+        )
 
     @property
     def frame(self):
@@ -147,6 +149,17 @@ class FrameFileMixin(object):
         Sets frame property. Writes to disk on save().
         """
         self._frame = frame
+
+    @property
+    def filename(self):
+        return self.frame_file_class.get_filename(reference_object=self)
+
+    @property
+    def file_path(self):
+        """
+        Full file path of parquet file.
+        """
+        return self.frame_file_class.get_file_path(reference_object=self)
 
     @property
     def html_table(self):
