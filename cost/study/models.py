@@ -303,16 +303,17 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         return self._report.frame.dataframe
 
     def generate_report(self):
-        df = (
+        report = (
             self.usage_report.join(self.bill_report, how="outer")
             .join(self.ghg_report, how="outer")
             .join(self.resource_adequacy_report, how="outer")
             .join(self.customer_meter_report, how="outer")
             .join(self.reference_meter_report, how="outer")
         )
-        df.index = df.index.astype(str)
+        report["SingleScenarioStudy"] = str(self.id)
+        report.index = report.index.astype(str)
 
-        return df
+        return report
 
     @property
     def report_summary(self):
