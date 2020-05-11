@@ -39,15 +39,17 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
             username=faker.user_name(), email=faker.email(), is_superuser=False
         )
 
-        # test following endpoints using BasicAuthenticationTestMixin
         self.endpoints = [
-            "/v1/cost/study/"
-            + "?include[]=ders"
-            + "&include[]=der_simulations"
-            + "?include[]=meters"
-            + "?include[]=meter_groups"
-            + "?include[]=metadata"
-            + "?include[]=report"
+            "/v1/cost/study/?include[]={}".format(x)
+            for x in [
+                "ders",
+                "der_simulations",
+                "meters",
+                "meter_groups",
+                "metadata",
+                "report",
+                "report_summary",
+            ]
         ]
 
         # create MeterGroup

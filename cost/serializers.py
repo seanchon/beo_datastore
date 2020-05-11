@@ -140,13 +140,11 @@ class StudySerializer(GetStudyDataMixin, DynamicModelSerializer):
         Report associated with Study.
         """
         return json.loads(
-            obj.detailed_report.reset_index().to_json(default_handler=str)
+            obj.report.reset_index().to_json(default_handler=str)
         )
 
     def get_report_summary(self, obj):
         """
         Report summary associated with Study.
         """
-        return json.loads(
-            obj.detailed_report_summary.to_json(default_handler=str)
-        )
+        return json.loads(obj.report_summary.to_json(default_handler=str))

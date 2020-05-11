@@ -1,13 +1,13 @@
 import numpy as np
 import os
 
-
 from beo_datastore.libs.battery import BatteryIntervalFrame
 from beo_datastore.libs.dataframe import convert_columns_type, read_parquet
 from beo_datastore.libs.intervalframe import (
     ValidationDataFrame,
     ValidationFrame288,
     PowerIntervalFrame,
+    ArbitraryDataFrame,
 )
 from beo_datastore.libs.utils import mkdir_p
 
@@ -168,3 +168,19 @@ class BatteryIntervalFrameFile(BatteryIntervalFrame, DataFrameFile):
     """
 
     pass
+
+
+class ArbitraryDataFrameFile(ArbitraryDataFrame, DataFrameFile):
+    """
+    Combines a ArbitraryDataFrame with file-handling capabilities of a
+    DataFrameFile.
+    """
+
+    def save(self, *args, **kwargs):
+        """
+        Convert columns to string on save().
+        """
+        mkdir_p(self.file_directory)
+        if self.reference_object.id is not None:
+            dataframe = convert_columns_type(self.dataframe.copy(), str)
+            dataframe.to_parquet(self.file_path)

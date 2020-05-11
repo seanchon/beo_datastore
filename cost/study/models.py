@@ -2,6 +2,7 @@ from functools import reduce
 import os
 import pandas as pd
 import re
+import uuid
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -9,8 +10,11 @@ from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
 
 from beo_datastore.libs.intervalframe import PowerIntervalFrame
-from beo_datastore.libs.intervalframe_file import PowerIntervalFrameFile
-from beo_datastore.libs.models import IntervalFrameFileMixin
+from beo_datastore.libs.intervalframe_file import (
+    ArbitraryDataFrameFile,
+    PowerIntervalFrameFile,
+)
+from beo_datastore.libs.models import IntervalFrameFileMixin, ValidationModel
 from beo_datastore.libs.views import dataframe_to_html
 from beo_datastore.settings import MEDIA_ROOT
 
@@ -34,10 +38,52 @@ from reference.reference_model.models import (
 from reference.auth_user.models import LoadServingEntity
 
 
+class ReportDataFrameFile(ArbitraryDataFrameFile):
+    """
+    Model for storing a report to file.
+    """
+
+    # directory for parquet file storage
+    file_directory = os.path.join(MEDIA_ROOT, "report")
+
+
+class Report(IntervalFrameFileMixin, ValidationModel):
+    """
+    Model for storing the report associated with a Scenario.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = ReportDataFrameFile
+
+
+class ReportSummaryDataFrameFile(ArbitraryDataFrameFile):
+    """
+    Model for storing a report summary to file.
+    """
+
+    # directory for parquet file storage
+    file_directory = os.path.join(MEDIA_ROOT, "report")
+
+
+class ReportSummary(IntervalFrameFileMixin, ValidationModel):
+    """
+    Model for storing the report associated with a Scenario.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = ReportSummaryDataFrameFile
+
+
 class StudyIntervalFrame(PowerIntervalFrameFile):
     """
-    Model for handling Study IntervalFrameFiles, which have timestamps and
-    values.
+    Model for storing Study IntervalFrameFiles, which have timestamps and
+    aggregate meter readings.
     """
 
     # directory for parquet file storage
@@ -96,6 +142,20 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
     )
     meters = models.ManyToManyField(
         to=Meter, related_name="single_scenario_studies", blank=True
+    )
+    _report = models.OneToOneField(
+        to=Report,
+        related_name="single_scenario_study",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
+    _report_summary = models.OneToOneField(
+        to=ReportSummary,
+        related_name="single_scenario_study",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
     )
 
     # Required by IntervalFrameFileMixin.
@@ -217,45 +277,80 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
     @property
     def report(self):
         """
-        Return pandas Dataframe with meter SA IDs and all cost impacts.
-        """
-        return (
-            self.usage_report.join(self.bill_report, how="outer")
-            .join(self.ghg_report, how="outer")
-            .join(self.resource_adequacy_report, how="outer")
-        )
-
-    @property
-    def detailed_report(self):
-        """
         Return pandas DataFrame with meter SA IDs, DERConfiguration details,
         RatePlan details, and all cost impacts.
 
         This report is used in MultipleScenarioStudy reports.
         """
-        report = self.report_with_id
-        report["DERConfiguration"] = self.der_configuration.detailed_name
-        report["DERStrategy"] = self.der_strategy.name
-        report["SimulationRatePlan"] = self.rate_plan.name
+        if not self._report:
+            self._report = Report.objects.create()
+            self.save()
 
-        return report.join(self.customer_meter_report, how="outer").join(
-            self.reference_meter_report, how="outer"
+        # Only generate report if:
+        # 1. report has not previously been generated.
+        # 2. all self.der_simulations have run.
+        # 3. self.meter_intervalframe has been aggregated.
+        if (
+            self._report.frame.dataframe.empty
+            and (self.der_simulations.count() == self.meters.count())
+            and not self.meter_intervalframe.dataframe.empty
+        ):
+            self._report.frame = ReportDataFrameFile(
+                dataframe=self.generate_report(), reference_object=self._report
+            )
+            self._report.save()
+
+        return self._report.frame.dataframe
+
+    def generate_report(self):
+        report = (
+            self.usage_report.join(self.bill_report, how="outer")
+            .join(self.ghg_report, how="outer")
+            .join(self.resource_adequacy_report, how="outer")
+            .join(self.customer_meter_report, how="outer")
+            .join(self.reference_meter_report, how="outer")
         )
+        report["SingleScenarioStudy"] = str(self.id)
+        report.index = report.index.astype(str)
+
+        return report
 
     @property
-    def detailed_report_summary(self):
+    def report_summary(self):
         """
         pandas DataFrame with RA and non-RA totals for each column of
-        detailed_report.
+        report.
         """
+        if not self._report_summary:
+            self._report_summary = ReportSummary.objects.create()
+            self.save()
+
+        # Only generate report if:
+        # 1. report has not previously been generated.
+        # 2. all self.der_simulations have run.
+        # 3. self.meter_intervalframe has been aggregated.
+        if (
+            self._report_summary.frame.dataframe.empty
+            and (self.der_simulations.count() == self.meters.count())
+            and not self.meter_intervalframe.dataframe.empty
+        ):
+            self._report_summary.frame = ReportDataFrameFile(
+                dataframe=self.generate_report_summary(),
+                reference_object=self._report_summary,
+            )
+            self._report_summary.save()
+
+        return self._report_summary.frame.dataframe
+
+    def generate_report_summary(self):
         return self.non_ra_report_summary.append(self.ra_report_summary)
 
     @property
     def non_ra_report_summary(self):
         """
-        pandas DataFrame with non-RA totals for each column of detailed_report.
+        pandas DataFrame with non-RA totals for each column of report.
         """
-        summary = pd.DataFrame(self.detailed_report.sum())
+        summary = pd.DataFrame(self.report.sum())
         indices = [
             x
             for x in summary.index
@@ -271,7 +366,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
     @property
     def ra_report_summary(self):
         """
-        pandas DataFrame with RA totals for each column of detailed_report.
+        pandas DataFrame with RA totals for each column of report.
         Filtering disabled.
         """
         # TODO: Account for CCA's with multiple system profiles
@@ -305,11 +400,11 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         return dataframe
 
     @property
-    def detailed_report_html_table(self):
+    def report_html_table(self):
         """
         Return Django-formatted HTML detailed report.
         """
-        return dataframe_to_html(self.detailed_report)
+        return dataframe_to_html(self.report)
 
     @property
     def charge_schedule(self):
@@ -359,16 +454,6 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
             der_simulation__in=self.der_simulations,
             system_profile__in=self.system_profiles.all(),
         )
-
-    @property
-    def report_with_id(self):
-        """
-        Return pandas Dataframe self.report and SingleScenarioStudy id.
-        """
-        report = self.report
-        report["SingleScenarioStudy"] = self.id
-
-        return report
 
     @property
     def usage_report(self):
@@ -633,7 +718,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         than 0.
         """
         if self.meters.count() > 0:
-            df = ~self.detailed_report.eval(query)
+            df = ~self.report.eval(query)
             ids_to_remove = df.index[df == 1].tolist()
             self.meters.remove(*Meter.objects.filter(id__in=ids_to_remove))
 
@@ -848,47 +933,32 @@ class MultipleScenarioStudy(IntervalFrameFileMixin, Study):
     @property
     def report(self):
         """
-        Return pandas DataFrame of all single_scenario_studies' report_with_id
-        appended together.
+        Return pandas DataFrame of all single_scenario_studies'
+        report(s) appended together.
         """
         return reduce(
             lambda x, y: x.append(y, sort=False),
-            [x.report_with_id for x in self.single_scenario_studies.all()],
+            [x.report for x in self.single_scenario_studies.all()],
             pd.DataFrame(),
         ).sort_index()
 
     @property
-    def detailed_report(self):
+    def report_summary(self):
         """
         Return pandas DataFrame of all single_scenario_studies'
-        detailed_report appended together.
-        """
-        return reduce(
-            lambda x, y: x.append(y, sort=False),
-            [x.detailed_report for x in self.single_scenario_studies.all()],
-            pd.DataFrame(),
-        ).sort_index()
-
-    @property
-    def detailed_report_summary(self):
-        """
-        Return pandas DataFrame of all single_scenario_studies'
-        detailed_report_summary added together.
+        report_summary(s) added together.
         """
         return reduce(
             lambda x, y: x + y,
-            [
-                x.detailed_report_summary
-                for x in self.single_scenario_studies.all()
-            ],
+            [x.report_summary for x in self.single_scenario_studies.all()],
         )
 
     @property
-    def detailed_report_html_table(self):
+    def report_html_table(self):
         """
         Return Django-formatted HTML detailed report.
         """
-        return dataframe_to_html(self.detailed_report)
+        return dataframe_to_html(self.report)
 
     @property
     def bill_calculations(self):
@@ -998,19 +1068,19 @@ class MultipleScenarioStudy(IntervalFrameFileMixin, Study):
 
         # get values per SA ID using transform
         idx = (
-            self.detailed_report.groupby([self.detailed_report.index])[
-                column_name
-            ].transform(transform)
-            == self.detailed_report[column_name]
+            self.report.groupby([self.report.index])[column_name].transform(
+                transform
+            )
+            == self.report[column_name]
         )
-        report = self.detailed_report[idx]
+        report = self.report[idx]
 
         # remove duplicates
         report = report.loc[~report.index.duplicated(keep="first")]
 
         # keep only desired meters in each SingleScenarioStudy
         for simulation_optimization in self.single_scenario_studies.filter(
-            id__in=set(self.detailed_report["SingleScenarioStudy"])
+            id__in=set(self.report["SingleScenarioStudy"])
         ):
             id = simulation_optimization.id
             ids = report[report["SingleScenarioStudy"] == id].index
