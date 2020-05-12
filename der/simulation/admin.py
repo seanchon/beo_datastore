@@ -19,6 +19,7 @@ class BatteryScheduleAdmin(admin.ModelAdmin):
 
 @admin.register(BatteryStrategy)
 class BatteryStrategy(admin.ModelAdmin):
+    ordering = ["name"]
     readonly_fields = [
         "charge_discharge_html_plot",
         "charge_schedule_html_table",

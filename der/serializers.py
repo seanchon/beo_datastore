@@ -97,6 +97,7 @@ class DERStrategySerializer(DynamicModelSerializer):
         fields = (
             "id",
             "name",
+            "description",
             "created_at",
             "object_type",
             "data",

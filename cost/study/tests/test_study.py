@@ -12,7 +12,10 @@ from cost.ghg.models import GHGRate
 from cost.study.models import MultipleScenarioStudy, SingleScenarioStudy
 from cost.tasks import run_study
 from cost.utility_rate.models import RatePlan
-from der.simulation.models import BatteryConfiguration, BatteryStrategy
+from der.simulation.models import BatteryConfiguration
+from der.simulation.scripts.generate_battery_strategy import (
+    generate_ra_reduction_battery_strategy,
+)
 from load.customer.models import CustomerPopulation, OriginFile
 
 
@@ -69,18 +72,13 @@ class TestStudy(TestCase):
             rating=5, discharge_duration_hours=2, efficiency=0.9
         )
 
-        # minimize bill - charge from grid, no exporting
-        rate_plan = RatePlan.objects.get(name__contains="EV")
-        frame288 = rate_plan.get_rate_frame288_by_year(
-            2018, "energy", "weekday"
-        )
-
-        battery_strategy = BatteryStrategy.generate(
-            frame288_name="E-19 energy weekday",
-            frame288=frame288,
-            level=1,
-            minimize=True,
-            discharge_threshold=0,
+        # minimize RA (use meter as proxy for system profile)
+        # charge from grid, no exporting
+        battery_strategy = generate_ra_reduction_battery_strategy(
+            name="2018 System Load",
+            charge_grid=True,
+            discharge_grid=False,
+            system_profile=meter_group.meters.first(),
         )
 
         # 3. Create and choose cost functions (cost)
@@ -92,7 +90,7 @@ class TestStudy(TestCase):
             der_strategy=battery_strategy,
             der_configuration=battery_configuration,
             meter_group=customer_population.customer_clusters.first(),
-            rate_plan=rate_plan,
+            rate_plan=RatePlan.objects.get(name__contains="EV"),
         )
         single.ghg_rates.add(*GHGRate.objects.filter(name="Clean Net Short"))
         multi.single_scenario_studies.add(single)

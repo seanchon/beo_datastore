@@ -15,6 +15,9 @@ from cost.ghg.models import GHGRate
 from cost.study.models import SingleScenarioStudy, MultipleScenarioStudy
 from cost.utility_rate.models import RatePlan
 from der.simulation.models import BatteryConfiguration, BatteryStrategy
+from der.simulation.scripts.generate_battery_strategy import (
+    generate_bill_reduction_battery_strategy,
+)
 from load.customer.models import OriginFile
 from reference.reference_model.models import MeterGroup
 
@@ -63,16 +66,11 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
 
         # create a battery strategy from a RatePlan
         rate_plan = RatePlan.objects.first()
-        frame288 = rate_plan.get_rate_frame288_by_year(
-            2018, "energy", "weekday"
-        )
-
-        battery_strategy = BatteryStrategy.generate(
-            frame288_name="rate plan energy weekday",
-            frame288=frame288,
-            level=1,  # rate plans typically have only a few different rate levels per month, so this value is typically 1
-            minimize=True,  # objective is to minimize bill
-            discharge_threshold=0,  # only discharge down to 0kW
+        battery_strategy = generate_bill_reduction_battery_strategy(
+            name="E-19",
+            charge_grid=True,
+            discharge_grid=False,
+            rate_plan=rate_plan,
         )
 
         # create Study

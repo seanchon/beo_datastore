@@ -41,7 +41,9 @@ def run_simulation_and_cost(single_scenario_study_id, meter_id):
         meter=Meter.objects.get(id=meter_id)
     )
 
-    if study.der_simulation_count == study.expected_der_simulation_count:
+    if (
+        study.der_simulation_count == study.expected_der_simulation_count
+    ) and study.meter_intervalframe.dataframe.empty:
         # all DERSimulation objects created, cache meter_intervalframe
         aggregate_study_intervalframes.delay(study.id)
 

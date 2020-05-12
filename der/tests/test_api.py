@@ -11,10 +11,9 @@ from beo_datastore.libs.fixtures import (
     load_intervalframe_files,
 )
 from cost.ghg.models import GHGRate
-from der.simulation.models import (
-    BatteryConfiguration,
-    BatteryStrategy,
-    StoredBatterySimulation,
+from der.simulation.models import BatteryConfiguration, StoredBatterySimulation
+from der.simulation.scripts.generate_battery_strategy import (
+    generate_ghg_reduction_battery_strategy,
 )
 from load.customer.models import CustomerMeter
 from reference.reference_model.models import Meter, MeterGroup
@@ -56,13 +55,11 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
         ghg_rate = GHGRate.objects.get(
             name="Clean Net Short", effective__year=2030
         )
-        frame288 = ghg_rate.frame288
-        strategy = BatteryStrategy.generate(
-            frame288_name="Clean Net Short 2030",
-            frame288=frame288,
-            level=8,  # Clean Net Short tables have lots of values per month, so this value should be set higher
-            minimize=True,  # objective is to minimize GHG
-            discharge_threshold=0,  # only discharge down to 0kW
+        strategy = generate_ghg_reduction_battery_strategy(
+            name="2018 System Load",
+            charge_grid=True,
+            discharge_grid=False,
+            ghg_rate=ghg_rate,
         )
 
         # create MeterGroup

@@ -109,6 +109,9 @@ class BatteryStrategy(DERStrategy):
         unique_together = ("charge_schedule", "discharge_schedule")
         verbose_name_plural = "battery strategies"
 
+    def __str__(self):
+        return self.name
+
     @property
     def charge_schedule_html_table(self):
         return self.charge_schedule.html_table
@@ -133,9 +136,11 @@ class BatteryStrategy(DERStrategy):
     @classmethod
     def generate(
         cls,
-        frame288_name,
+        name,
+        description,
         frame288,
-        level,
+        charge_aggresiveness,
+        discharge_aggresiveness,
         minimize=True,
         charge_threshold=None,
         discharge_threshold=None,
@@ -146,12 +151,13 @@ class BatteryStrategy(DERStrategy):
         this method will create a BatteryStrategy composed of a charge_schedule
         and discharge_schedule.
 
-        :param frame288_name: name of ValidationFrame288 (ex. "E-19 Energy
+        :param name: name of ValidationFrame288 (ex. "E-19 Energy
             Demand Rates", "A-10 Energy Weekend Rates", etc.)
         :param frame288: ValidationFrame288
-        :param level: aggresiveness of charge/discharge schedule, the higher
-            the value, the more the schedule tries to charge and discharge
-            (int)
+        :param charge_aggresiveness: aggresiveness of charge schedule, the
+            higher the value, the more the strategy tries to charge (int)
+        :param discharge_aggresiveness: aggresiveness of discharge schedule,
+            the higher the value, the more the strategy tries to discharge (int)
         :param minimize: when True attempts to minimize the cost function, when
             False attempts to maximize the cost function
         :param charge_threshold: a threshold at which when a meter reading is
@@ -162,7 +168,7 @@ class BatteryStrategy(DERStrategy):
         """
         charge_schedule_frame_288 = optimize_battery_schedule(
             frame288=frame288,
-            level=level,
+            level=charge_aggresiveness,
             charge=True,
             minimize=minimize,
             threshold=charge_threshold,
@@ -173,7 +179,7 @@ class BatteryStrategy(DERStrategy):
         )
         discharge_schedule_frame_288 = optimize_battery_schedule(
             frame288=frame288,
-            level=level,
+            level=discharge_aggresiveness,
             charge=False,
             minimize=minimize,
             threshold=discharge_threshold,
@@ -183,22 +189,12 @@ class BatteryStrategy(DERStrategy):
             dataframe=discharge_schedule_frame_288.dataframe,
         )
 
-        objective = "Minimize" if minimize else "Maximize"
-        name = (
-            "{} {} - charge threshold: {} kw, discharge threshold: {}"
-            " kw (level: {})"
-        ).format(
-            objective,
-            frame288_name,
-            charge_threshold,
-            discharge_threshold,
-            level,
-        )
         object, _ = cls.objects.get_or_create(
             charge_schedule=charge_schedule,
             discharge_schedule=discharge_schedule,
         )
         object.name = name
+        object.description = description
         object.save()
 
         return object
