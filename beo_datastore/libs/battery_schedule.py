@@ -47,7 +47,10 @@ def optimize_battery_schedule(
 
     - frame288 is a ValidationFrame288 of integer/float values.
     - level is an integer value where the higher the level, the more aggresive
-    the charge/discharge strategy.
+    the charge/discharge strategy. A month where there are 10 different hourly
+    rates has 10 possible levels. Choosing a level of 2 will choose the best
+    two rates across all hours. Choosing a level of -2 will exclude the worst
+    two rates across all hours.
     - charge when True optimizes a charge schedule and when False optimizes
         a discharge schedule.
     - minimize when True aims to minimize cost function output, when False aims
@@ -82,16 +85,19 @@ def optimize_battery_schedule(
     matrix = []
     for month in dataframe.columns:
         month_df = dataframe[month]
+        possible_values = get_unique_values(month_df)
+        # local_level accounts for negative level values
+        local_level = level if level > 0 else len(possible_values) - level
         if (charge and minimize) or (not charge and not minimize):
             # exclude worst value
-            possible_values = get_unique_values(month_df)[:-1]
-            # keep best values up to level
-            best_values = possible_values[:level]
+            possible_values = possible_values[:-1]
+            # keep best values up to local_level
+            best_values = possible_values[:local_level]
         elif (charge and not minimize) or (not charge and minimize):
             # exclude worst value
             possible_values = get_unique_values(month_df)[::-1][:-1]
-            # keep best values up to level
-            best_values = possible_values[:level]
+            # keep best values up to local_level
+            best_values = possible_values[:local_level]
         else:  # should not be possible
             raise RuntimeError("Error in optimization parameters.")
 

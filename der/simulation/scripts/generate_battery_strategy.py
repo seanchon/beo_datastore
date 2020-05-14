@@ -115,13 +115,16 @@ def generate_bill_reduction_battery_strategy(
         .effective_date.year
     )
 
+    # grid: charge during least expensive TOU period
+    # NEM: charge from all but worst TOU period
+    charge_aggresiveness = 1 if charge_grid else -1
     battery_strategy = BatteryStrategy.generate(
         name=name,
         description="\n".join([charge_description, discharge_description]),
         frame288=rate_plan.get_rate_frame288_by_year(
             latest_year, "energy", "weekday"
         ),
-        charge_aggresiveness=1,  # charge during least expensive TOU period
+        charge_aggresiveness=charge_aggresiveness,
         discharge_aggresiveness=1,  # discharge during most expensive TOU period
         charge_threshold=charge_threshold,
         discharge_threshold=discharge_threshold,
@@ -223,11 +226,14 @@ def generate_ra_reduction_battery_strategy(
     charge_threshold = None if charge_grid else 0
     discharge_threshold = None if discharge_grid else 0
 
+    # grid: charge during lowest 18 system profile hours
+    # NEM: charge from all but worst 1 system profile hour
+    charge_aggresiveness = 18 if charge_grid else -1
     battery_strategy = BatteryStrategy.generate(
         name=name,
         description="\n".join([charge_description, discharge_description]),
         frame288=system_profile.intervalframe.maximum_frame288,
-        charge_aggresiveness=18,  # charge during 18 lowest RA hours
+        charge_aggresiveness=charge_aggresiveness,
         discharge_aggresiveness=1,  # discharge during 1 highest RA hour
         charge_threshold=charge_threshold,
         discharge_threshold=discharge_threshold,
