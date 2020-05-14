@@ -428,8 +428,12 @@ class CustomerMeter(Meter):
             alias = alias[2:]
         elif alias.startswith("H"):
             alias = alias[1:]
-        # remove N from ending
+        # remove X, N, or S from ending
+        if alias.endswith("X"):
+            alias = alias[:-1]
         if alias.endswith("N"):
+            alias = alias[:-1]
+        if alias.endswith("S"):
             alias = alias[:-1]
         if alias == "EVA":
             alias = "EV"
