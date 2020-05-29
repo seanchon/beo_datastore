@@ -141,6 +141,7 @@ class BatteryStrategy(DERStrategy):
         frame288,
         charge_aggresiveness,
         discharge_aggresiveness,
+        objective,
         minimize=True,
         charge_threshold=None,
         discharge_threshold=None,
@@ -158,6 +159,7 @@ class BatteryStrategy(DERStrategy):
             higher the value, the more the strategy tries to charge (int)
         :param discharge_aggresiveness: aggresiveness of discharge schedule,
             the higher the value, the more the strategy tries to discharge (int)
+        :param: objective: the DERStrategy objective
         :param minimize: when True attempts to minimize the cost function, when
             False attempts to maximize the cost function
         :param charge_threshold: a threshold at which when a meter reading is
@@ -192,6 +194,7 @@ class BatteryStrategy(DERStrategy):
         object, _ = cls.objects.get_or_create(
             charge_schedule=charge_schedule,
             discharge_schedule=discharge_schedule,
+            objective=objective,
         )
         object.name = name
         object.description = description

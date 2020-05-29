@@ -100,6 +100,7 @@ class DERStrategySerializer(DynamicModelSerializer):
             "description",
             "created_at",
             "object_type",
+            "objective",
             "data",
             "der_type",
         )

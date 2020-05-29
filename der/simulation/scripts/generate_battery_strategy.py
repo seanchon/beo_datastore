@@ -128,6 +128,7 @@ def generate_bill_reduction_battery_strategy(
         discharge_aggresiveness=1,  # discharge during most expensive TOU period
         charge_threshold=charge_threshold,
         discharge_threshold=discharge_threshold,
+        objective="reduce_bill",
     )
 
     # update description
@@ -181,6 +182,7 @@ def generate_ghg_reduction_battery_strategy(
         discharge_aggresiveness=8,  # discharge during 8 highest GHG hours
         charge_threshold=charge_threshold,
         discharge_threshold=discharge_threshold,
+        objective="reduce_ghg",
     )
 
     # update description
@@ -237,6 +239,7 @@ def generate_ra_reduction_battery_strategy(
         discharge_aggresiveness=1,  # discharge during 1 highest RA hour
         charge_threshold=charge_threshold,
         discharge_threshold=discharge_threshold,
+        objective="reduce_cca_finance",
     )
 
     # update description

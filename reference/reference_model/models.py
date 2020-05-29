@@ -1,4 +1,5 @@
 import uuid
+from enum import Enum
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
@@ -286,10 +287,22 @@ class DERStrategy(PolymorphicValidationModel):
     ex. Battery charge with solar and discharge evening load.
     """
 
+    class Objective(Enum):
+        load_flattening = "Load Flattening"
+        reduce_bill = "Reduce Bill"
+        reduce_ghg = "Reduce GHG"
+        reduce_cca_finance = "Minimize CCA Financial Impacts"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=128, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    objective = models.CharField(
+        max_length=18,
+        choices=[(item.name, item.value) for item in Objective],
+        blank=True,
+        null=True,
+    )
 
     class Meta:
         ordering = ["-created_at"]
