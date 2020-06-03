@@ -527,6 +527,10 @@ class PowerIntervalFrame(ValidationIntervalFrame):
 
         return EnergyIntervalFrame(dataframe=dataframe[["kwh"]])
 
+    @property
+    def power_intervalframe(self):
+        return self
+
     @cached_property
     def average_frame288(self):
         """
@@ -583,6 +587,10 @@ class EnergyIntervalFrame(ValidationIntervalFrame):
         dataframe["kw"] = dataframe["kwh"] * (timedelta(0, 3600) / self.period)
 
         return PowerIntervalFrame(dataframe=dataframe[["kw"]])
+
+    @property
+    def energy_intervalframe(self):
+        return self
 
     @cached_property
     def average_frame288(self):

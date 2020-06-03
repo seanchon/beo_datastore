@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 from beo_datastore.libs.intervalframe import (
@@ -26,21 +27,25 @@ class ProcurementRateIntervalFrame(ValidationIntervalFrame):
         :param intervalframe: EnergyIntervalFrame or PowerIntervalFrame
         :return: ProcurementCostIntervalFrame
         """
-        # get power_intervalframe for resampling
-        if isinstance(intervalframe, PowerIntervalFrame):
-            power_intervalframe = intervalframe
-        elif isinstance(intervalframe, EnergyIntervalFrame):
-            power_intervalframe = intervalframe.power_intervalframe
-        else:
+        if not isinstance(
+            intervalframe, EnergyIntervalFrame
+        ) and not isinstance(intervalframe, PowerIntervalFrame):
             raise TypeError(
                 "intervalframe must be EnergyIntervalFrame or "
                 "PowerIntervalFrame"
             )
 
+        power_intervalframe = intervalframe.power_intervalframe
+
         # resample to match period of self
-        power_intervalframe = power_intervalframe.upsample_intervalframe(
-            target_period=self.period, method="ffill"
-        )
+        if power_intervalframe.period > self.period:
+            power_intervalframe = power_intervalframe.upsample_intervalframe(
+                target_period=self.period, method="ffill"
+            )
+        elif power_intervalframe.period < self.period:
+            power_intervalframe = power_intervalframe.downsample_intervalframe(
+                target_period=self.period, aggfunc=np.mean
+            )
 
         # create dataframe with "kwh" and "$" columns
         dataframe = pd.merge(

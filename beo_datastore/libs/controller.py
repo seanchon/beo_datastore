@@ -13,7 +13,6 @@ from beo_datastore.libs.battery import (
     FixedScheduleBatterySimulation,
 )
 from beo_datastore.libs.intervalframe import (
-    EnergyIntervalFrame,
     PowerIntervalFrame,
     ValidationFrame288,
 )
@@ -263,14 +262,10 @@ class AggregateBatterySimulation(DERAggregateSimulation):
         :param multiprocess: True or False
         :return: AggregateBatterySimulation
         """
-        meters = [x for x in meter_dict.keys()]
+        meter_ids = list(meter_dict.keys())
         intervalframes = [
-            x.filter_by_datetime(start, end_limit) for x in meter_dict.values()
-        ]
-        # convert inputs to PowerIntervalFrames
-        intervalframes = [
-            x if isinstance(x, PowerIntervalFrame) else x.power_intervalframe
-            for x in intervalframes
+            x.filter_by_datetime(start, end_limit).power_intervalframe
+            for x in meter_dict.values()
         ]
 
         if multiprocess:
@@ -303,9 +298,9 @@ class AggregateBatterySimulation(DERAggregateSimulation):
             charge_schedule=charge_schedule,
             discharge_schedule=discharge_schedule,
             results={
-                meter: battery_simulation
-                for meter, battery_simulation in zip(
-                    meters, battery_simulations
+                meter_id: battery_simulation
+                for meter_id, battery_simulation in zip(
+                    meter_ids, battery_simulations
                 )
             },
         )
@@ -706,9 +701,9 @@ class AggregateProcurementCostCalculation(DERCostCalculation):
         Interval readings will be converted to EnergyIntervalFrame for proper
         calculation.
         """
-        pre_der_intervalframe = self.agg_simulation.pre_der_intervalframe
-        if not isinstance(pre_der_intervalframe, EnergyIntervalFrame):
-            pre_der_intervalframe = pre_der_intervalframe.energy_intervalframe
+        pre_der_intervalframe = (
+            self.agg_simulation.pre_der_intervalframe.energy_intervalframe
+        )
 
         df = pd.concat(
             [
@@ -732,11 +727,9 @@ class AggregateProcurementCostCalculation(DERCostCalculation):
         Interval readings will be converted to EnergyIntervalFrame for proper
         calculation.
         """
-        post_der_intervalframe = self.agg_simulation.pre_der_intervalframe
-        if not isinstance(post_der_intervalframe, EnergyIntervalFrame):
-            post_der_intervalframe = (
-                post_der_intervalframe.energy_intervalframe
-            )
+        post_der_intervalframe = (
+            self.agg_simulation.pre_der_intervalframe.energy_intervalframe
+        )
 
         df = pd.concat(
             [
