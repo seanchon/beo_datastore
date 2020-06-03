@@ -246,7 +246,7 @@ class PeakShavingScheduleOptimizer(object):
             (ValidationFrame288, ValidationFrame288)
         """
         # run optimization on smaller dataset for speed
-        load_intervalframe = load_intervalframe.resample_intervalframe(
+        load_intervalframe = load_intervalframe.downsample_intervalframe(
             timedelta(hours=1), np.mean
         )
 
@@ -295,7 +295,7 @@ class PeakShavingScheduleOptimizer(object):
             (ValidationFrame288, ValidationFrame288)
         """
         # run optimization on smaller dataset for speed
-        load_intervalframe = load_intervalframe.resample_intervalframe(
+        load_intervalframe = load_intervalframe.downsample_intervalframe(
             timedelta(hours=1), np.mean
         )
 

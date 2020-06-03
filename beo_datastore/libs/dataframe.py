@@ -20,12 +20,16 @@ def add_interval_dataframe(dataframe_1, dataframe_2):
     dataframe_2_period = get_dataframe_period(dataframe_2)
 
     if dataframe_1_period < dataframe_2_period:
-        dataframe_2 = resample_dataframe(
-            dataframe=dataframe_2, rule=dataframe_1_period, aggfunc=np.mean
+        dataframe_2 = upsample_dataframe(
+            dataframe=dataframe_2,
+            target_period=dataframe_1_period,
+            method="ffill",
         )
     elif dataframe_2_period < dataframe_1_period:
-        dataframe_1 = resample_dataframe(
-            dataframe=dataframe_1, rule=dataframe_2_period, aggfunc=np.mean
+        dataframe_1 = upsample_dataframe(
+            dataframe=dataframe_1,
+            target_period=dataframe_2_period,
+            method="ffill",
         )
 
     existing_indices = dataframe_1.index.difference(dataframe_2.index)
@@ -66,13 +70,17 @@ def csv_url_to_dataframe(url):
     return pd.read_csv(io.StringIO(csv.decode("utf-8")))
 
 
-def get_dataframe_period(dataframe):
+def get_dataframe_period(dataframe, n=96):
     """
     Return dataframe period as a timedelta object.
 
     :param dataframe: pandas DataFrame with DatetimeIndex
+    :param n: run on first n lines to reduce computation
     :return: timedelta
     """
+    if n:
+        dataframe = dataframe.head(n=n)
+
     # get most common (mode) delta in seconds
     results = stats.mode(np.diff(dataframe.index.values)).mode.tolist()
     results = [x / 1000000000 for x in results]
@@ -154,27 +162,60 @@ def merge_dataframe(dataframe, other_dataframe, overwrite_rows=False):
     return dataframe
 
 
-def resample_dataframe(dataframe, rule, aggfunc):
+def downsample_dataframe(dataframe, target_period, aggfunc):
     """
-    Resample dataframe to a new period based on rule and aggfunc, where
-    rule is an offset alias (ex. timedelta(minutes=1)) and aggfunc is an
-    aggregation function (ex. np.mean).
+    Downsample a dataframe to create an equivalent DataFrame with intervals
+    occuring on a less-frequent basis.
 
     :param dataframe: pandas DataFrame
-    :param rule: timedelta object
-    :param aggfunc: aggregation function
+    :param target_period: timedelta object
+    :param aggfunc: aggregation function (ex. np.mean)
     :return: pandas DataFrame
     """
-    if get_dataframe_period(dataframe) > rule:  # upsample
-        # TODO: Don't ffill any interval gaps
-        return (
-            dataframe.astype(float)
-            .resample(rule=rule)
-            .apply(func=aggfunc)
-            .fillna(method="ffill")
+    period = get_dataframe_period(dataframe)
+
+    if target_period < period:
+        raise ValueError(
+            "target_period must be greater than or equal to period."
         )
-    else:  # downsample
-        return dataframe.astype(float).resample(rule=rule).apply(func=aggfunc)
+
+    return (
+        dataframe.astype(float)
+        .resample(rule=target_period)
+        .apply(func=aggfunc)
+    )
+
+
+def upsample_dataframe(dataframe, target_period, method):
+    """
+    Upsample a dataframe to create an equivalent DataFrame with intervals
+    occuring on a more-frequent basis. The final interval is extrapolated
+    forward.
+
+    Example:
+    This takes into consideration the final hour when upsampling 1-hour
+    intervals to 15-minute intervals in order to not lose the final 3 intervals.
+
+    :param dataframe: pandas DataFrame
+    :param target_period: timedelta object
+    :param method: None, ‘backfill’/’bfill’, ‘pad’/’ffill’, ‘nearest’
+    :return: pandas DataFrame
+    """
+    period = get_dataframe_period(dataframe)
+
+    if target_period > period:
+        raise ValueError("target_period must be less than or equal to period.")
+
+    # TODO: Don't ffill any interval gaps
+    return dataframe.reindex(
+        pd.date_range(
+            dataframe.index.min(),
+            dataframe.index.max() + period,
+            freq=target_period,
+            closed="left",
+        ),
+        method=method,
+    )
 
 
 def set_dataframe_index(dataframe, index_column, convert_to_datetime=False):

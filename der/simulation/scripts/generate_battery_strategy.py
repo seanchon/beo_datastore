@@ -93,12 +93,8 @@ def generate_bill_reduction_battery_strategy(
     :param rate_plan: RatePlan
     :return: BatteryStrategy
     """
-    name = (
-        "Bill Reduction: "
-        + name
-        + " (charge from grid: {}, discharge to grid: {})".format(
-            str(bool(charge_grid)), str(bool(discharge_grid))
-        )
+    name = name + " (charge from grid: {}, discharge to grid: {})".format(
+        str(bool(charge_grid)), str(bool(discharge_grid))
     )
 
     charge_description = GRID_CHARGE if charge_grid else NEM_CHARGE
@@ -158,12 +154,8 @@ def generate_ghg_reduction_battery_strategy(
     :param ghg_rate: GHGRate
     :return: BatteryStrategy
     """
-    name = (
-        "GHG Reduction: "
-        + name
-        + " (charge from grid: {}, discharge to grid: {})".format(
-            str(bool(charge_grid)), str(bool(discharge_grid))
-        )
+    name = name + " (charge from grid: {}, discharge to grid: {})".format(
+        str(bool(charge_grid)), str(bool(discharge_grid))
     )
 
     charge_description = GRID_CHARGE if charge_grid else NEM_CHARGE
@@ -212,12 +204,8 @@ def generate_ra_reduction_battery_strategy(
     :param system_profile: SystemProfile
     :return: BatteryStrategy
     """
-    name = (
-        "RA Reduction: "
-        + name
-        + " (charge from grid: {}, discharge to grid: {})".format(
-            str(bool(charge_grid)), str(bool(discharge_grid))
-        )
+    name = name + " (charge from grid: {}, discharge to grid: {})".format(
+        str(bool(charge_grid)), str(bool(discharge_grid))
     )
 
     charge_description = GRID_CHARGE if charge_grid else NEM_CHARGE

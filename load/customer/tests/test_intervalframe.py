@@ -44,7 +44,7 @@ class TestDataFrameFile(TestCase):
         self.assertTrue(channel.intervalframe)
         self.assertFalse(channel.intervalframe.dataframe.empty)
 
-    def test_udpate_intervalframe(self):
+    def test_update_intervalframe(self):
         """
         Test read PowerIntervalFrameFile from file.
         """
@@ -88,49 +88,22 @@ class Test288Computation(TestCase):
             - 1-hour intervals: 1kWh constant
             - 15-minute intervals: 0.25kWh constant
         """
-        power_60 = pd.DataFrame(
-            1,
-            columns=["kw"],
-            index=pd.date_range(
-                start=datetime(2000, 1, 1),
-                end=datetime(2000, 1, 1, 23),
-                freq="1H",
-            ),
-        )
-        self.power_60 = PowerIntervalFrame(power_60)
+        START = datetime(2000, 1, 1)
+        END = datetime(2000, 1, 1, 23, 59)
+        RANGE_1_HOUR = pd.date_range(start=START, end=END, freq="1H")
+        RANGE_15_MIN = pd.date_range(start=START, end=END, freq="15min")
 
-        power_15 = pd.DataFrame(
-            1,
-            columns=["kw"],
-            index=pd.date_range(
-                start=datetime(2000, 1, 1),
-                end=datetime(2000, 1, 1, 23, 59),
-                freq="15min",
-            ),
-        )
-        self.power_15 = PowerIntervalFrame(power_15)
+        power_60 = pd.DataFrame(1, columns=["kw"], index=RANGE_1_HOUR)
+        self.power_60 = PowerIntervalFrame(dataframe=power_60)
 
-        energy_60 = pd.DataFrame(
-            1,
-            columns=["kwh"],
-            index=pd.date_range(
-                start=datetime(2000, 1, 1),
-                end=datetime(2000, 1, 1, 23),
-                freq="1H",
-            ),
-        )
-        self.energy_60 = EnergyIntervalFrame(energy_60)
+        power_15 = pd.DataFrame(1, columns=["kw"], index=RANGE_15_MIN)
+        self.power_15 = PowerIntervalFrame(dataframe=power_15)
 
-        energy_15 = pd.DataFrame(
-            0.25,
-            columns=["kwh"],
-            index=pd.date_range(
-                start=datetime(2000, 1, 1),
-                end=datetime(2000, 1, 1, 23, 59),
-                freq="15min",
-            ),
-        )
-        self.energy_15 = EnergyIntervalFrame(energy_15)
+        energy_60 = pd.DataFrame(1, columns=["kwh"], index=RANGE_1_HOUR)
+        self.energy_60 = EnergyIntervalFrame(dataframe=energy_60)
+
+        energy_15 = pd.DataFrame(0.25, columns=["kwh"], index=RANGE_15_MIN)
+        self.energy_15 = EnergyIntervalFrame(dataframe=energy_15)
 
     def test_average_frame288(self):
         """

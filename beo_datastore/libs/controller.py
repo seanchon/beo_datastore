@@ -13,8 +13,12 @@ from beo_datastore.libs.battery import (
     FixedScheduleBatterySimulation,
 )
 from beo_datastore.libs.intervalframe import (
-    ValidationFrame288,
     PowerIntervalFrame,
+    ValidationFrame288,
+)
+from beo_datastore.libs.procurement import (
+    ProcurementCostIntervalFrame,
+    ProcurementRateIntervalFrame,
 )
 
 
@@ -240,7 +244,7 @@ class AggregateBatterySimulation(DERAggregateSimulation):
         battery,
         start,
         end_limit,
-        meter_set,
+        meter_dict,
         charge_schedule,
         discharge_schedule,
         multiprocess=False,
@@ -251,15 +255,17 @@ class AggregateBatterySimulation(DERAggregateSimulation):
         :param battery: Battery
         :param start: datetime
         :param end_limit: datetime
-        :param meter_set: QuerySet or set of Meters
+        :param meter_dict: dictionary of meter ID and intervalframe values
+            ex. {meter_id: intervalframe}
         :param charge_schedule: ValidationFrame288
         :param discharge_schedule: ValidationFrame288
         :param multiprocess: True or False
         :return: AggregateBatterySimulation
         """
+        meter_ids = list(meter_dict.keys())
         intervalframes = [
-            x.intervalframe.filter_by_datetime(start, end_limit)
-            for x in meter_set
+            x.filter_by_datetime(start, end_limit).power_intervalframe
+            for x in meter_dict.values()
         ]
 
         if multiprocess:
@@ -292,9 +298,9 @@ class AggregateBatterySimulation(DERAggregateSimulation):
             charge_schedule=charge_schedule,
             discharge_schedule=discharge_schedule,
             results={
-                meter: battery_simulation
-                for meter, battery_simulation in zip(
-                    meter_set, battery_simulations
+                meter_id: battery_simulation
+                for meter_id, battery_simulation in zip(
+                    meter_ids, battery_simulations
                 )
             },
         )
@@ -334,9 +340,7 @@ class DERCostCalculation(object):
         Return the cost calculation of a post-DER scenario minus the cost
         calculation of a pre-DER scenario.
         """
-        raise NotImplementedError(
-            "net_impact must be set in {}".format(self.__class__)
-        )
+        return self.post_DER_total - self.pre_DER_total
 
 
 @attr.s(frozen=True)
@@ -388,13 +392,6 @@ class AggregateBillCalculation(DERCostCalculation):
         Return sum of all bills for post-DER scenario.
         """
         return self.post_DER_bill_totals.sum().sum()
-
-    @cached_property
-    def net_impact(self):
-        """
-        Return total billing impact (post scenario - pre scenario).
-        """
-        return self.post_DER_total - self.pre_DER_total
 
     @cached_property
     def pre_DER_bill_totals(self):
@@ -511,24 +508,17 @@ class AggregateGHGCalculation(DERCostCalculation):
         """
         Return total tons of CO2 pre-DER.
         """
-        return self.ghg_before_frame288.dataframe.sum().sum()
+        return self.pre_DER_ghg_frame288.dataframe.sum().sum()
 
     @cached_property
     def post_DER_total(self):
         """
         Return total tons of CO2 post-DER.
         """
-        return self.ghg_after_frame288.dataframe.sum().sum()
+        return self.post_DER_ghg_frame288.dataframe.sum().sum()
 
     @cached_property
-    def net_impact(self):
-        """
-        Return total GHG impact (post scenario - pre scenario).
-        """
-        return self.post_DER_total - self.pre_DER_total
-
-    @cached_property
-    def ghg_before_frame288(self):
+    def pre_DER_ghg_frame288(self):
         """
         Return 288 frame of month-hour GHG emissions pre-DER.
         """
@@ -538,7 +528,7 @@ class AggregateGHGCalculation(DERCostCalculation):
         )
 
     @cached_property
-    def ghg_after_frame288(self):
+    def post_DER_ghg_frame288(self):
         """
         Return 288 frame of month-hour GHG emissions post-DER.
         """
@@ -553,8 +543,8 @@ class AggregateGHGCalculation(DERCostCalculation):
         Return table of monthly pre-DER and post-DER values.
         """
         df = pd.merge(
-            pd.DataFrame(self.ghg_before_frame288.dataframe.sum()),
-            pd.DataFrame(self.ghg_after_frame288.dataframe.sum()),
+            pd.DataFrame(self.pre_DER_ghg_frame288.dataframe.sum()),
+            pd.DataFrame(self.post_DER_ghg_frame288.dataframe.sum()),
             how="inner",
             left_index=True,
             right_index=True,
@@ -670,4 +660,96 @@ class AggregateResourceAdequacyCalculation(DERCostCalculation):
         return cls(
             agg_simulation=agg_simulation,
             system_profile_intervalframe=system_profile_intervalframe,
+        )
+
+
+@attr.s(frozen=True)
+class AggregateProcurementCostCalculation(DERCostCalculation):
+    """
+    Run procurement cost calculations across a DERAggregateSimulation's many
+    before and after load profiles.Procurement rates can change on a regular
+    interval (ex. 5-minute, 15-minute, 60-minute basis).
+    """
+
+    agg_simulation = attr.ib(validator=instance_of(DERAggregateSimulation))
+    procurement_rate_intervalframe = attr.ib(
+        validator=instance_of(ProcurementRateIntervalFrame)
+    )
+
+    @cached_property
+    def pre_DER_total(self):
+        """
+        Total procurement costs pre-DER.
+        """
+        return self.pre_DER_procurement_cost_intervalframe.dataframe["$"].sum()
+
+    @cached_property
+    def post_DER_total(self):
+        """
+        Total procurement costs post-DER.
+        """
+        return self.post_DER_procurement_cost_intervalframe.dataframe[
+            "$"
+        ].sum()
+
+    @cached_property
+    def pre_DER_procurement_cost_intervalframe(self):
+        """
+        ProcurementCostIntervalFrame with pre-DER costs on an
+        interval-by-interval basis.
+
+        Interval readings will be converted to EnergyIntervalFrame for proper
+        calculation.
+        """
+        pre_der_intervalframe = (
+            self.agg_simulation.pre_der_intervalframe.energy_intervalframe
+        )
+
+        df = pd.concat(
+            [
+                pre_der_intervalframe.dataframe,
+                self.procurement_rate_intervalframe.dataframe,
+            ],
+            axis=1,
+            join="inner",
+        )
+        df["$"] = df["kwh"] * df["$/kwh"]
+        df = df.drop(columns=["$/kwh"])
+
+        return ProcurementCostIntervalFrame(dataframe=df)
+
+    @cached_property
+    def post_DER_procurement_cost_intervalframe(self):
+        """
+        ProcurementCostIntervalFrame with post-DER costs on an
+        interval-by-interval basis.
+
+        Interval readings will be converted to EnergyIntervalFrame for proper
+        calculation.
+        """
+        post_der_intervalframe = (
+            self.agg_simulation.pre_der_intervalframe.energy_intervalframe
+        )
+
+        df = pd.concat(
+            [
+                post_der_intervalframe.dataframe,
+                self.procurement_rate_intervalframe.dataframe,
+            ],
+            axis=1,
+            join="inner",
+        )
+        df["$"] = df["kwh"] * df["$/kwh"]
+        df = df.drop(columns=["$/kwh"])
+
+        return ProcurementCostIntervalFrame(dataframe=df)
+
+    @classmethod
+    def create(cls, agg_simulation, procurement_rate_intervalframe):
+        """
+        Alias for __init__().
+        """
+        return cls(
+            agg_simulation=agg_simulation,
+            procurement_rate_intervalframe=procurement_rate_intervalframe,
         )
