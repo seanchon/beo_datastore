@@ -185,6 +185,22 @@ class ValidationIntervalFrame(ValidationDataFrame):
             dataframe=add_interval_dataframe(self.dataframe, other_dataframe)
         )
 
+    def __sub__(self, other):
+        """
+        Return another ValidationIntervalFrame subtracted from self.
+
+        :param other: ValidationIntervalFrame
+        :return: ValidationIntervalFrame
+        """
+        return self + other.inverse_intervalframe
+
+    @property
+    def inverse_intervalframe(self):
+        """
+        Return self with negative values.
+        """
+        return self.__class__(dataframe=(-1 * self.dataframe))
+
     @property
     def aggregation_column(self):
         """

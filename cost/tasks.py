@@ -1,7 +1,11 @@
+from datetime import timedelta
+from pytz import timezone
+
 from celery.utils.log import get_task_logger
 
 from beo_datastore.celery import app
 
+from cost.procurement.models import CAISOReport
 from cost.study.models import MultipleScenarioStudy, SingleScenarioStudy
 from reference.reference_model.models import Meter, Study
 
@@ -60,3 +64,39 @@ def aggregate_study_intervalframes(study_id, force=False):
     if study.meter_intervalframe.dataframe.empty or force:
         study.intervalframe.dataframe = study.post_der_intervalframe.dataframe
         study.save()
+
+
+@app.task(soft_time_limit=1800)
+def create_caiso_report(
+    report_name,
+    year,
+    query_params,
+    overwrite=False,
+    chunk_size=timedelta(days=1),
+    max_attempts=3,
+    destination_directory="caiso_downloads",
+    timezone_=timezone("US/Pacific"),
+):
+    """
+    Run CAISOReport.get_or_create().
+
+    :param report_name: see pyoasis.utils.get_report_names()
+    :param year: int
+    :param query_params: see pyoasis.utils.get_report_params()
+    :param overwrite: True to fetch new reports (default: False)
+    :param chunk_size: length of report to request (timedelta)
+    :param max_attempts: number of back-off attempts (int)
+    :param destination_directory: directory to store temporary files
+    :param timezone_: pytz.timezone object used for naive start and
+        end_limit datetime objects
+    """
+    CAISOReport.get_or_create(
+        report_name=report_name,
+        year=year,
+        query_params=query_params,
+        overwrite=overwrite,
+        chunk_size=chunk_size,
+        max_attempts=max_attempts,
+        destination_directory=destination_directory,
+        timezone_=timezone_,
+    )

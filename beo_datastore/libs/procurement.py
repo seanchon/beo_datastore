@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from django.utils.functional import cached_property
+
 from beo_datastore.libs.intervalframe import (
     EnergyIntervalFrame,
     PowerIntervalFrame,
@@ -8,7 +10,46 @@ from beo_datastore.libs.intervalframe import (
 )
 
 
-class ProcurementRateIntervalFrame(ValidationIntervalFrame):
+class ProcurementFrame288Mixin(object):
+    @cached_property
+    def average_frame288(self):
+        """
+        ValidationFrame288 of hourly average values.
+        """
+        return self.compute_frame288(aggfunc=np.mean)
+
+    @cached_property
+    def minimum_frame288(self):
+        """
+        ValidationFrame288 of hourly minimum values.
+        """
+        return self.compute_frame288(aggfunc=np.min)
+
+    @cached_property
+    def maximum_frame288(self):
+        """
+        ValidationFrame288 of hourly maximum values.
+        """
+        return self.compute_frame288(aggfunc=np.max)
+
+    @cached_property
+    def total_frame288(self):
+        """
+        ValidationFrame288 of hourly totals.
+        """
+        return self.compute_frame288(aggfunc=sum)
+
+    @cached_property
+    def count_frame288(self):
+        """
+        ValidationFrame288 of counts.
+        """
+        return self.compute_frame288(aggfunc=len)
+
+
+class ProcurementRateIntervalFrame(
+    ValidationIntervalFrame, ProcurementFrame288Mixin
+):
     """
     Base class for storing procurement rates (i.e. CAISO rates) on an
     interval-by-interval basis.
@@ -62,7 +103,9 @@ class ProcurementRateIntervalFrame(ValidationIntervalFrame):
         return ProcurementCostIntervalFrame(dataframe=dataframe)
 
 
-class ProcurementCostIntervalFrame(ValidationIntervalFrame):
+class ProcurementCostIntervalFrame(
+    ValidationIntervalFrame, ProcurementFrame288Mixin
+):
     """
     Base class for storing procurement costs (i.e. CAISO costs) on an
     interval-by-interval basis.

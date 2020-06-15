@@ -1,13 +1,24 @@
+from datetime import datetime, timedelta
+from jsonfield import JSONField
 import os
+import pandas as pd
+from pyoasis.report import OASISReport
+from pyoasis.utils import create_oasis_url, download_files
+from pytz import timezone
+import uuid
 
 from django.db import models, transaction
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.controller import AggregateResourceAdequacyCalculation
 from beo_datastore.libs.intervalframe import ValidationFrame288
-from beo_datastore.libs.intervalframe_file import PowerIntervalFrameFile
+from beo_datastore.libs.intervalframe_file import (
+    ArbitraryDataFrameFile,
+    PowerIntervalFrameFile,
+)
 from beo_datastore.libs.models import ValidationModel, IntervalFrameFileMixin
 from beo_datastore.libs.plot_intervalframe import plot_frame288
+from beo_datastore.libs.procurement import ProcurementRateIntervalFrame
 from beo_datastore.settings import MEDIA_ROOT
 from beo_datastore.libs.views import dataframe_to_html
 
@@ -161,3 +172,200 @@ class StoredResourceAdequacyCalculation(ValidationModel):
                 der_simulation__in=der_simulation_set,
                 system_profile=system_profile,
             )
+
+
+class CAISOReportDataFrameFile(ArbitraryDataFrameFile):
+    """
+    Model for storing a CAISO OASIS Report to file.
+    """
+
+    # directory for parquet file storage
+    file_directory = os.path.join(MEDIA_ROOT, "energy_rates")
+
+
+class CAISOReport(IntervalFrameFileMixin, ValidationModel):
+    """
+    CAISO OASIS Report.
+
+    CAISO will not return a full year's worth of data, so it is necessary to
+    piece together an entire year's worth of data from multiple calls.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    report_name = models.CharField(max_length=32)
+    query_params = JSONField()
+    year = models.IntegerField()
+
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = CAISOReportDataFrameFile
+
+    class Meta:
+        ordering = ["id"]
+        unique_together = ["report_name", "query_params", "year"]
+
+    @property
+    def report(self):
+        return self.frame.dataframe
+
+    @classmethod
+    def get_or_create(
+        cls,
+        report_name,
+        year,
+        query_params,
+        overwrite=False,
+        chunk_size=timedelta(days=1),
+        max_attempts=3,
+        destination_directory="caiso_downloads",
+        timezone_=timezone("US/Pacific"),
+    ):
+        """
+        Get or create CAISOReport and fetch reports from OASIS if necessary.
+
+        :param report_name: see pyoasis.utils.get_report_names()
+        :param year: int
+        :param query_params: see pyoasis.utils.get_report_params()
+        :param overwrite: True to fetch new reports (default: False)
+        :param chunk_size: length of report to request (timedelta)
+        :param max_attempts: number of back-off attempts (int)
+        :param destination_directory: directory to store temporary files
+        :param timezone_: pytz.timezone object used for naive start and
+            end_limit datetime objects
+        :return: CAISOReport
+        """
+        with transaction.atomic():
+            caiso_report, created = cls.objects.get_or_create(
+                report_name=report_name, query_params=query_params, year=year
+            )
+
+            if caiso_report.report.empty or overwrite:
+                caiso_report.intervalframe.dataframe = cls.fetch_report(
+                    report_name=report_name,
+                    start=datetime(year, 1, 1),
+                    end_limit=datetime(year + 1, 1, 1),
+                    query_params=query_params,
+                    chunk_size=chunk_size,
+                    max_attempts=max_attempts,
+                    destination_directory=destination_directory,
+                    timezone_=timezone_,
+                )
+                caiso_report.save()
+
+            return (caiso_report, created)
+
+    @staticmethod
+    def fetch_report(
+        report_name,
+        start,
+        end_limit,
+        query_params,
+        chunk_size=timedelta(days=1),
+        max_attempts=3,
+        destination_directory="caiso_downloads",
+        timezone_=timezone("US/Pacific"),
+        start_column="INTERVAL_START_GMT",
+        end_column="INTERVAL_END_GMT",
+        sort_by=["DATA_ITEM", "INTERVAL_START_GMT"],
+    ):
+        """
+        Fetch reports from OASIS and stitch together to create a single report
+        beginning on start and ending on end_limit.
+
+        :param report_name: see pyoasis.utils.get_report_names()
+        :param start: datetime
+        :param end_limit: datetime
+        :param query_params: see pyoasis.utils.get_report_params()
+        :param chunk_size: length of report to request (timedelta)
+        :param max_attempts: number of back-off attempts (int)
+        :param destination_directory: directory to store temporary files
+        :param timezone_: pytz.timezone object used for naive start and
+            end_limit datetime objects
+        :param start_column: column name of start timestamps
+        :param end_column: column name of end timestamps
+        :param sort_by: sort order of resultant dataframe
+        :return: DataFrame
+        """
+        report_dataframe = pd.DataFrame()
+
+        # localize naive datetime
+        if not start.tzinfo:
+            start = timezone_.localize(start)
+        if not end_limit.tzinfo:
+            end_limit = timezone_.localize(end_limit)
+
+        chunk_start = start
+        chunk_end = chunk_start + chunk_size
+        while chunk_end < end_limit + chunk_size:
+            url = create_oasis_url(
+                report_name=report_name,
+                start=chunk_start,
+                end=chunk_end,
+                query_params=query_params,
+            )
+            file_locations = download_files(
+                url=url,
+                destination_directory=destination_directory,
+                max_attempts=max_attempts,
+            )
+            for file_location in file_locations:
+                oasis_report = OASISReport(file_location)
+                if hasattr(oasis_report, "report_dataframe"):
+                    report_dataframe = report_dataframe.append(
+                        oasis_report.report_dataframe
+                    )
+                os.remove(file_location)
+
+            chunk_start = chunk_end
+            chunk_end = chunk_end + chunk_size
+
+        report_dataframe[start_column] = pd.to_datetime(
+            report_dataframe[start_column]
+        )
+        report_dataframe[end_column] = pd.to_datetime(
+            report_dataframe[end_column]
+        )
+
+        return report_dataframe[
+            (report_dataframe[start_column] >= start)
+            & (report_dataframe[end_column] <= end_limit)
+        ].sort_values(by=sort_by)
+
+    def get_procurement_rate_intervalframe(
+        self,
+        index_col="INTERVAL_START_GMT",
+        rate_col="VALUE",
+        filters={"DATA_ITEM": "LMP_PRC"},
+        timezone_=timezone("US/Pacific"),
+    ):
+        """
+        Converts self.report into a ProcurementRateIntervalFrame.
+
+        Defaults to index on INTERVAL_START_GMT, rate on VALUE, and filtering
+        on DATA_ITEM equals LMP_PRC.
+        """
+        df = self.report.copy()
+
+        # filter report
+        # https://stackoverflow.com/questions/34157811
+        df = df.loc[(df[list(filters)] == pd.Series(filters)).all(axis=1)]
+
+        # keep index_col and rate_col
+        df = df[[index_col, rate_col]]
+
+        # convert rate_col from $/MWh to $/kWh
+        df[rate_col] = df[rate_col].astype(float)
+        df[rate_col] = df[rate_col] / 1000
+        df = df.rename(columns={rate_col: "$/kwh"})
+
+        # convert index_col to PDT and drop timezone from timestamp
+        df[index_col] = pd.to_datetime(df[index_col])
+        df = df.rename(columns={index_col: "start"})
+        df = df.set_index("start")
+        df.index = df.index.tz_convert(timezone_).tz_localize(None)
+
+        # drop duplicate index daylight savings
+        # https://stackoverflow.com/questions/13035764
+        df = df.loc[~df.index.duplicated(keep="first")]
+
+        return ProcurementRateIntervalFrame(dataframe=df)
