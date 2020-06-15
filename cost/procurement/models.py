@@ -264,6 +264,9 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
         max_attempts=3,
         destination_directory="caiso_downloads",
         timezone_=timezone("US/Pacific"),
+        start_column="INTERVAL_START_GMT",
+        end_column="INTERVAL_END_GMT",
+        sort_by=["DATA_ITEM", "INTERVAL_START_GMT"],
     ):
         """
         Fetch reports from OASIS and stitch together to create a single report
@@ -278,6 +281,9 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
         :param destination_directory: directory to store temporary files
         :param timezone_: pytz.timezone object used for naive start and
             end_limit datetime objects
+        :param start_column: column name of start timestamps
+        :param end_column: column name of end timestamps
+        :param sort_by: sort order of resultant dataframe
         :return: DataFrame
         """
         report_dataframe = pd.DataFrame()
@@ -297,7 +303,6 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
                 end=chunk_end,
                 query_params=query_params,
             )
-            file_locations = None
             file_locations = download_files(
                 url=url,
                 destination_directory=destination_directory,
@@ -314,17 +319,17 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
             chunk_start = chunk_end
             chunk_end = chunk_end + chunk_size
 
-        report_dataframe["INTERVAL_START_GMT"] = pd.to_datetime(
-            report_dataframe["INTERVAL_START_GMT"]
+        report_dataframe[start_column] = pd.to_datetime(
+            report_dataframe[start_column]
         )
-        report_dataframe["INTERVAL_END_GMT"] = pd.to_datetime(
-            report_dataframe["INTERVAL_END_GMT"]
+        report_dataframe[end_column] = pd.to_datetime(
+            report_dataframe[end_column]
         )
 
         return report_dataframe[
-            (report_dataframe["INTERVAL_START_GMT"] >= start)
-            & (report_dataframe["INTERVAL_END_GMT"] <= end_limit)
-        ].sort_values(by=["DATA_ITEM", "INTERVAL_START_GMT"])
+            (report_dataframe[start_column] >= start)
+            & (report_dataframe[end_column] <= end_limit)
+        ].sort_values(by=sort_by)
 
     def get_procurement_rate_intervalframe(
         self,
@@ -342,6 +347,7 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
         df = self.report.copy()
 
         # filter report
+        # https://stackoverflow.com/questions/34157811
         df = df.loc[(df[list(filters)] == pd.Series(filters)).all(axis=1)]
 
         # keep index_col and rate_col
@@ -359,6 +365,7 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
         df.index = df.index.tz_convert(timezone_).tz_localize(None)
 
         # drop duplicate index daylight savings
+        # https://stackoverflow.com/questions/13035764
         df = df.loc[~df.index.duplicated(keep="first")]
 
         return ProcurementRateIntervalFrame(dataframe=df)
