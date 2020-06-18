@@ -11,6 +11,7 @@ from beo_datastore.libs.api.serializers import require_request_data
 from beo_datastore.libs.api.viewsets import (
     CreateViewSet,
     ListRetrieveUpdateDestroyViewSet,
+    ListRetrieveViewSet,
 )
 from beo_datastore.libs.models import get_exact_many_to_many
 
@@ -25,7 +26,11 @@ from reference.reference_model.models import (
     Study,
 )
 
-from .serializers import MultipleScenarioStudySerializer, StudySerializer
+from .serializers import (
+    GHGRateSerializer,
+    MultipleScenarioStudySerializer,
+    StudySerializer,
+)
 from .tasks import run_study
 
 
@@ -236,3 +241,64 @@ class StudyViewSet(ListRetrieveUpdateDestroyViewSet):
             )
 
         return Study.objects.filter(id__in=ids)
+
+
+class GHGRateViewSet(ListRetrieveViewSet):
+    """
+    GHGRate objects
+    """
+
+    schema = AutoSchema(
+        manual_fields=[
+            coreapi.Field(
+                "include[]",
+                required=False,
+                location="query",
+                description="deferred_fields disabled by default: data",
+            ),
+            coreapi.Field(
+                "data_format",
+                required=False,
+                location="query",
+                description=(
+                    "Format of the data in the response. Choices are '288' "
+                    "and 'interval'. This field is required if `data` is "
+                    "included."
+                ),
+            ),
+            coreapi.Field(
+                "period",
+                required=False,
+                location="query",
+                description=(
+                    "Period of the interval data when `format` field is set "
+                    "to `interval`. Choices are '1H' and '15M'. This has no "
+                    "impact if the `format` is not `interval`. (Format: ISO "
+                    "8601)"
+                ),
+            ),
+            coreapi.Field(
+                "start",
+                required=False,
+                location="query",
+                description=(
+                    "Beginning of the interval data when `format` field is "
+                    "set to `interval`. This has no impact if the `format` is "
+                    "not `interval`. (Format: ISO 8601)"
+                ),
+            ),
+            coreapi.Field(
+                "end_limit",
+                required=False,
+                location="query",
+                description=(
+                    "End limit of the interval data when `format` field is "
+                    "set to `interval`. This has no impact if the `format` is "
+                    "not `interval`. (Format: ISO 8601)"
+                ),
+            ),
+        ]
+    )
+
+    model = GHGRate
+    serializer_class = GHGRateSerializer

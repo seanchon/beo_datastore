@@ -1,9 +1,15 @@
 import json
+from datetime import timedelta
+import dateutil.parser
 
 from dynamic_rest.serializers import DynamicModelSerializer
 from rest_framework import serializers
 
-from beo_datastore.libs.api.serializers import AbstractGetDataMixin
+from beo_datastore.libs.api.serializers import (
+    AbstractGetDataMixin,
+    get_context_request_param,
+)
+from cost.ghg.models import GHGRate
 from cost.study.models import SingleScenarioStudy, MultipleScenarioStudy
 from der.serializers import (
     DERConfigurationSerializer,
@@ -148,3 +154,68 @@ class StudySerializer(GetStudyDataMixin, DynamicModelSerializer):
         Report summary associated with Study.
         """
         return json.loads(obj.report_summary.to_json(default_handler=str))
+
+
+class GHGRateSerializer(DynamicModelSerializer):
+    data = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GHGRate
+        fields = (
+            "data",
+            "effective",
+            "id",
+            "name",
+            "rate_unit",
+            "source",
+        )
+        deferred_fields = ("data",)
+
+    def get_data(self, obj):
+        """
+        Nest GHGRate's frame288 under "data" key
+        """
+        data_format = get_context_request_param(self.context, "data_format")
+        period = get_context_request_param(self.context, "period")
+        start = get_context_request_param(self.context, "start")
+        end_limit = get_context_request_param(self.context, "end_limit")
+
+        if data_format == "288":
+            return obj.dataframe
+        elif data_format == "interval":
+            if not all([start, end_limit, period]):
+                raise serializers.ValidationError(
+                    "start, end_limit and frequency parameters are required"
+                )
+
+            # Validate `start` parameter
+            try:
+                start = dateutil.parser.parse(start)
+            except Exception:
+                raise serializers.ValidationError(
+                    "start must be valid ISO 8601."
+                )
+
+            # Validate `end_limit` parameter
+            try:
+                end_limit = dateutil.parser.parse(end_limit)
+            except Exception:
+                raise serializers.ValidationError(
+                    "end_limit must be valid ISO 8601."
+                )
+
+            # Validate `frequency` parameter
+            if period == "1H":
+                period = timedelta(hours=1)
+            elif period == "15M":
+                period = timedelta(minutes=15)
+            else:
+                raise serializers.ValidationError(
+                    "frequency parameter must be either `1H` or `15M`"
+                )
+
+            return obj.frame288.compute_intervalframe(
+                start=start, end_limit=end_limit, period=period
+            )
+        else:
+            return None

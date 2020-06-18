@@ -148,3 +148,51 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         self.user.meter_groups.clear()
         response = self.client.get(get_endpoint)
         self.assertEqual(len(response.data["results"]["studies"]), 0)
+
+    def test_ghg_rate_no_data(self):
+        """
+        Tests that the `GHGRate` object is not serialized with its data if not
+        requested
+        """
+        get_endpoint = "/v1/cost/ghg_rate/"
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(get_endpoint)
+
+        ghg_rates = response.data["results"]["ghg_rates"]
+        for ghg_rate in ghg_rates:
+            self.assertIsNone(ghg_rate.get("data"))
+
+    def test_ghg_rate_data_288(self):
+        """
+        Tests that the `GHGRate` object is serialized with frame 288 data when
+        the `data_format` is set to `288`
+        """
+        get_endpoint = "/v1/cost/ghg_rate/?include[]=data&data_format=288"
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(get_endpoint)
+
+        ghg_rates = response.data["results"]["ghg_rates"]
+        for ghg_rate in ghg_rates:
+            ghg_rate_data = ghg_rate["data"]
+            self.assertEqual(ghg_rate_data.size, 288)
+
+    def test_ghg_rate_data_interval(self):
+        """
+        Tests that the `GHGRate` object is serialized with interval data when
+        the `data_format` is set to `interval`
+        """
+        get_endpoint = (
+            "/v1/cost/ghg_rate/?"
+            "include[]=data&"
+            "data_format=interval&"
+            "start=1/1/2020&"
+            "end_limit=2/1/2020&"
+            "period=1H"
+        )
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(get_endpoint)
+
+        ghg_rates = response.data["results"]["ghg_rates"]
+        for ghg_rate in ghg_rates:
+            ghg_rate_data = ghg_rate["data"]
+            self.assertEqual(ghg_rate_data.size, 24 * 31 * 2)

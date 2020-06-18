@@ -1,6 +1,10 @@
 from rest_framework.routers import DefaultRouter
 
-from cost.views import MultipleScenarioStudyViewSet, StudyViewSet
+from cost.views import (
+    GHGRateViewSet,
+    MultipleScenarioStudyViewSet,
+    StudyViewSet,
+)
 from der.views import (
     DERConfigurationViewSet,
     DERSimulationViewSet,
@@ -15,6 +19,7 @@ from load.views import (
 
 
 v1_router = DefaultRouter()
+v1_router.register(r"cost/ghg_rate", GHGRateViewSet, basename="GHGRate")
 v1_router.register(r"cost/study", StudyViewSet, basename="Study")
 v1_router.register(
     r"cost/multiple_scenario_study", MultipleScenarioStudyViewSet

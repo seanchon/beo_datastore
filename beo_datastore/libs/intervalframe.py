@@ -789,6 +789,34 @@ class ValidationFrame288(ValidationDataFrame):
         """
         return self.__class__(dataframe=self.dataframe == key)
 
+    def compute_intervalframe(self, start, end_limit, period):
+        """
+        Returns a time-series dataframe with indexed timestamps from `start` to
+        `end_limit`. The values at each interval will be taken from the 288
+        dataframe, accounting for the month and time of day.
+
+        :param start: datetime object
+        :param end_limit: datetime object
+        :param period: timedelta object
+        :return: ValidationIntervalFrame
+        """
+        df = pd.DataFrame()
+        df["start"] = pd.date_range(
+            start=start, end=end_limit - period, freq=period
+        )
+        df.set_index("start", inplace=True)
+
+        # Convert the 288 to a dataframe with `value` and `month-hour` columns. The month-hour
+        # column is computed from the index of the unstacked dataframe, which comes in tuples
+        # of (month, hour of day)
+        df_288 = pd.DataFrame(self.dataframe.unstack(), columns=["value"])
+        df_288["month-hour"] = df_288.index.map(lambda x: x[0] * 100 + x[1])
+        df["month-hour"] = df.index.map(lambda x: x.month * 100 + x.hour)
+
+        return df.reset_index().merge(df_288, on="month-hour", how="left")[
+            ["start", "value"]
+        ]
+
 
 class ArbitraryDataFrame(ValidationDataFrame):
     """
