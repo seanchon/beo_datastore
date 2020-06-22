@@ -1,4 +1,7 @@
+from functools import reduce
 import os
+import pandas as pd
+import re
 
 from django.db import models, transaction
 from django.utils.functional import cached_property
@@ -47,6 +50,11 @@ class GHGRate(Frame288FileMixin, ValidationModel):
             )
         else:
             return "{} ({})".format(self.name, self.rate_unit)
+
+    @property
+    def short_name(self):
+        ghg_rate_name = re.sub(r"\W+", "", self.name)
+        return "{}{}".format(ghg_rate_name, self.effective.year)
 
     @property
     def dataframe(self):
@@ -143,3 +151,56 @@ class StoredGHGCalculation(ValidationModel):
             return cls.objects.filter(
                 der_simulation__in=der_simulation_set, ghg_rate=ghg_rate
             )
+
+    @staticmethod
+    def get_report(ghg_calculations):
+        """
+        Return pandas DataFrame in the format:
+
+        |   ID  |   GHGPreDER   |   GHGPostDER  |   GHGDelta    |
+
+        :param ghg_calculations: QuerySet or set of StoredGHGCalculations
+        :return: pandas DataFrame
+        """
+        ghg_rate_ids = (
+            ghg_calculations.values_list("ghg_rate", flat=True)
+            .order_by()
+            .distinct()
+        )
+
+        dataframes = []
+        for ghg_rate_id in ghg_rate_ids:
+            ghg_rate = GHGRate.objects.get(id=ghg_rate_id)
+
+            dataframe = pd.DataFrame(
+                sorted(
+                    [
+                        (
+                            x.der_simulation.meter.id,
+                            x.pre_DER_total,
+                            x.post_DER_total,
+                            x.net_impact,
+                        )
+                        for x in ghg_calculations.filter(ghg_rate=ghg_rate)
+                    ],
+                    key=lambda x: x[1],
+                )
+            )
+
+            if not dataframe.empty:
+                dataframes.append(
+                    dataframe.rename(
+                        columns={
+                            0: "ID",
+                            1: "{}PreDER".format(ghg_rate.short_name),
+                            2: "{}PostDER".format(ghg_rate.short_name),
+                            3: "{}Delta".format(ghg_rate.short_name),
+                        }
+                    ).set_index("ID")
+                )
+
+        return reduce(
+            lambda x, y: x.join(y, how="outer", lsuffix="_0", rsuffix="_1"),
+            [df for df in dataframes],
+            pd.DataFrame(),
+        )

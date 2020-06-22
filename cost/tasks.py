@@ -61,9 +61,7 @@ def aggregate_study_intervalframes(study_id, force=False):
     :param force: force recomputation
     """
     study = Study.objects.get(id=study_id)
-    if study.meter_intervalframe.dataframe.empty or force:
-        study.intervalframe.dataframe = study.post_der_intervalframe.dataframe
-        study.save()
+    study.aggregate_meter_intervalframe(force=force)
 
 
 @app.task(soft_time_limit=1800)

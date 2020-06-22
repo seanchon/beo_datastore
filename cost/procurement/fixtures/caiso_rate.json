@@ -1,0 +1,20 @@
+[
+{
+  "model": "procurement.caisoreport",
+  "pk": "9cb6763c-1a15-4ef5-ad75-abc3e011e80f",
+  "fields": {
+    "created_at": "2020-06-12T18:57:02.313",
+    "report_name": "PRC_LMP",
+    "query_params": "{\"node\":\"TH_NP15_GEN-APND\",\"market_run_id\":\"DAM\",\"version\":1}",
+    "year": 2018
+  }
+},
+{
+  "model": "procurement.caisorate",
+  "pk": 1,
+  "fields": {
+    "filters": "{\"DATA_ITEM\":\"LMP_PRC\"}",
+    "caiso_report": "9cb6763c-1a15-4ef5-ad75-abc3e011e80f"
+  }
+}
+]

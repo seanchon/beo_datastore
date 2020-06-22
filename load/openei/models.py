@@ -179,3 +179,26 @@ class ReferenceMeter(IntervalFrameFileMixin, Meter):
     @property
     def meter_intervalframe(self):
         return self.intervalframe
+
+    @staticmethod
+    def get_report(reference_meters):
+        """
+        Return pandas DataFrame in the format:
+
+        |   ID  |   Location    |   Building Type   |
+
+        :param reference_meters: QuerySet or set of ReferenceMeters
+        :return: pandas DataFrame
+        """
+        dataframe = pd.DataFrame(
+            reference_meters.values_list(
+                "id", "location", "building_type__name"
+            )
+        )
+
+        if not dataframe.empty:
+            return dataframe.rename(
+                columns={0: "ID", 1: "Location", 2: "Building Type"}
+            ).set_index("ID")
+        else:
+            return pd.DataFrame()

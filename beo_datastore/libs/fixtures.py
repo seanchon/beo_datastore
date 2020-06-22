@@ -7,6 +7,7 @@ from beo_datastore.settings import MEDIA_ROOT
 from beo_datastore.libs.utils import mkdir_p
 
 from cost.ghg.models import GHGRate, GHGRateFrame288
+from cost.procurement.models import CAISOReport, CAISOReportDataFrame
 from load.customer.models import Channel, ChannelIntervalFrame
 from load.openei.models import ReferenceMeter, ReferenceMeterIntervalFrame
 
@@ -22,7 +23,9 @@ def load_test_fixtures():
     """
     Loads test fixtures in defined order.
     """
-    call_command("loaddata", "customer", "openei", "utility_rate")
+    call_command(
+        "loaddata", "customer", "openei", "utility_rate", "caiso_rate"
+    )
 
 
 def load_intervalframe_files():
@@ -33,6 +36,7 @@ def load_intervalframe_files():
         (GHGRate, GHGRateFrame288, "cost/ghg/fixtures/"),
         (Channel, ChannelIntervalFrame, "load/customer/fixtures/"),
         (ReferenceMeter, ReferenceMeterIntervalFrame, "load/openei/fixtures/"),
+        (CAISOReport, CAISOReportDataFrame, "cost/procurement/fixtures/"),
     ]:
         for object in reference_model.objects.all():
             mkdir_p(frame_model.file_directory)
