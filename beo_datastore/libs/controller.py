@@ -728,7 +728,7 @@ class AggregateProcurementCostCalculation(DERCostCalculation):
         calculation.
         """
         post_der_intervalframe = (
-            self.agg_simulation.pre_der_intervalframe.energy_intervalframe
+            self.agg_simulation.post_der_intervalframe.energy_intervalframe
         )
 
         df = pd.concat(

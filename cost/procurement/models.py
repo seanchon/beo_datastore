@@ -10,14 +10,20 @@ import uuid
 from django.db import models, transaction
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.controller import AggregateResourceAdequacyCalculation
+from beo_datastore.libs.controller import (
+    AggregateProcurementCostCalculation,
+    AggregateResourceAdequacyCalculation,
+)
 from beo_datastore.libs.intervalframe import ValidationFrame288
 from beo_datastore.libs.intervalframe_file import (
     ArbitraryDataFrameFile,
     PowerIntervalFrameFile,
 )
 from beo_datastore.libs.models import ValidationModel, IntervalFrameFileMixin
-from beo_datastore.libs.plot_intervalframe import plot_frame288
+from beo_datastore.libs.plot_intervalframe import (
+    plot_frame288,
+    plot_intervalframe,
+)
 from beo_datastore.libs.procurement import ProcurementRateIntervalFrame
 from beo_datastore.settings import MEDIA_ROOT
 from beo_datastore.libs.views import dataframe_to_html
@@ -343,6 +349,13 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
 
         Defaults to index on INTERVAL_START_GMT, rate on VALUE, and filtering
         on DATA_ITEM equals LMP_PRC.
+
+        :param index_col: column containing start timestamps
+        :param rate_col: column containing rates
+        :param filter: key/value pair of column/value for filtering
+            report
+        :param timezone: timezone object
+        :return: ProcurementRateIntervalFrame
         """
         df = self.report.copy()
 
@@ -369,3 +382,118 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
         df = df.loc[~df.index.duplicated(keep="first")]
 
         return ProcurementRateIntervalFrame(dataframe=df)
+
+
+class CAISORate(ValidationModel):
+    """
+    Container for referencing associated CAISO ProcurementRateIntervalFrame.
+    """
+
+    filters = JSONField()
+    caiso_report = models.ForeignKey(
+        to=CAISOReport, related_name="caiso_rates", on_delete=models.CASCADE
+    )
+
+    class Meta:
+        ordering = ["id"]
+        unique_together = ["filters", "caiso_report"]
+
+    @property
+    def intervalframe(self):
+        """
+        Associated CAISO ProcurementRateIntervalFrame.
+        """
+        return self.caiso_report.get_procurement_rate_intervalframe(
+            filters=self.filters
+        )
+
+    @property
+    def intervalframe_plot(self):
+        return plot_intervalframe(self.intervalframe, to_html=True)
+
+
+class StoredProcurementCostCalculation(ValidationModel):
+    """
+    Container for storing AggregateProcurementCostCalculation.
+    """
+
+    pre_DER_total = models.FloatField()
+    post_DER_total = models.FloatField()
+    der_simulation = models.ForeignKey(
+        to=DERSimulation,
+        related_name="stored_procurement_cost_calculations",
+        on_delete=models.CASCADE,
+    )
+    caiso_rate = models.ForeignKey(
+        to=CAISORate,
+        related_name="stored_procurement_cost_calculations",
+        on_delete=models.CASCADE,
+    )
+
+    class Meta:
+        ordering = ["id"]
+        unique_together = ("der_simulation", "caiso_rate")
+
+    @property
+    def net_impact(self):
+        """
+        Return post-DER total minus pre-DER total.
+        """
+        return self.post_DER_total - self.pre_DER_total
+
+    @cached_property
+    def procurement_rate_intervalframe(self):
+        return self.caiso_rate.intervalframe
+
+    @cached_property
+    def aggregate_procurement_cost_calculation(self):
+        """
+        Return AggregateProcurementCostCalculation equivalent of self.
+        """
+        return AggregateProcurementCostCalculation(
+            agg_simulation=self.der_simulation.agg_simulation,
+            procurement_rate_intervalframe=self.procurement_rate_intervalframe,
+        )
+
+    @classmethod
+    def generate(cls, der_simulation_set, caiso_rate):
+        """
+        Get or create many StoredProcurementCostCalculations at once.
+        Pre-existing StoredProcurementCostCalculations are retrieved and
+        non-existing StoredProcurementCostCalculations are created.
+
+        :param der_simulation_set: QuerySet or set of DERSimulations
+        :param caiso_rate: CAISORate
+        :return: StoredProcurementCostCalculation QuerySet
+        """
+        with transaction.atomic():
+            # get stored procurement cost calculations
+            stored_procurement_cost_calculations = cls.objects.filter(
+                der_simulation__in=der_simulation_set, caiso_rate=caiso_rate
+            )
+
+            # create new procurement cost calculations
+            stored_simulations = [
+                x.der_simulation for x in stored_procurement_cost_calculations
+            ]
+            objects = []
+            for der_simulation in der_simulation_set:
+                if der_simulation in stored_simulations:
+                    continue
+                cost_calulation = AggregateProcurementCostCalculation(
+                    agg_simulation=der_simulation.agg_simulation,
+                    procurement_rate_intervalframe=caiso_rate.intervalframe,
+                )
+                objects.append(
+                    cls(
+                        pre_DER_total=cost_calulation.pre_DER_total,
+                        post_DER_total=cost_calulation.post_DER_total,
+                        der_simulation=der_simulation,
+                        caiso_rate=caiso_rate,
+                    )
+                )
+            cls.objects.bulk_create(objects)
+
+            return cls.objects.filter(
+                der_simulation__in=der_simulation_set, caiso_rate=caiso_rate
+            )
