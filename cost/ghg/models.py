@@ -201,6 +201,6 @@ class StoredGHGCalculation(ValidationModel):
 
         return reduce(
             lambda x, y: x.join(y, how="outer", lsuffix="_0", rsuffix="_1"),
-            [df for df in dataframes],
+            dataframes,
             pd.DataFrame(),
         )

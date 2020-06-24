@@ -290,8 +290,6 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
             self._report = Report.objects.create()
             self.save()
 
-        self.aggregate_meter_intervalframe()
-
         # Only generate report if:
         # 1. report has not previously been generated.
         # 2. all self.der_simulations have run.
@@ -331,8 +329,6 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         if not self._report_summary:
             self._report_summary = ReportSummary.objects.create()
             self.save()
-
-        self.aggregate_meter_intervalframe()
 
         # Only generate report if:
         # 1. report has not previously been generated.
