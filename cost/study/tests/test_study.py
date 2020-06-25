@@ -9,6 +9,7 @@ from beo_datastore.libs.fixtures import (
 )
 
 from cost.ghg.models import GHGRate
+from cost.procurement.models import CAISORate
 from cost.study.models import MultipleScenarioStudy, SingleScenarioStudy
 from cost.tasks import run_study
 from cost.utility_rate.models import RatePlan
@@ -33,7 +34,13 @@ class TestStudy(TestCase):
         - demo/3_multi_scenario_optimization.ipynb
     """
 
-    fixtures = ["reference_model", "customer", "ghg", "utility_rate"]
+    fixtures = [
+        "reference_model",
+        "customer",
+        "ghg",
+        "utility_rate",
+        "caiso_rate",
+    ]
 
     def setUp(self):
         """
@@ -93,6 +100,7 @@ class TestStudy(TestCase):
             rate_plan=RatePlan.objects.get(name__contains="EV"),
         )
         single.ghg_rates.add(*GHGRate.objects.filter(name="Clean Net Short"))
+        single.caiso_rates.add(*CAISORate.objects.all())
         multi.single_scenario_studies.add(single)
         run_study(multi.id)
 
@@ -103,3 +111,33 @@ class TestStudy(TestCase):
         )
         # battery modifies load
         self.assertNotEqual(np.mean(multi.report["UsageDelta"]), 0)
+        # report columns all exist
+        self.assertEqual(
+            set(multi.report.columns),
+            {
+                "UsagePreDER",
+                "UsagePostDER",
+                "UsageDelta",
+                "BillPreDER",
+                "BillPostDER",
+                "BillDelta",
+                "CleanNetShort2018PreDER",
+                "CleanNetShort2018PostDER",
+                "CleanNetShort2018Delta",
+                "CleanNetShort2022PreDER",
+                "CleanNetShort2022PostDER",
+                "CleanNetShort2022Delta",
+                "CleanNetShort2026PreDER",
+                "CleanNetShort2026PostDER",
+                "CleanNetShort2026Delta",
+                "CleanNetShort2030PreDER",
+                "CleanNetShort2030PostDER",
+                "CleanNetShort2030Delta",
+                "PRC_LMP2018PreDER",
+                "PRC_LMP2018PostDER",
+                "PRC_LMP2018Delta",
+                "SA ID",
+                "MeterRatePlan",
+                "SingleScenarioStudy",
+            },
+        )

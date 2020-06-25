@@ -16,7 +16,7 @@ from beo_datastore.libs.api.viewsets import (
 from beo_datastore.libs.models import get_exact_many_to_many
 
 from cost.ghg.models import GHGRate
-from cost.procurement.models import SystemProfile
+from cost.procurement.models import CAISORate, SystemProfile
 from cost.study.models import SingleScenarioStudy, MultipleScenarioStudy
 from cost.utility_rate.models import RatePlan
 from reference.reference_model.models import (
@@ -157,6 +157,12 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
                     ).last()
                     if system_profile:
                         single.system_profiles.add(system_profile)
+                    single.caiso_rates.add(
+                        *CAISORate.objects.filter(
+                            caiso_report__report_name="PRC_LMP",
+                            caiso_report__year__in=meter_group.years,
+                        )
+                    )
                     single_scenario_study_ids.add(single.id)
 
         existing_multiple_scenario_studies = get_exact_many_to_many(

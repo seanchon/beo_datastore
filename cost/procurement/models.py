@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from functools import reduce
 from jsonfield import JSONField
 import os
 import pandas as pd
@@ -57,6 +58,13 @@ class SystemProfile(IntervalFrameFileMixin, ValidationModel):
 
     def __str__(self):
         return self.load_serving_entity.name + ": " + self.name
+
+    @property
+    def short_name(self):
+        """
+        Name minus whitespace.
+        """
+        return self.name.replace(" ", "")
 
     @property
     def average_frame288_html_plot(self):
@@ -179,8 +187,69 @@ class StoredResourceAdequacyCalculation(ValidationModel):
                 system_profile=system_profile,
             )
 
+    @staticmethod
+    def get_report(resource_adequacy_calculations):
+        """
+        Return pandas DataFrame in the format:
 
-class CAISOReportDataFrameFile(ArbitraryDataFrameFile):
+        |   ID  |   RAPreDER    |   RAPostDER   |   RADelta |
+
+        :param resource_adequacy_calculations: QuerySet or set of
+            StoredResourceAdequacyCalculations
+        :return: pandas DataFrame
+        """
+        system_profile_ids = (
+            resource_adequacy_calculations.values_list(
+                "system_profile", flat=True
+            )
+            .order_by()
+            .distinct()
+        )
+
+        dataframes = []
+        title_prefix = ""
+        for system_profile_id in system_profile_ids:
+            system_profile = SystemProfile.objects.get(id=system_profile_id)
+            if len(system_profile_ids) > 1:
+                title_prefix = system_profile.short_name
+
+            dataframe = pd.DataFrame(
+                sorted(
+                    [
+                        (
+                            x.der_simulation.meter.id,
+                            x.pre_DER_total,
+                            x.post_DER_total,
+                            x.net_impact,
+                        )
+                        for x in resource_adequacy_calculations.filter(
+                            system_profile=system_profile
+                        )
+                    ],
+                    key=lambda x: x[1],
+                )
+            )
+
+            if not dataframe.empty:
+                dataframes.append(
+                    dataframe.rename(
+                        columns={
+                            0: "ID",
+                            1: "{}RAPreDER".format(title_prefix),
+                            2: "{}RAPostDER".format(title_prefix),
+                            3: "{}RADelta".format(title_prefix),
+                        }
+                    ).set_index("ID")
+                )
+
+        return reduce(
+            lambda x, y: x.join(y, how="outer", lsuffix="_0", rsuffix="_1"),
+            dataframes,
+            pd.DataFrame(),
+        )
+
+
+class CAISOReportDataFrame(ArbitraryDataFrameFile):
     """
     Model for storing a CAISO OASIS Report to file.
     """
@@ -204,7 +273,7 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
     year = models.IntegerField()
 
     # Required by IntervalFrameFileMixin.
-    frame_file_class = CAISOReportDataFrameFile
+    frame_file_class = CAISOReportDataFrame
 
     class Meta:
         ordering = ["id"]
@@ -399,6 +468,16 @@ class CAISORate(ValidationModel):
         unique_together = ["filters", "caiso_report"]
 
     @property
+    def name(self):
+        return "{} {}".format(
+            self.caiso_report.report_name, self.caiso_report.year
+        )
+
+    @property
+    def short_name(self):
+        return self.name.replace(" ", "")
+
+    @property
     def intervalframe(self):
         """
         Associated CAISO ProcurementRateIntervalFrame.
@@ -421,12 +500,12 @@ class StoredProcurementCostCalculation(ValidationModel):
     post_DER_total = models.FloatField()
     der_simulation = models.ForeignKey(
         to=DERSimulation,
-        related_name="stored_procurement_cost_calculations",
+        related_name="stored_procurement_calculations",
         on_delete=models.CASCADE,
     )
     caiso_rate = models.ForeignKey(
         to=CAISORate,
-        related_name="stored_procurement_cost_calculations",
+        related_name="stored_procurement_calculations",
         on_delete=models.CASCADE,
     )
 
@@ -468,13 +547,13 @@ class StoredProcurementCostCalculation(ValidationModel):
         """
         with transaction.atomic():
             # get stored procurement cost calculations
-            stored_procurement_cost_calculations = cls.objects.filter(
+            stored_procurement_calculations = cls.objects.filter(
                 der_simulation__in=der_simulation_set, caiso_rate=caiso_rate
             )
 
             # create new procurement cost calculations
             stored_simulations = [
-                x.der_simulation for x in stored_procurement_cost_calculations
+                x.der_simulation for x in stored_procurement_calculations
             ]
             objects = []
             for der_simulation in der_simulation_set:
@@ -497,3 +576,59 @@ class StoredProcurementCostCalculation(ValidationModel):
             return cls.objects.filter(
                 der_simulation__in=der_simulation_set, caiso_rate=caiso_rate
             )
+
+    @staticmethod
+    def get_report(procurement_calculations):
+        """
+        Return pandas DataFrame in the format:
+
+        |   ID  |   CAISOPreDER   |   CAISOPostDER  |   CAISODelta    |
+
+        :param procurement_calculations: QuerySet or set of
+            StoredProcurementCostCalculations
+        :return: pandas DataFrame
+        """
+        caiso_rate_ids = (
+            procurement_calculations.values_list("caiso_rate", flat=True)
+            .order_by()
+            .distinct()
+        )
+
+        dataframes = []
+        for caiso_rate_id in caiso_rate_ids:
+            caiso_rate = CAISORate.objects.get(id=caiso_rate_id)
+
+            dataframe = pd.DataFrame(
+                sorted(
+                    [
+                        (
+                            x.der_simulation.meter.id,
+                            x.pre_DER_total,
+                            x.post_DER_total,
+                            x.net_impact,
+                        )
+                        for x in procurement_calculations.filter(
+                            caiso_rate=caiso_rate
+                        )
+                    ],
+                    key=lambda x: x[1],
+                )
+            )
+
+            if not dataframe.empty:
+                dataframes.append(
+                    dataframe.rename(
+                        columns={
+                            0: "ID",
+                            1: "{}PreDER".format(caiso_rate.short_name),
+                            2: "{}PostDER".format(caiso_rate.short_name),
+                            3: "{}Delta".format(caiso_rate.short_name),
+                        }
+                    ).set_index("ID")
+                )
+
+        return reduce(
+            lambda x, y: x.join(y, how="outer", lsuffix="_0", rsuffix="_1"),
+            dataframes,
+            pd.DataFrame(),
+        )

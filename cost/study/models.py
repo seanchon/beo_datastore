@@ -1,7 +1,6 @@
 from functools import reduce
 import os
 import pandas as pd
-import re
 import uuid
 
 from django.core.exceptions import ValidationError
@@ -20,7 +19,9 @@ from beo_datastore.settings import MEDIA_ROOT
 
 from cost.ghg.models import GHGRate, StoredGHGCalculation
 from cost.procurement.models import (
+    CAISORate,
     SystemProfile,
+    StoredProcurementCostCalculation,
     StoredResourceAdequacyCalculation,
 )
 from cost.utility_rate.models import RatePlan, StoredBillCalculation
@@ -139,6 +140,9 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
     )
     system_profiles = models.ManyToManyField(
         to=SystemProfile, related_name="single_scenario_studies", blank=True
+    )
+    caiso_rates = models.ManyToManyField(
+        to=CAISORate, related_name="single_scenario_studies", blank=True
     )
     meters = models.ManyToManyField(
         to=Meter, related_name="single_scenario_studies", blank=True
@@ -307,6 +311,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
             self.usage_report.join(self.bill_report, how="outer")
             .join(self.ghg_report, how="outer")
             .join(self.resource_adequacy_report, how="outer")
+            .join(self.procurement_report, how="outer")
             .join(self.customer_meter_report, how="outer")
             .join(self.reference_meter_report, how="outer")
         )
@@ -456,68 +461,30 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         )
 
     @property
+    def procurement_calculations(self):
+        """
+        Return StoredProcurementCostCalculations related to self.
+        """
+        return StoredProcurementCostCalculation.objects.select_related(
+            "der_simulation__meter"
+        ).filter(
+            der_simulation__in=self.der_simulations,
+            caiso_rate__in=self.caiso_rates.all(),
+        )
+
+    @property
     def usage_report(self):
         """
         Return pandas DataFrame with meter SA IDs and usage deltas.
         """
-        dataframe = pd.DataFrame(
-            sorted(
-                [
-                    (
-                        x.meter.id,
-                        x.pre_DER_total,
-                        x.post_DER_total,
-                        x.net_impact,
-                    )
-                    for x in self.der_simulations
-                ],
-                key=lambda x: x[1],
-            )
-        )
-
-        if not dataframe.empty:
-            return dataframe.rename(
-                columns={
-                    0: "ID",
-                    1: "UsagePreDER",
-                    2: "UsagePostDER",
-                    3: "UsageDelta",
-                }
-            ).set_index("ID")
-        else:
-            return pd.DataFrame()
+        return DERSimulation.get_report(self.der_simulations)
 
     @property
     def bill_report(self):
         """
         Return pandas DataFrame with meter SA IDs and bill deltas.
         """
-        dataframe = pd.DataFrame(
-            sorted(
-                [
-                    (
-                        x.der_simulation.meter.id,
-                        x.pre_DER_total,
-                        x.post_DER_total,
-                        x.net_impact,
-                    )
-                    for x in self.bill_calculations
-                ],
-                key=lambda x: x[1],
-            )
-        )
-
-        if not dataframe.empty:
-            return dataframe.rename(
-                columns={
-                    0: "ID",
-                    1: "BillPreDER",
-                    2: "BillPostDER",
-                    3: "BillDelta",
-                }
-            ).set_index("ID")
-        else:
-            return pd.DataFrame()
+        return StoredBillCalculation.get_report(self.bill_calculations)
 
     @property
     def ghg_report(self):
@@ -525,14 +492,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         Return pandas DataFrame with meter SA IDs and GHG deltas from all
         associated GHGRates.
         """
-        return reduce(
-            lambda x, y: x.join(y, how="outer"),
-            [
-                self.get_ghg_report(ghg_rate)
-                for ghg_rate in self.ghg_rates.all()
-            ],
-            pd.DataFrame(),
-        )
+        return StoredGHGCalculation.get_report(self.ghg_calculations)
 
     @property
     def resource_adequacy_report(self):
@@ -540,30 +500,28 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         Return pandas DataFrame with meter SA IDs and RA deltas from all
         associated GHGRates.
         """
-        # TODO: Account for CCA's with multiple system profiles
-        system_profile = SystemProfile.objects.first()
-        if system_profile:
-            return self.get_resource_adequacy_report(system_profile)
-        else:
-            return pd.DataFrame()
+        return StoredResourceAdequacyCalculation.get_report(
+            self.resource_adequacy_calculations
+        )
+
+    @property
+    def procurement_report(self):
+        """
+        Return pandas DataFrame with meter SA IDs and procurement deltas from
+        all associated CAISORates.
+        """
+        return StoredProcurementCostCalculation.get_report(
+            self.procurement_calculations
+        )
 
     @property
     def customer_meter_report(self):
         """
         Return pandas DataFrame with Meter SA IDs and RatePlans.
         """
-        dataframe = pd.DataFrame(
-            CustomerMeter.objects.filter(
-                id__in=self.meters.values_list("id")
-            ).values_list("id", "sa_id", "rate_plan_name")
+        return CustomerMeter.get_report(
+            CustomerMeter.objects.filter(id__in=self.meters.values_list("id"))
         )
-
-        if not dataframe.empty:
-            return dataframe.rename(
-                columns={0: "ID", 1: "SA ID", 2: "MeterRatePlan"}
-            ).set_index("ID")
-        else:
-            return pd.DataFrame()
 
     @property
     def reference_meter_report(self):
@@ -571,92 +529,9 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         Return pandas DataFrame with ReferenceMeter location and building
         type.
         """
-        dataframe = pd.DataFrame(
-            ReferenceMeter.objects.filter(
-                id__in=self.meters.values_list("id")
-            ).values_list("id", "location", "building_type__name")
+        return ReferenceMeter.get_report(
+            ReferenceMeter.objects.filter(id__in=self.meters.values_list("id"))
         )
-
-        if not dataframe.empty:
-            return dataframe.rename(
-                columns={0: "ID", 1: "Location", 2: "Building Type"}
-            ).set_index("ID")
-        else:
-            return pd.DataFrame()
-
-    def get_ghg_report(self, ghg_rate):
-        """
-        Return pandas DataFrame with meter SA IDs and GHG impacts.
-
-        :param ghg_rate: GHGRate
-        :return: pandas DataFrame
-        """
-        dataframe = pd.DataFrame(
-            sorted(
-                [
-                    (
-                        x.der_simulation.meter.id,
-                        x.pre_DER_total,
-                        x.post_DER_total,
-                        x.net_impact,
-                    )
-                    for x in self.ghg_calculations.filter(ghg_rate=ghg_rate)
-                ],
-                key=lambda x: x[1],
-            )
-        )
-
-        if not dataframe.empty:
-            ghg_rate_name = re.sub(r"\W+", "", ghg_rate.name)
-            name = "{}{}".format(ghg_rate_name, ghg_rate.effective.year)
-            return dataframe.rename(
-                columns={
-                    0: "ID",
-                    1: "{}PreDER".format(name),
-                    2: "{}PostDER".format(name),
-                    3: "{}Delta".format(name),
-                }
-            ).set_index("ID")
-        else:
-            return pd.DataFrame()
-
-    def get_resource_adequacy_report(self, system_profile, name_prefix=False):
-        """
-        Return pandas DataFrame with meter SA IDs and RA impacts.
-
-        :param system_profile: SystemProfile
-        :param name_prefix: True to disambiguate RA headers
-        :return: pandas DataFrame
-        """
-        dataframe = pd.DataFrame(
-            sorted(
-                [
-                    (
-                        x.der_simulation.meter.id,
-                        x.pre_DER_total,
-                        x.post_DER_total,
-                        x.net_impact,
-                    )
-                    for x in self.resource_adequacy_calculations.filter(
-                        system_profile=system_profile
-                    )
-                ],
-                key=lambda x: x[1],
-            )
-        )
-
-        if not dataframe.empty:
-            name = system_profile.name.replace(" ", "") if name_prefix else ""
-            return dataframe.rename(
-                columns={
-                    0: "ID",
-                    1: "{}RAPreDER".format(name),
-                    2: "{}RAPostDER".format(name),
-                    3: "{}RADelta".format(name),
-                }
-            ).set_index("ID")
-        else:
-            return pd.DataFrame()
 
     def run_single_meter_simulation_and_cost(self, meter):
         """
@@ -689,6 +564,11 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
                 system_profile=system_profile,
             )
 
+        for caiso_rate in self.caiso_rates.all():
+            StoredProcurementCostCalculation.generate(
+                der_simulation_set=der_simulation_set, caiso_rate=caiso_rate
+            )
+
     def run(self, multiprocess=False):
         """
         Run related DERSimulations, StoredBillCalculations and
@@ -707,6 +587,23 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         for meter in self.meters.all():
             self.run_single_meter_simulation_and_cost(meter=meter)
 
+    def aggregate_meter_intervalframe(self, force=False):
+        """
+        Only aggretate meter_intervalframe if:
+            - all self.der_simulations have been run.
+            - self.meter_intervalframe has not yet been aggregated.
+
+        :param force: True to force aggregation
+        """
+        if (
+            (self.der_simulations.count() == self.meters.count())
+            and self.meter_intervalframe.dataframe.empty
+        ) or force:
+            self.intervalframe.dataframe = (
+                self.post_der_intervalframe.dataframe
+            )
+            self.save()
+
     def filter_by_query(self, query):
         """
         Based on DataFrame query, only matching meters are kept as part of
@@ -717,6 +614,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         query = "Bill_Delta > 0" only keeps meters where Bill_Delta is greater
         than 0.
         """
+        # TODO: delete if no longer used
         if self.meters.count() > 0:
             df = ~self.report.eval(query)
             ids_to_remove = df.index[df == 1].tolist()
@@ -729,6 +627,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         Meters are attached to a SingleScenarioStudy. This
         method allows many optimizations to be tried.
         """
+        # TODO: delete if no longer used
         self.meters.clear()
         self.meters.add(*self.meter_group.meters.all())
 

@@ -1,6 +1,7 @@
 from datetime import datetime
 from jsonfield import JSONField
 from multiprocessing import Pool
+import pandas as pd
 
 from django.db import models, transaction
 from django.utils.functional import cached_property
@@ -468,6 +469,43 @@ class StoredBillCalculation(ValidationModel):
             return cls.objects.filter(
                 der_simulation__in=der_simulation_set, rate_plan=rate_plan
             )
+
+    @staticmethod
+    def get_report(bill_calculations):
+        """
+        Return pandas DataFrame in the format:
+
+        |   ID  |   BillPreDER  |   BillPostDER |   BillDelta   |
+
+        :param bill_calculations: QuerySet or set of StoredBillCalculations
+        :return: pandas DataFrame
+        """
+        dataframe = pd.DataFrame(
+            sorted(
+                [
+                    (
+                        x.der_simulation.meter.id,
+                        x.pre_DER_total,
+                        x.post_DER_total,
+                        x.net_impact,
+                    )
+                    for x in bill_calculations
+                ],
+                key=lambda x: x[1],
+            )
+        )
+
+        if not dataframe.empty:
+            return dataframe.rename(
+                columns={
+                    0: "ID",
+                    1: "BillPreDER",
+                    2: "BillPostDER",
+                    3: "BillDelta",
+                }
+            ).set_index("ID")
+        else:
+            return pd.DataFrame()
 
 
 class BillComparison(ValidationModel):

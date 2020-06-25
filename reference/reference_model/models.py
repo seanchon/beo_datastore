@@ -1,5 +1,7 @@
-import uuid
 from enum import Enum
+from functools import reduce
+import pandas as pd
+import uuid
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
@@ -217,6 +219,40 @@ class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
             "primary_linked_rate_plan must be set in {}".format(self.__class__)
         )
 
+    @cached_property
+    def start(self):
+        """
+        First timestamp in all contained Meters' readings.
+        """
+        return min(
+            meter.intervalframe.dataframe.index[0]
+            for meter in self.meters.all()
+        )
+
+    @cached_property
+    def end(self):
+        """
+        Last timestamp in all contained Meters' reading.
+        """
+        return max(
+            meter.intervalframe.dataframe.index[-1]
+            for meter in self.meters.all()
+        )
+
+    @cached_property
+    def years(self):
+        """
+        Set of all years found in contained Meters' readings.
+        """
+        return reduce(
+            lambda x, y: x.union(y),
+            [
+                set(meter.intervalframe.dataframe.index.year)
+                for meter in self.meters.all()
+            ],
+            set(),
+        )
+
 
 class Meter(PolymorphicValidationModel, MeterDataMixin):
     """
@@ -380,6 +416,24 @@ class DERSimulation(Meter):
         super().clean(*args, **kwargs)
 
     @cached_property
+    def pre_DER_total(self):
+        """
+        Total kWh before running a DERSimulation.
+        """
+        raise NotImplementedError(
+            "pre_DER_total must be set in {}".format(self.__class__)
+        )
+
+    @cached_property
+    def post_DER_total(self):
+        """
+        Total kWh after running a DERSimulation.
+        """
+        raise NotImplementedError(
+            "post_DER_total must be set in {}".format(self.__class__)
+        )
+
+    @cached_property
     def pre_der_intervalframe(self):
         """
         PowerIntervalFrame before running a DERSimulation.
@@ -423,6 +477,44 @@ class DERSimulation(Meter):
         introduced.
         """
         return self.post_der_intervalframe
+
+    @staticmethod
+    def get_report(der_simulations):
+        """
+        Return pandas DataFrame in the format:
+
+        |   ID  |   UsagePreDER |   UsagePostDER    |   UsageDelta  |
+
+        :param der_simulations: QuerySet or set of DERSimulations
+        :return: pandas DataFrame
+        """
+        # TODO: handle case with same Meter, multiple DERSimulations
+        dataframe = pd.DataFrame(
+            sorted(
+                [
+                    (
+                        x.meter.id,
+                        x.pre_DER_total,
+                        x.post_DER_total,
+                        x.net_impact,
+                    )
+                    for x in der_simulations
+                ],
+                key=lambda x: x[1],
+            )
+        )
+
+        if not dataframe.empty:
+            return dataframe.rename(
+                columns={
+                    0: "ID",
+                    1: "UsagePreDER",
+                    2: "UsagePostDER",
+                    3: "UsageDelta",
+                }
+            ).set_index("ID")
+        else:
+            return pd.DataFrame()
 
 
 # STUDY BASE MODELS
