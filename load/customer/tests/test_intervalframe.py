@@ -14,6 +14,20 @@ from beo_datastore.libs.intervalframe import (
 from load.customer.models import Channel
 
 
+class TestIntervalFrame(TestCase):
+    def test_null_intervalframe(self):
+        """
+        Test null cases for EnergyIntervalFrame and PowerIntervalFrame
+        transforms.
+        """
+        self.assertEqual(
+            EnergyIntervalFrame().power_intervalframe, PowerIntervalFrame()
+        )
+        self.assertEqual(
+            PowerIntervalFrame().energy_intervalframe, EnergyIntervalFrame()
+        )
+
+
 class TestDataFrameFile(TestCase):
     fixtures = ["reference_model", "customer"]
 

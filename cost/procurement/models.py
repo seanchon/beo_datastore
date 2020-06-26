@@ -426,9 +426,16 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
         :param timezone: timezone object
         :return: ProcurementRateIntervalFrame
         """
+        if (
+            index_col not in self.report.columns
+            or rate_col not in self.report.columns
+        ):
+            return ProcurementRateIntervalFrame()
+
         df = self.report.copy()
 
         # filter report
+        filters = {k: v for k, v in filters.items() if k in df.columns}
         # https://stackoverflow.com/questions/34157811
         df = df.loc[(df[list(filters)] == pd.Series(filters)).all(axis=1)]
 
