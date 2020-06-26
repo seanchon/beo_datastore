@@ -14,7 +14,10 @@ from beo_datastore.libs.intervalframe import (
     EnergyIntervalFrame,
     PowerIntervalFrame,
 )
-from beo_datastore.libs.procurement import ProcurementRateIntervalFrame
+from beo_datastore.libs.procurement import (
+    ProcurementCostIntervalFrame,
+    ProcurementRateIntervalFrame,
+)
 
 
 class TestProcurementCost(TestCase):
@@ -123,4 +126,19 @@ class TestProcurementCost(TestCase):
         self.assertEqual(
             procurement_cost_calculation.post_DER_total,
             self.procurement_cost * 4,
+        )
+
+    def test_null_procurement_intervalframe(self):
+        """
+        Test null cases for ProcurementRateIntervalFrame and
+        ProcurementCostIntervalFrame transforms.
+        """
+        procurement_rate = ProcurementRateIntervalFrame()
+        procurement_cost = procurement_rate.get_procurement_cost_intervalframe(
+            self.power_60
+        )
+        self.assertEqual(procurement_cost, ProcurementCostIntervalFrame())
+        self.assertEqual(
+            procurement_cost.get_procurement_rate_intervalframe(),
+            ProcurementRateIntervalFrame(),
         )

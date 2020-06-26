@@ -1,3 +1,4 @@
+from datetime import timedelta
 import numpy as np
 import pandas as pd
 
@@ -68,6 +69,9 @@ class ProcurementRateIntervalFrame(
         :param intervalframe: EnergyIntervalFrame or PowerIntervalFrame
         :return: ProcurementCostIntervalFrame
         """
+        if self.period == timedelta(0) or intervalframe.period == timedelta(0):
+            return ProcurementCostIntervalFrame()
+
         if not isinstance(
             intervalframe, EnergyIntervalFrame
         ) and not isinstance(intervalframe, PowerIntervalFrame):

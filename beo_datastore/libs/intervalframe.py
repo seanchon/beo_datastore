@@ -28,7 +28,7 @@ class ValidationDataFrame(object):
     -   default_dataframe
     """
 
-    def __init__(self, dataframe, *args, **kwargs):
+    def __init__(self, dataframe=pd.DataFrame(), *args, **kwargs):
         """
         :param dataframe: pandas DataFrame
         """
@@ -54,6 +54,8 @@ class ValidationDataFrame(object):
 
     @dataframe.setter
     def dataframe(self, dataframe):
+        if dataframe.empty:
+            dataframe = self.default_dataframe
         self.validate_dataframe(dataframe)
         self._dataframe = dataframe
 
@@ -538,6 +540,9 @@ class PowerIntervalFrame(ValidationIntervalFrame):
         """
         Equivalent EnergyIntervalFrame.
         """
+        if self.period == timedelta(0):
+            return EnergyIntervalFrame()
+
         dataframe = self.dataframe.copy()
         dataframe["kwh"] = dataframe["kw"] * (self.period / timedelta(0, 3600))
 
@@ -599,6 +604,9 @@ class EnergyIntervalFrame(ValidationIntervalFrame):
         """
         Equivalent PowerIntervalFrame.
         """
+        if self.period == timedelta(0):
+            return PowerIntervalFrame()
+
         dataframe = self.dataframe.copy()
         dataframe["kw"] = dataframe["kwh"] * (timedelta(0, 3600) / self.period)
 
