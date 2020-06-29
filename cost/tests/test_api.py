@@ -149,6 +149,35 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         response = self.client.get(get_endpoint)
         self.assertEqual(len(response.data["results"]["studies"]), 0)
 
+
+class TestEndpointsGHGRate(APITestCase, BasicAuthenticationTestMixin):
+    """
+    Ensures endpoints are only accessible to logged-in users and are rendered
+    without errors.
+    """
+
+    fixtures = ["reference_model", "ghg"]
+
+    def setUp(self):
+        """
+        Initialize endpoints to test and loads parquet files.
+        """
+        load_intervalframe_files()
+
+        # create fake API user
+        faker = Factory.create()
+        self.user = User.objects.create(
+            username=faker.user_name(), email=faker.email(), is_superuser=False
+        )
+
+        self.endpoints = [
+            "/v1/cost/ghg_rate/?include[]=data"
+            "&start=2020-01-01T00:00:00"
+            "&end_limit=2020-03-01T00:00:00&period=1H"
+            "&data_format={}".format(x)
+            for x in ["interval", "288"]
+        ]
+
     def test_ghg_rate_no_data(self):
         """
         Tests that the `GHGRate` object is not serialized with its data if not
@@ -196,3 +225,36 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         for ghg_rate in ghg_rates:
             ghg_rate_data = ghg_rate["data"]
             self.assertEqual(ghg_rate_data.size, 24 * 31 * 2)
+
+
+class TestEndpointsCAISORate(APITestCase, BasicAuthenticationTestMixin):
+    """
+    Ensures endpoints are only accessible to logged-in users and are rendered
+    without errors.
+    """
+
+    fixtures = ["reference_model", "caiso_rate"]
+
+    def setUp(self):
+        """
+        Initialize endpoints to test and loads parquet files.
+        """
+        load_intervalframe_files()
+
+        # create fake API user
+        faker = Factory.create()
+        self.user = User.objects.create(
+            username=faker.user_name(), email=faker.email(), is_superuser=False
+        )
+
+        self.endpoints = [
+            "/v1/cost/caiso_rate/?data_types={}".format(x)
+            for x in [
+                "default",
+                "average",
+                "minimum",
+                "maximum",
+                "total",
+                "count",
+            ]
+        ]

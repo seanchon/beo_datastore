@@ -27,6 +27,7 @@ from reference.reference_model.models import (
 )
 
 from .serializers import (
+    CAISORateSerializer,
     GHGRateSerializer,
     MultipleScenarioStudySerializer,
     StudySerializer,
@@ -254,6 +255,9 @@ class GHGRateViewSet(ListRetrieveViewSet):
     GHGRate objects
     """
 
+    model = GHGRate
+    serializer_class = GHGRateSerializer
+
     schema = AutoSchema(
         manual_fields=[
             coreapi.Field(
@@ -306,5 +310,25 @@ class GHGRateViewSet(ListRetrieveViewSet):
         ]
     )
 
-    model = GHGRate
-    serializer_class = GHGRateSerializer
+
+class CAISORateViewSet(ListRetrieveViewSet):
+    """
+    CAISORate objects
+    """
+
+    model = CAISORate
+    serializer_class = CAISORateSerializer
+
+    schema = AutoSchema(
+        manual_fields=[
+            coreapi.Field(
+                "data_types",
+                required=False,
+                location="query",
+                description=(
+                    "One or many data types to return. Choices are 'default', "
+                    "'total', 'average', 'maximum', 'minimum', and 'count'."
+                ),
+            )
+        ]
+    )

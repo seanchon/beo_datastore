@@ -1,6 +1,7 @@
 from rest_framework.routers import DefaultRouter
 
 from cost.views import (
+    CAISORateViewSet,
     GHGRateViewSet,
     MultipleScenarioStudyViewSet,
     StudyViewSet,
@@ -19,6 +20,7 @@ from load.views import (
 
 
 v1_router = DefaultRouter()
+v1_router.register(r"cost/caiso_rate", CAISORateViewSet, basename="CAISORate")
 v1_router.register(r"cost/ghg_rate", GHGRateViewSet, basename="GHGRate")
 v1_router.register(r"cost/study", StudyViewSet, basename="Study")
 v1_router.register(
