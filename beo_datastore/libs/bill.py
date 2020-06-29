@@ -869,7 +869,7 @@ class BillingCollection(object):
         return reduce(
             lambda x, y: x.merge_intervalframe(y),
             [x.intervalframe for x in self.bills],
-            PowerIntervalFrame(PowerIntervalFrame.default_dataframe),
+            PowerIntervalFrame(),
         )
 
     @property

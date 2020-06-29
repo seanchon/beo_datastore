@@ -470,7 +470,7 @@ class CustomerMeter(Meter):
         return reduce(
             lambda a, b: a + b,
             [x.intervalframe for x in self.channels.all()],
-            PowerIntervalFrame(PowerIntervalFrame.default_dataframe),
+            PowerIntervalFrame(),
         )
 
     @property

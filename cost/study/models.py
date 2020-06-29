@@ -153,7 +153,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         return reduce(
             lambda x, y: x + y,
             [x.meter_intervalframe for x in self.meters.all()],
-            PowerIntervalFrame(PowerIntervalFrame.default_dataframe),
+            PowerIntervalFrame(),
         )
 
     @property
@@ -172,7 +172,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
                 [x.der_intervalframe for x in self.der_simulations.all()],
             )
         else:
-            return PowerIntervalFrame(PowerIntervalFrame.default_dataframe)
+            return PowerIntervalFrame()
 
     @property
     def post_der_intervalframe(self):
@@ -736,7 +736,7 @@ class MultipleScenarioStudy(IntervalFrameFileMixin, Study):
                 x.pre_der_intervalframe
                 for x in self.single_scenario_studies.all()
             ],
-            PowerIntervalFrame(PowerIntervalFrame.default_dataframe),
+            PowerIntervalFrame(),
         )
 
     @property
@@ -757,7 +757,7 @@ class MultipleScenarioStudy(IntervalFrameFileMixin, Study):
                 lambda x, y: x + y, [x.der_intervalframe for x in studies]
             )
         else:
-            return (PowerIntervalFrame(PowerIntervalFrame.default_dataframe),)
+            return (PowerIntervalFrame(),)
 
     @property
     def post_der_intervalframe(self):
@@ -772,7 +772,7 @@ class MultipleScenarioStudy(IntervalFrameFileMixin, Study):
                 x.post_der_intervalframe
                 for x in self.single_scenario_studies.all()
             ],
-            PowerIntervalFrame(PowerIntervalFrame.default_dataframe),
+            PowerIntervalFrame(),
         )
 
     @property

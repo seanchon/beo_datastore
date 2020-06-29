@@ -89,9 +89,7 @@ def plot_frame288(
 
 def plot_many_frame288s(
     frame288s,
-    reference_frame288=ValidationFrame288(
-        ValidationFrame288.default_dataframe
-    ),
+    reference_frame288=ValidationFrame288(),
     months=None,
     line_color=(0, 0, 0, 0.1),
     reference_line_color="blue",
