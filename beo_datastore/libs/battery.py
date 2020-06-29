@@ -195,9 +195,7 @@ class BatterySimulation(object):
         self.battery = battery
         self.load_intervalframe = load_intervalframe
         if battery_intervalframe is None:
-            battery_intervalframe = BatteryIntervalFrame(
-                BatteryIntervalFrame.default_dataframe
-            )
+            battery_intervalframe = BatteryIntervalFrame()
         self.battery_intervalframe = battery_intervalframe
 
     @property
@@ -465,9 +463,7 @@ class FixedScheduleBatterySimulation(BatterySimulation):
         self.discharge_schedule = discharge_schedule
 
         if battery_intervalframe is None:
-            battery_intervalframe = BatteryIntervalFrame(
-                BatteryIntervalFrame.default_dataframe
-            )
+            battery_intervalframe = BatteryIntervalFrame()
         self.battery_intervalframe = battery_intervalframe
 
         super().__init__(

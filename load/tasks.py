@@ -141,7 +141,7 @@ def aggregate_meter_group_intervalframes(meter_group_id, in_db=True):
         meter_group.intervalframe = reduce(
             lambda x, y: x + y,
             [x.intervalframe for x in meter_group.meters.all()],
-            PowerIntervalFrame(dataframe=PowerIntervalFrame.default_dataframe),
+            PowerIntervalFrame(),
         )
     meter_group.save()
 

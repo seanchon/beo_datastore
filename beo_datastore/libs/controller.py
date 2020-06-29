@@ -175,7 +175,7 @@ class AggregateBatterySimulation(DERAggregateSimulation):
         return reduce(
             lambda x, y: x + y,
             [x.pre_intervalframe for x in self.battery_simulations],
-            PowerIntervalFrame(PowerIntervalFrame.default_dataframe),
+            PowerIntervalFrame(),
         )
 
     @cached_property
@@ -187,7 +187,7 @@ class AggregateBatterySimulation(DERAggregateSimulation):
         return reduce(
             lambda x, y: x + y,
             [x.post_intervalframe for x in self.battery_simulations],
-            PowerIntervalFrame(PowerIntervalFrame.default_dataframe),
+            PowerIntervalFrame(),
         )
 
     @cached_property
@@ -199,7 +199,7 @@ class AggregateBatterySimulation(DERAggregateSimulation):
         return reduce(
             lambda x, y: x + y,
             [x.battery_intervalframe for x in self.battery_simulations],
-            BatteryIntervalFrame(BatteryIntervalFrame.default_dataframe),
+            BatteryIntervalFrame(),
         )
 
     @cached_property
@@ -208,10 +208,7 @@ class AggregateBatterySimulation(DERAggregateSimulation):
         Return a PowerIntervalFrame that represents the changes between a
         pre-battery and post-battery scenario.
         """
-        return (
-            PowerIntervalFrame(PowerIntervalFrame.default_dataframe)
-            + self.aggregate_battery_intervalframe
-        )
+        return PowerIntervalFrame() + self.aggregate_battery_intervalframe
 
     @cached_property
     def energy_loss(self):
