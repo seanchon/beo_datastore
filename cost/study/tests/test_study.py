@@ -109,6 +109,9 @@ class TestStudy(TestCase):
             len(multi.report),
             customer_population.customer_clusters.first().meters.count(),
         )
+        # index is named "ID"
+        self.assertEqual(multi.report.index.name, "ID")
+        self.assertEqual(multi.report_summary.index.name, "ID")
         # battery modifies load
         self.assertNotEqual(np.mean(multi.report["UsageDelta"]), 0)
         # report columns all exist

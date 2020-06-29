@@ -69,11 +69,11 @@ class StudySerializer(GetStudyDataMixin, DynamicModelSerializer):
             "name",
             "created_at",
             "object_type",
-            "ders",
-            "der_simulations",
             "der_simulation_count",
             "expected_der_simulation_count",
             "meter_count",
+            "ders",
+            "der_simulations",
             "meters",
             "meter_groups",
             "data",
@@ -161,14 +161,7 @@ class GHGRateSerializer(DynamicModelSerializer):
 
     class Meta:
         model = GHGRate
-        fields = (
-            "data",
-            "effective",
-            "id",
-            "name",
-            "rate_unit",
-            "source",
-        )
+        fields = ("data", "effective", "id", "name", "rate_unit", "source")
         deferred_fields = ("data",)
 
     def get_data(self, obj):
