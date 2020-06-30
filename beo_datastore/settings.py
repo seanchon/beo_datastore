@@ -178,6 +178,7 @@ USE_L10N = True
 
 # TODO: Set USE_TZ to True. Data ingest needs to be corrected first.
 USE_TZ = False
+DJANGO_CELERY_BEAT_TZ_AWARE = False
 
 # AWS Credentials
 
