@@ -1,3 +1,4 @@
+from datetime import datetime
 from functools import reduce
 import os
 import pandas as pd
@@ -216,18 +217,8 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
 
             return (origin_file, created)
 
-    def db_connect(self):
-        """
-        Return PostgreSQL connection.
-        """
-        return PostgreSQL(
-            host=DATABASES["default"]["HOST"],
-            user=DATABASES["default"]["USER"],
-            password=DATABASES["default"]["PASSWORD"],
-            dbname=self.db_name,
-        )
-
-    def db_execute_global(self, command):
+    @staticmethod
+    def db_execute_global(command):
         """
         Execute PostgreSQL global command.
 
@@ -239,6 +230,58 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
             user=DATABASES["default"]["USER"],
             password=DATABASES["default"]["PASSWORD"],
             command=command,
+        )
+
+    @classmethod
+    def db_get_orphaned_db_names(cls):
+        """
+        Return database names with the "origin_file_" prefix not associated
+        with an existing OriginFile.
+
+        :return: set of db names
+        """
+        db_names = {
+            x[0]
+            for x in cls.db_execute_global(
+                "SELECT datname FROM pg_database "
+                "WHERE datistemplate = false AND datname LIKE 'origin_file_%';"
+            )
+        }
+
+        existing_db_names = {x.db_name for x in cls.objects.all()}
+        db_names = db_names - existing_db_names
+
+        return db_names
+
+    @classmethod
+    def db_bulk_delete_origin_file_dbs(cls, older_than=datetime.min):
+        """
+        Bulk delete databases with the "origin_file_" prefix that were created
+        before older_than. In addition, deletes any orphaned OriginFile
+        databases.
+
+        :param older_than: datetime
+        """
+        db_names = {
+            x.db_name
+            for x in OriginFile.objects.filter(created_at__lt=older_than)
+        }
+        db_names = db_names.union(cls.db_get_orphaned_db_names())
+
+        for db_name in db_names:
+            cls.db_execute_global(
+                "DROP DATABASE IF EXISTS {};".format(db_name)
+            )
+
+    def db_connect(self):
+        """
+        Return PostgreSQL connection.
+        """
+        return PostgreSQL(
+            host=DATABASES["default"]["HOST"],
+            user=DATABASES["default"]["USER"],
+            password=DATABASES["default"]["PASSWORD"],
+            dbname=self.db_name,
         )
 
     def db_create(self):

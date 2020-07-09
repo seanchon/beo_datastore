@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from functools import reduce
 from celery.utils.log import get_task_logger
 
@@ -144,6 +145,19 @@ def aggregate_meter_group_intervalframes(meter_group_id, in_db=True):
             PowerIntervalFrame(),
         )
     meter_group.save()
+
+
+@app.task(soft_time_limit=180)
+def delete_old_origin_file_databases(days=30):
+    """
+    Delete OriginFile databases older than number of "days" and including all
+    orphaned OriginFile databases.
+
+    :param days: integer
+    """
+    OriginFile.db_bulk_delete_origin_file_dbs(
+        older_than=(datetime.utcnow() - timedelta(days=days))
+    )
 
 
 @app.task(soft_time_limit=180)
