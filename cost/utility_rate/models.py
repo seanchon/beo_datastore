@@ -409,7 +409,6 @@ class StoredBillCalculation(ValidationModel):
                 ),
                 multiprocess=multiprocess,
             )
-            meter = der_simulation.meter
             bill_collection, new = cls.objects.get_or_create(
                 pre_DER_total=agg_bill_calculation.pre_DER_total,
                 post_DER_total=agg_bill_calculation.post_DER_total,
@@ -419,12 +418,12 @@ class StoredBillCalculation(ValidationModel):
 
             if new:
                 for start, end_limit in agg_bill_calculation.date_ranges:
-                    pre_DER_total = agg_bill_calculation.pre_bills[meter][
-                        start
-                    ].total
-                    post_DER_total = agg_bill_calculation.post_bills[meter][
-                        start
-                    ].total
+                    pre_DER_total = agg_bill_calculation.pre_bills[
+                        der_simulation.id
+                    ][start].total
+                    post_DER_total = agg_bill_calculation.post_bills[
+                        der_simulation.id
+                    ][start].total
                     BillComparison.objects.create(
                         start=start,
                         end_limit=end_limit,
