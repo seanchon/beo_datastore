@@ -10,6 +10,7 @@ from beo_datastore.libs.api.serializers import (
     get_context_request_param,
 )
 from cost.ghg.models import GHGRate
+from cost.procurement.models import CAISORate
 from cost.study.models import SingleScenarioStudy, MultipleScenarioStudy
 from der.serializers import (
     DERConfigurationSerializer,
@@ -212,3 +213,16 @@ class GHGRateSerializer(DynamicModelSerializer):
             )
         else:
             return None
+
+
+class GetCAISORateDataMixin(AbstractGetDataMixin):
+    intervalframe_name = "intervalframe"
+
+
+class CAISORateSerializer(GetCAISORateDataMixin, DynamicModelSerializer):
+    data = serializers.SerializerMethodField()
+    filters = serializers.JSONField()
+
+    class Meta:
+        model = CAISORate
+        fields = ("id", "name", "filters", "data")

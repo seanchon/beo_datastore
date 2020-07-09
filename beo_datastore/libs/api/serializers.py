@@ -1,6 +1,4 @@
-from datetime import timedelta
 import dateutil.parser
-import numpy as np
 import pandas as pd
 
 from rest_framework import serializers
@@ -105,7 +103,7 @@ class AbstractGetDataMixin(object):
             intervalframe = getattr(obj, self.intervalframe_name)
             intervalframe = intervalframe.filter_by_datetime(
                 start=start, end_limit=end_limit
-            ).downsample_intervalframe(timedelta(hours=1), np.mean)
+            )
 
             if column and column not in intervalframe.dataframe.columns:
                 raise serializers.ValidationError(
