@@ -78,6 +78,12 @@ class DERSimulationViewSet(ListRetrieveViewSet):
                     "end_limit. (Format: ISO 8601)"
                 ),
             ),
+            coreapi.Field(
+                "period",
+                required=False,
+                location="query",
+                description="Integer representing the number of minutes in the dataframe period",
+            ),
         ]
     )
 

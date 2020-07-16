@@ -192,6 +192,15 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
                 ),
             ),
             coreapi.Field(
+                "column",
+                required=False,
+                location="query",
+                description=(
+                    "Column to run aggregate calculations on for data_types "
+                    "other than default."
+                ),
+            ),
+            coreapi.Field(
                 "start",
                 required=False,
                 location="query",
@@ -210,10 +219,16 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
                 ),
             ),
             coreapi.Field(
+                "period",
+                required=False,
+                location="query",
+                description="Integer representing the number of minutes in the dataframe period",
+            ),
+            coreapi.Field(
                 "object_type",
                 required=False,
                 location="query",
-                description=("Filter by object_type field."),
+                description="Filter by object_type field.",
             ),
         ]
     )
@@ -256,6 +271,15 @@ class MeterViewSet(ListRetrieveViewSet):
                 ),
             ),
             coreapi.Field(
+                "column",
+                required=False,
+                location="query",
+                description=(
+                    "Column to run aggregate calculations on for data_types "
+                    "other than default."
+                ),
+            ),
+            coreapi.Field(
                 "start",
                 required=False,
                 location="query",
@@ -272,6 +296,12 @@ class MeterViewSet(ListRetrieveViewSet):
                     "Filter data to include only timestamps starting before "
                     "end_limit. (Format: ISO 8601)"
                 ),
+            ),
+            coreapi.Field(
+                "period",
+                required=False,
+                location="query",
+                description="Integer representing the number of minutes in the dataframe period",
             ),
             coreapi.Field(
                 "object_type",

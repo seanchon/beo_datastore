@@ -213,6 +213,39 @@ class StudyViewSet(ListRetrieveUpdateDestroyViewSet):
                 ),
             ),
             coreapi.Field(
+                "column",
+                required=False,
+                location="query",
+                description=(
+                    "Column to run aggregate calculations on for data_types "
+                    "other than default."
+                ),
+            ),
+            coreapi.Field(
+                "start",
+                required=False,
+                location="query",
+                description=(
+                    "Filter data to include only timestamps starting on or "
+                    "after start. (Format: ISO 8601)"
+                ),
+            ),
+            coreapi.Field(
+                "end_limit",
+                required=False,
+                location="query",
+                description=(
+                    "Filter data to include only timestamps starting before "
+                    "end_limit. (Format: ISO 8601)"
+                ),
+            ),
+            coreapi.Field(
+                "period",
+                required=False,
+                location="query",
+                description="Integer representing the number of minutes in the dataframe period",
+            ),
+            coreapi.Field(
                 "include[]",
                 required=False,
                 location="query",
@@ -329,6 +362,39 @@ class CAISORateViewSet(ListRetrieveViewSet):
                     "One or many data types to return. Choices are 'default', "
                     "'total', 'average', 'maximum', 'minimum', and 'count'."
                 ),
-            )
+            ),
+            coreapi.Field(
+                "column",
+                required=False,
+                location="query",
+                description=(
+                    "Column to run aggregate calculations on for data_types "
+                    "other than default."
+                ),
+            ),
+            coreapi.Field(
+                "start",
+                required=False,
+                location="query",
+                description=(
+                    "Filter data to include only timestamps starting on or "
+                    "after start. (Format: ISO 8601)"
+                ),
+            ),
+            coreapi.Field(
+                "end_limit",
+                required=False,
+                location="query",
+                description=(
+                    "Filter data to include only timestamps starting before "
+                    "end_limit. (Format: ISO 8601)"
+                ),
+            ),
+            coreapi.Field(
+                "period",
+                required=False,
+                location="query",
+                description="Integer representing the number of minutes in the dataframe period",
+            ),
         ]
     )

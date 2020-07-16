@@ -1,5 +1,6 @@
 from datetime import datetime
 from faker import Factory
+import itertools
 
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -247,14 +248,19 @@ class TestEndpointsCAISORate(APITestCase, BasicAuthenticationTestMixin):
             username=faker.user_name(), email=faker.email(), is_superuser=False
         )
 
+        periods = [15, 60]
+        data_types = [
+            "default",
+            "average",
+            "minimum",
+            "maximum",
+            "total",
+            "count",
+        ]
+
         self.endpoints = [
-            "/v1/cost/caiso_rate/?data_types={}".format(x)
-            for x in [
-                "default",
-                "average",
-                "minimum",
-                "maximum",
-                "total",
-                "count",
-            ]
+            "/v1/cost/caiso_rate/?data_types={}&period={}".format(
+                data_type, period
+            )
+            for data_type, period in itertools.product(data_types, periods)
         ]

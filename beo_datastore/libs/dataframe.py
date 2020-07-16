@@ -165,7 +165,7 @@ def merge_dataframe(dataframe, other_dataframe, overwrite_rows=False):
 def downsample_dataframe(dataframe, target_period, aggfunc):
     """
     Downsample a dataframe to create an equivalent DataFrame with intervals
-    occuring on a less-frequent basis.
+    occurring on a less-frequent basis.
 
     :param dataframe: pandas DataFrame
     :param target_period: timedelta object
@@ -189,7 +189,7 @@ def downsample_dataframe(dataframe, target_period, aggfunc):
 def upsample_dataframe(dataframe, target_period, method):
     """
     Upsample a dataframe to create an equivalent DataFrame with intervals
-    occuring on a more-frequent basis. The final interval is extrapolated
+    occurring on a more-frequent basis. The final interval is extrapolated
     forward.
 
     Example:
@@ -216,6 +216,34 @@ def upsample_dataframe(dataframe, target_period, method):
         ),
         method=method,
     )
+
+
+def resample_dataframe(
+    dataframe,
+    target_period,
+    downsample_aggfunc=np.mean,
+    upsample_method="ffill",
+):
+    """
+    Upsamples or downsample a dataframe to create an equivalent DataFrame with intervals
+    occurring on a more- or less-frequent basis.
+
+    :param dataframe: pandas DataFrame
+    :param target_period: timedelta object
+    :param downsample_aggfunc: aggregation function (ex. np.mean)
+    :param upsample_method: None, ‘backfill’/’bfill’, ‘pad’/’ffill’, ‘nearest’
+    :return: pandas DataFrame
+    """
+    period = get_dataframe_period(dataframe)
+
+    if target_period > period:
+        return downsample_dataframe(
+            dataframe, target_period, downsample_aggfunc
+        )
+    elif target_period < period:
+        return upsample_dataframe(dataframe, target_period, upsample_method)
+    else:
+        return dataframe
 
 
 def set_dataframe_index(dataframe, index_column, convert_to_datetime=False):

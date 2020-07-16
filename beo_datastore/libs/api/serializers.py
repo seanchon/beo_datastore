@@ -1,3 +1,4 @@
+from datetime import timedelta
 import dateutil.parser
 import pandas as pd
 
@@ -55,11 +56,13 @@ class AbstractGetDataMixin(object):
         :field data_types: frame 288 type (optional)
         :field start: ISO 8601 string (optional)
         :field end_limit: ISO 8601 string (optional)
+        :field period: int (optional)
         """
         data_types = get_context_request_param(self.context, "data_types")
         start = get_context_request_param(self.context, "start")
         end_limit = get_context_request_param(self.context, "end_limit")
         column = get_context_request_param(self.context, "column")
+        period = get_context_request_param(self.context, "period")
 
         if start:
             try:
@@ -80,6 +83,12 @@ class AbstractGetDataMixin(object):
                 )
         else:
             end_limit = pd.Timestamp.max
+
+        if period:
+            try:
+                period = int(period)
+            except Exception:
+                raise serializers.ValidationError("period must be an integer")
 
         data_types = set(data_types.split(",")) if data_types else set()
         allowed_data_types = {
@@ -104,6 +113,12 @@ class AbstractGetDataMixin(object):
             intervalframe = intervalframe.filter_by_datetime(
                 start=start, end_limit=end_limit
             )
+
+            # resample the dataframe to the specified period, if one is provided
+            if period:
+                intervalframe = intervalframe.resample_intervalframe(
+                    timedelta(minutes=period)
+                )
 
             if column and column not in intervalframe.dataframe.columns:
                 raise serializers.ValidationError(

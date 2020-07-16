@@ -421,9 +421,9 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
 
         :param index_col: column containing start timestamps
         :param rate_col: column containing rates
-        :param filter: key/value pair of column/value for filtering
+        :param filters: key/value pair of column/value for filtering
             report
-        :param timezone: timezone object
+        :param timezone_: timezone object
         :return: ProcurementRateIntervalFrame
         """
         if (

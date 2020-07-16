@@ -222,7 +222,11 @@ class GetCAISORateDataMixin(AbstractGetDataMixin):
 class CAISORateSerializer(GetCAISORateDataMixin, DynamicModelSerializer):
     data = serializers.SerializerMethodField()
     filters = serializers.JSONField()
+    year = serializers.SerializerMethodField()
 
     class Meta:
         model = CAISORate
-        fields = ("id", "name", "filters", "data")
+        fields = ("id", "name", "filters", "data", "year")
+
+    def get_year(self, obj):
+        return obj.caiso_report.year

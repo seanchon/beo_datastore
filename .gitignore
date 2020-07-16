@@ -96,6 +96,7 @@ db.sqlite3
 
 # Project Specific
 media_root/*/
+media_root_test/*/
 
 # Elastic Beanstalk Files
 .elasticbeanstalk/*

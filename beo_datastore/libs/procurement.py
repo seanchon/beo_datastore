@@ -80,17 +80,10 @@ class ProcurementRateIntervalFrame(
                 "PowerIntervalFrame"
             )
 
-        power_intervalframe = intervalframe.power_intervalframe
-
         # resample to match period of self
-        if power_intervalframe.period > self.period:
-            power_intervalframe = power_intervalframe.upsample_intervalframe(
-                target_period=self.period, method="ffill"
-            )
-        elif power_intervalframe.period < self.period:
-            power_intervalframe = power_intervalframe.downsample_intervalframe(
-                target_period=self.period, aggfunc=np.mean
-            )
+        power_intervalframe = intervalframe.power_intervalframe.resample_intervalframe(
+            self.period
+        )
 
         # create dataframe with "kwh" and "$" columns
         dataframe = pd.merge(

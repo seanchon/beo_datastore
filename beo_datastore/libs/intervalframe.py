@@ -17,6 +17,7 @@ from beo_datastore.libs.dataframe import (
     set_dataframe_index,
     read_csv,
     upsample_dataframe,
+    resample_dataframe,
 )
 
 
@@ -452,6 +453,31 @@ class ValidationIntervalFrame(ValidationDataFrame):
                 dataframe=self.dataframe,
                 target_period=target_period,
                 method=method,
+            )
+        )
+
+    def resample_intervalframe(
+        self,
+        target_period,
+        downsample_aggfunc=np.mean,
+        upsample_method="ffill",
+    ):
+        """
+        Upsamples or downsamples a ValidationIntervalFrame to create an equivalent
+        ValidationIntervalFrame with intervals occuring on a more- or less-frequent
+        basis.
+
+        :param target_period: timedelta object
+        :param downsample_aggfunc: aggregation function (ex. np.mean)
+        :param upsample_method: None, ‘backfill’/’bfill’, ‘pad’/’ffill’, ‘nearest’
+        :return: ValidationIntervalFrame
+        """
+        return self.__class__(
+            dataframe=resample_dataframe(
+                dataframe=self.dataframe,
+                target_period=target_period,
+                downsample_aggfunc=downsample_aggfunc,
+                upsample_method=upsample_method,
             )
         )
 
