@@ -4,12 +4,14 @@ import pandas as pd
 
 from django.test import TestCase
 
-from beo_datastore.libs.battery import Battery
 from beo_datastore.libs.battery_schedule import create_fixed_schedule
-from beo_datastore.libs.controller import (
-    AggregateBatterySimulation,
-    AggregateProcurementCostCalculation,
+from beo_datastore.libs.controller import AggregateProcurementCostCalculation
+from beo_datastore.libs.der.battery import (
+    Battery,
+    BatterySimulationBuilder,
+    BatteryStrategy,
 )
+from beo_datastore.libs.der.builder import DERSimulationDirector
 from beo_datastore.libs.intervalframe import (
     EnergyIntervalFrame,
     PowerIntervalFrame,
@@ -87,18 +89,10 @@ class TestProcurementCost(TestCase):
         """
         # create AggregateBatterySimulation using no-operation battery and
         # no-operation battery strategy
-        agg_simulation = AggregateBatterySimulation.create(
-            battery=Battery(
-                rating=0, discharge_duration=timedelta(0, 3600), efficiency=1.0
-            ),
-            start=datetime(2020, 1, 1),
-            end_limit=datetime(2020, 1, 2),
-            meter_dict={
-                1: self.power_60,
-                2: self.power_15,
-                3: self.energy_60,
-                4: self.energy_15,
-            },
+        der = Battery(
+            rating=0, discharge_duration=timedelta(0, 3600), efficiency=1.0
+        )
+        der_strategy = BatteryStrategy(
             charge_schedule=create_fixed_schedule(
                 start_hour=0,
                 end_limit_hour=0,
@@ -111,6 +105,19 @@ class TestProcurementCost(TestCase):
                 power_limit_1=0,
                 power_limit_2=0,
             ),
+        )
+        builder = BatterySimulationBuilder(der=der, der_strategy=der_strategy)
+        director = DERSimulationDirector(builder=builder)
+
+        agg_simulation = director.operate_many_ders(
+            start=datetime(2020, 1, 1),
+            end_limit=datetime(2020, 1, 2),
+            intervalframe_dict={
+                1: self.power_60,
+                2: self.power_15,
+                3: self.energy_60,
+                4: self.energy_15,
+            },
         )
 
         procurement_cost_calculation = AggregateProcurementCostCalculation(

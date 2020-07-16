@@ -1,7 +1,7 @@
 import numpy as np
 import os
 
-from beo_datastore.libs.battery import BatteryIntervalFrame
+from beo_datastore.libs.der.battery import BatteryIntervalFrame
 from beo_datastore.libs.dataframe import convert_columns_type, read_parquet
 from beo_datastore.libs.intervalframe import (
     ValidationDataFrame,

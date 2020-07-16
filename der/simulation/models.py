@@ -7,9 +7,17 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.battery import Battery, FixedScheduleBatterySimulation
 from beo_datastore.libs.battery_schedule import optimize_battery_schedule
-from beo_datastore.libs.controller import AggregateBatterySimulation
+from beo_datastore.libs.der.battery import (
+    Battery as pyBattery,
+    BatterySimulationBuilder,
+    BatteryStrategy as pyBatteryStrategy,
+)
+from beo_datastore.libs.der.builder import (
+    AggregateDERProduct,
+    DERSimulationDirector,
+    DERProduct,
+)
 from beo_datastore.libs.intervalframe_file import (
     BatteryIntervalFrameFile,
     Frame288File,
@@ -111,6 +119,13 @@ class BatteryStrategy(DERStrategy):
 
     def __str__(self):
         return self.name
+
+    @property
+    def der_strategy(self):
+        return pyBatteryStrategy(
+            charge_schedule=self.charge_schedule.frame288,
+            discharge_schedule=self.discharge_schedule.frame288,
+        )
 
     @property
     def charge_schedule_html_table(self):
@@ -238,11 +253,11 @@ class BatteryConfiguration(DERConfiguration):
         )
 
     @property
-    def battery(self):
+    def der(self):
         """
         Return Battery equivalent of self.
         """
-        return Battery(
+        return pyBattery(
             rating=self.rating,
             discharge_duration=timedelta(hours=self.discharge_duration_hours),
             efficiency=self.efficiency,
@@ -391,16 +406,19 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
     @cached_property
     def simulation(self):
         """
-        Return FixedScheduleBatterySimulation equivalent of self.
+        Return DERProduct equivalent of self.
         """
-        return FixedScheduleBatterySimulation(
-            battery=self.der_configuration.battery,
-            load_intervalframe=self.meter.intervalframe.filter_by_datetime(
-                start=self.start, end_limit=self.end_limit
+        pre_der_intervalframe = self.meter.intervalframe.filter_by_datetime(
+            start=self.start, end_limit=self.end_limit
+        )
+        return DERProduct(
+            der=self.der_configuration.der,
+            der_strategy=self.der_strategy.der_strategy,
+            pre_der_intervalframe=pre_der_intervalframe,
+            der_intervalframe=self.intervalframe,
+            post_der_intervalframe=(
+                pre_der_intervalframe + self.intervalframe
             ),
-            charge_schedule=self.charge_schedule.frame288,
-            discharge_schedule=self.discharge_schedule.frame288,
-            battery_intervalframe=self.intervalframe,
         )
 
     @cached_property
@@ -412,14 +430,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
         one another and can be used for aggregate "cost calculations" found in
         beo_datastore/libs/controller.py.
         """
-        return AggregateBatterySimulation(
-            battery=self.der_configuration.battery,
-            start=self.start,
-            end_limit=self.end_limit,
-            charge_schedule=self.charge_schedule.frame288,
-            discharge_schedule=self.discharge_schedule.frame288,
-            results={self.meter: self.simulation},
-        )
+        return AggregateDERProduct(der_products={self.id: self.simulation})
 
     @classmethod
     def get_or_create_from_objects(
@@ -431,7 +442,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
         discharge BatterySchedule objects.
 
         :param meter: Meter
-        :param simulation: FixedScheduleBatterySimulation
+        :param simulation: DERProduct
         :param start: datetime
         :param end_limit: datetime
         :return: (
@@ -440,33 +451,37 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
         )
         """
         if start is None:
-            start = simulation.battery_intervalframe.start_datetime
+            start = simulation.der_intervalframe.start_datetime
         if end_limit is None:
-            end_limit = simulation.battery_intervalframe.end_limit_datetime
+            end_limit = simulation.der_intervalframe.end_limit_datetime
 
         with transaction.atomic():
             configuration, _ = BatteryConfiguration.objects.get_or_create(
-                rating=simulation.battery.rating,
+                rating=simulation.der.rating,
                 discharge_duration_hours=(
-                    simulation.battery.discharge_duration_hours
+                    simulation.der.discharge_duration_hours
                 ),
-                efficiency=simulation.battery.efficiency,
+                efficiency=simulation.der.efficiency,
             )
             charge_schedule, _ = BatterySchedule.get_or_create(
-                hash=simulation.charge_schedule.__hash__(),
-                dataframe=simulation.charge_schedule.dataframe,
+                hash=simulation.der_strategy.charge_schedule.__hash__(),
+                dataframe=simulation.der_strategy.charge_schedule.dataframe,
             )
             discharge_schedule, _ = BatterySchedule.get_or_create(
-                hash=simulation.discharge_schedule.__hash__(),
-                dataframe=simulation.discharge_schedule.dataframe,
+                hash=simulation.der_strategy.discharge_schedule.__hash__(),
+                dataframe=simulation.der_strategy.discharge_schedule.dataframe,
             )
             der_strategy, _ = BatteryStrategy.objects.get_or_create(
                 charge_schedule=charge_schedule,
                 discharge_schedule=discharge_schedule,
             )
-            pre_total_frame288 = simulation.pre_intervalframe.total_frame288
+            pre_total_frame288 = (
+                simulation.pre_der_intervalframe.total_frame288
+            )
             pre_DER_total = pre_total_frame288.dataframe.sum().sum()
-            post_total_frame288 = simulation.post_intervalframe.total_frame288
+            post_total_frame288 = (
+                simulation.post_der_intervalframe.total_frame288
+            )
             post_DER_total = post_total_frame288.dataframe.sum().sum()
             return cls.get_or_create(
                 start=start,
@@ -476,7 +491,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
                 der_strategy=der_strategy,
                 pre_DER_total=pre_DER_total,
                 post_DER_total=post_DER_total,
-                dataframe=simulation.battery_intervalframe.dataframe,
+                dataframe=simulation.der_intervalframe.dataframe,
             )
 
     @classmethod
@@ -534,20 +549,24 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
 
             # generate new aggregate simulation for remaining meters
             new_meters = set(meter_set) - {x.meter for x in stored_simulations}
-            new_simulation = AggregateBatterySimulation.create(
-                battery=battery,
-                start=start,
-                end_limit=end_limit,
-                meter_dict={
+            builder = BatterySimulationBuilder(
+                der=battery, der_strategy=der_strategy.der_strategy
+            )
+            director = DERSimulationDirector(builder=builder)
+            new_simulation = director.operate_many_ders(
+                intervalframe_dict={
                     meter: meter.intervalframe for meter in new_meters
                 },
-                charge_schedule=charge_schedule.frame288,
-                discharge_schedule=discharge_schedule.frame288,
+                start=start,
+                end_limit=end_limit,
                 multiprocess=multiprocess,
             )
 
             # store new simulations
-            for (meter, battery_simulation) in new_simulation.results.items():
+            for (
+                meter,
+                battery_simulation,
+            ) in new_simulation.der_products.items():
                 cls.get_or_create_from_objects(
                     meter=meter,
                     simulation=battery_simulation,

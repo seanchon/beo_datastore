@@ -3,8 +3,13 @@ import pandas as pd
 
 from django.test import TestCase
 
-from beo_datastore.libs.battery import Battery, FixedScheduleBatterySimulation
 from beo_datastore.libs.battery_schedule import create_fixed_schedule
+from beo_datastore.libs.der.battery import (
+    Battery,
+    BatterySimulationBuilder,
+    BatteryStrategy,
+)
+from beo_datastore.libs.der.builder import DERSimulationDirector
 from beo_datastore.libs.fixtures import flush_intervalframe_files
 from beo_datastore.libs.intervalframe import PowerIntervalFrame
 
@@ -74,13 +79,17 @@ class TestBattery(TestCase):
         )
 
         # run battery simulation
-        self.simulation = FixedScheduleBatterySimulation(
-            battery=self.battery,
-            load_intervalframe=self.intervalframe,
-            charge_schedule=self.charge_schedule,
-            discharge_schedule=self.discharge_schedule,
+        builder = BatterySimulationBuilder(
+            der=self.battery,
+            der_strategy=BatteryStrategy(
+                charge_schedule=self.charge_schedule,
+                discharge_schedule=self.discharge_schedule,
+            ),
         )
-        self.simulation.generate_full_sequence()
+        self.director = DERSimulationDirector(builder=builder)
+        self.simulation = self.director.operate_single_der(
+            intervalframe=self.intervalframe
+        )
 
     def tearDown(self):
         flush_intervalframe_files()
@@ -91,21 +100,17 @@ class TestBattery(TestCase):
         """
         # power
         self.assertEqual(
-            list(self.simulation.battery_intervalframe.dataframe.kw.values),
+            list(self.simulation.der_intervalframe.dataframe.kw.values),
             [5.0, 5.0, 5.0, 5.0, 0.0, 0.0, -5.0, -5.0, 0.0, 0.0, 0.0, 0.0],
         )
         # charge
         self.assertEqual(
-            list(
-                self.simulation.battery_intervalframe.dataframe.charge.values
-            ),
+            list(self.simulation.der_intervalframe.dataframe.charge.values),
             [2.5, 5.0, 7.5, 10.0, 10.0, 10.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         )
         # capacity
         self.assertEqual(
-            list(
-                self.simulation.battery_intervalframe.dataframe.capacity.values
-            ),
+            list(self.simulation.der_intervalframe.dataframe.capacity.values),
             [
                 10.0,
                 10.0,
@@ -128,8 +133,8 @@ class TestBattery(TestCase):
         together.
         """
         aggregate_battery_intervalframe = (
-            self.simulation.battery_intervalframe
-            + self.simulation.battery_intervalframe
+            self.simulation.der_intervalframe
+            + self.simulation.der_intervalframe
         )
         # power doubles
         self.assertEqual(
@@ -184,19 +189,17 @@ class TestBattery(TestCase):
         # retrieve simulation from disk
         stored_simulation = StoredBatterySimulation.objects.last()
         self.assertEqual(
-            stored_simulation.simulation.charge_schedule,
-            self.simulation.charge_schedule,
+            stored_simulation.simulation.der_strategy.charge_schedule,
+            self.simulation.der_strategy.charge_schedule,
         )
         self.assertEqual(
-            stored_simulation.simulation.discharge_schedule,
-            self.simulation.discharge_schedule,
+            stored_simulation.simulation.der_strategy.discharge_schedule,
+            self.simulation.der_strategy.discharge_schedule,
         )
+        self.assertEqual(stored_simulation.simulation.der, self.simulation.der)
         self.assertEqual(
-            stored_simulation.simulation.battery, self.simulation.battery
-        )
-        self.assertEqual(
-            stored_simulation.simulation.battery_intervalframe,
-            self.simulation.battery_intervalframe,
+            stored_simulation.simulation.der_intervalframe,
+            self.simulation.der_intervalframe,
         )
 
     def test_stored_aggregate_simulation(self):
@@ -226,11 +229,11 @@ class TestBattery(TestCase):
         # test same intervalframes
         self.assertEqual(
             stored_simulations.first().pre_der_intervalframe,
-            self.simulation.pre_intervalframe,
+            self.simulation.pre_der_intervalframe,
         )
         self.assertEqual(
             stored_simulations.first().post_der_intervalframe,
-            self.simulation.post_intervalframe,
+            self.simulation.post_der_intervalframe,
         )
 
     def test_zero_period_simulation(self):
@@ -248,10 +251,4 @@ class TestBattery(TestCase):
             .set_index("index")
         )
 
-        single_interval_simulation = FixedScheduleBatterySimulation(
-            battery=self.battery,
-            load_intervalframe=single_intervalframe,
-            charge_schedule=self.charge_schedule,
-            discharge_schedule=self.discharge_schedule,
-        )
-        single_interval_simulation.generate_full_sequence()
+        self.director.operate_single_der(intervalframe=single_intervalframe)

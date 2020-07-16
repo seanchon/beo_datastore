@@ -4,7 +4,11 @@ from math import ceil
 from multiprocessing import Pool
 import numpy as np
 
-from beo_datastore.libs.battery import FixedScheduleBatterySimulation
+from beo_datastore.libs.der.battery import (
+    BatterySimulationBuilder,
+    BatteryStrategy,
+)
+from beo_datastore.libs.der.builder import DERSimulationDirector
 from beo_datastore.libs.dataframe import get_unique_values
 from beo_datastore.libs.intervalframe import ValidationFrame288
 
@@ -138,23 +142,24 @@ class PeakShavingScheduleOptimizer(object):
         """
         load_intervalframe = load_intervalframe.filter_by_months({month})
 
-        charge_schedule = ValidationFrame288.convert_matrix_to_frame288(
-            [[charge_threshold] * 24] * 12
+        der_strategy = BatteryStrategy(
+            charge_schedule=ValidationFrame288.convert_matrix_to_frame288(
+                [[charge_threshold] * 24] * 12
+            ),
+            discharge_schedule=ValidationFrame288.convert_matrix_to_frame288(
+                [[discharge_threshold] * 24] * 12
+            ),
         )
-        discharge_schedule = ValidationFrame288.convert_matrix_to_frame288(
-            [[discharge_threshold] * 24] * 12
+        builder = BatterySimulationBuilder(
+            der=battery, der_strategy=der_strategy
         )
-
-        battery_simulation = FixedScheduleBatterySimulation(
-            battery=battery,
-            load_intervalframe=load_intervalframe,
-            charge_schedule=charge_schedule,
-            discharge_schedule=discharge_schedule,
+        director = DERSimulationDirector(builder=builder)
+        battery_simulation = director.operate_single_der(
+            intervalframe=load_intervalframe
         )
-        battery_simulation.generate_full_sequence()
 
         combined_maximum_frame288 = (
-            battery_simulation.post_intervalframe.maximum_frame288
+            battery_simulation.post_der_intervalframe.maximum_frame288
         )
         return (
             discharge_threshold,
