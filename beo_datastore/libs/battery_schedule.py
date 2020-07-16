@@ -159,7 +159,7 @@ class PeakShavingScheduleOptimizer(object):
         )
 
         combined_maximum_frame288 = (
-            battery_simulation.post_intervalframe.maximum_frame288
+            battery_simulation.post_der_intervalframe.maximum_frame288
         )
         return (
             discharge_threshold,

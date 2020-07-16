@@ -408,15 +408,17 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
         """
         Return DERProduct equivalent of self.
         """
-        pre_intervalframe = self.meter.intervalframe.filter_by_datetime(
+        pre_der_intervalframe = self.meter.intervalframe.filter_by_datetime(
             start=self.start, end_limit=self.end_limit
         )
         return DERProduct(
             der=self.der_configuration.der,
             der_strategy=self.der_strategy.der_strategy,
-            pre_intervalframe=pre_intervalframe,
+            pre_der_intervalframe=pre_der_intervalframe,
             der_intervalframe=self.intervalframe,
-            post_intervalframe=(pre_intervalframe + self.intervalframe),
+            post_der_intervalframe=(
+                pre_der_intervalframe + self.intervalframe
+            ),
         )
 
     @cached_property
@@ -473,9 +475,13 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
                 charge_schedule=charge_schedule,
                 discharge_schedule=discharge_schedule,
             )
-            pre_total_frame288 = simulation.pre_intervalframe.total_frame288
+            pre_total_frame288 = (
+                simulation.pre_der_intervalframe.total_frame288
+            )
             pre_DER_total = pre_total_frame288.dataframe.sum().sum()
-            post_total_frame288 = simulation.post_intervalframe.total_frame288
+            post_total_frame288 = (
+                simulation.post_der_intervalframe.total_frame288
+            )
             post_DER_total = post_total_frame288.dataframe.sum().sum()
             return cls.get_or_create(
                 start=start,

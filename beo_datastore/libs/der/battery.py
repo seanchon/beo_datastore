@@ -65,10 +65,9 @@ class Battery(DER):
 
     def _validate_power(self, power: float) -> None:
         """
-        Ensures that power level is neither less than zero or greater than the
-        battery's rating.
+        Ensures that power level does not exceed the battery's rating.
         """
-        if not (-self.rating <= power <= self.rating):
+        if abs(power) > self.rating:
             raise ValueError(
                 "Power must be between {} and {} kw.".format(
                     -self.rating, self.rating
@@ -276,6 +275,9 @@ class BatteryStrategy(DERStrategy):
         charge up to the charge threshold.
         - When power is above discharge threshold, the battery will attempt to
         discharge down to the discharge thresholdd.
+
+        Note: Power level is rounded to nearest kw to increase hits in
+        generate_battery_operations()'s lru_cache.
         """
         charge_threshold = self.get_charge_threshold(
             month=timestamp.month, hour=timestamp.hour
@@ -477,7 +479,7 @@ class BatterySimulationBuilder(DERSimulationBuilder):
         return DERProduct(
             der=self.der,
             der_strategy=self.der_strategy,
-            pre_intervalframe=intervalframe,
+            pre_der_intervalframe=intervalframe,
             der_intervalframe=battery_intervalframe,
-            post_intervalframe=(intervalframe + battery_intervalframe),
+            post_der_intervalframe=(intervalframe + battery_intervalframe),
         )

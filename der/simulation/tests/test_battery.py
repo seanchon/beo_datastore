@@ -229,11 +229,11 @@ class TestBattery(TestCase):
         # test same intervalframes
         self.assertEqual(
             stored_simulations.first().pre_der_intervalframe,
-            self.simulation.pre_intervalframe,
+            self.simulation.pre_der_intervalframe,
         )
         self.assertEqual(
             stored_simulations.first().post_der_intervalframe,
-            self.simulation.post_intervalframe,
+            self.simulation.post_der_intervalframe,
         )
 
     def test_zero_period_simulation(self):

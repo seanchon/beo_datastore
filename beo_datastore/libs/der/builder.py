@@ -41,23 +41,9 @@ class DERProduct(ABC):
 
     der = attr.ib(validator=instance_of(DER))
     der_strategy = attr.ib(validator=instance_of(DERStrategy))
-    pre_intervalframe = attr.ib(validator=instance_of(PowerIntervalFrame))
+    pre_der_intervalframe = attr.ib(validator=instance_of(PowerIntervalFrame))
     der_intervalframe = attr.ib(validator=instance_of(PowerIntervalFrame))
-    post_intervalframe = attr.ib(validator=instance_of(PowerIntervalFrame))
-
-    @property
-    def pre_der_intervalframe(self) -> PowerIntervalFrame:
-        """
-        Alias for self.pre_intervalframe.
-        """
-        return self.pre_intervalframe
-
-    @property
-    def post_der_intervalframe(self) -> PowerIntervalFrame:
-        """
-        Alias for self.post_intervalframe.
-        """
-        return self.post_intervalframe
+    post_der_intervalframe = attr.ib(validator=instance_of(PowerIntervalFrame))
 
     def compare_peak_loads(self) -> pd.DataFrame:
         """
@@ -67,10 +53,10 @@ class DERProduct(ABC):
         :return: pandas DataFrame
         """
         before = pd.DataFrame(
-            self.pre_intervalframe.maximum_frame288.dataframe.max()
+            self.pre_der_intervalframe.maximum_frame288.dataframe.max()
         )
         after = pd.DataFrame(
-            self.post_intervalframe.maximum_frame288.dataframe.max()
+            self.post_der_intervalframe.maximum_frame288.dataframe.max()
         )
 
         df = pd.merge(
@@ -89,12 +75,12 @@ class DERProduct(ABC):
         :param aggfunc: aggregation function
         :return: pandas DataFrame
         """
-        before = self.pre_intervalframe.compute_frame288(aggfunc).dataframe[
-            month
-        ]
-        after = self.post_intervalframe.compute_frame288(aggfunc).dataframe[
-            month
-        ]
+        before = self.pre_der_intervalframe.compute_frame288(
+            aggfunc
+        ).dataframe[month]
+        after = self.post_der_intervalframe.compute_frame288(
+            aggfunc
+        ).dataframe[month]
 
         before_column = "{}_x".format(month)
         after_column = "{}_y".format(month)
@@ -132,7 +118,9 @@ class AggregateDERProduct(ABC):
         Dictionary of key, value pairs where each key is an id and each value
         is a PowerIntervalFrame before introducing a DER.
         """
-        return {k: v.pre_intervalframe for k, v in self.der_products.items()}
+        return {
+            k: v.pre_der_intervalframe for k, v in self.der_products.items()
+        }
 
     @cached_property
     def post_der_results(self) -> dict:
@@ -140,24 +128,19 @@ class AggregateDERProduct(ABC):
         Dictionary of key, value pairs where each key is an id and each value
         is a PowerIntervalFrame after introducing a DER.
         """
-        return {k: v.post_intervalframe for k, v in self.der_products.items()}
+        return {
+            k: v.post_der_intervalframe for k, v in self.der_products.items()
+        }
 
     @cached_property
-    def pre_intervalframe(self) -> PowerIntervalFrame:
+    def pre_der_intervalframe(self) -> PowerIntervalFrame:
         """
-        Sum of all pre_intervalframes in self.der_products.
+        Sum of all pre_der_intervalframes in self.der_products.
         """
         return reduce(
             lambda x, y: x + y,
-            [x.pre_intervalframe for x in self.der_products.values()],
+            [x.pre_der_intervalframe for x in self.der_products.values()],
         )
-
-    @property
-    def pre_der_intervalframe(self) -> PowerIntervalFrame:
-        """
-        Alias for self.pre_intervalframe.
-        """
-        return self.pre_intervalframe
 
     @cached_property
     def der_intervalframe(self) -> ValidationIntervalFrame:
@@ -170,21 +153,14 @@ class AggregateDERProduct(ABC):
         )
 
     @cached_property
-    def post_intervalframe(self) -> PowerIntervalFrame:
+    def post_der_intervalframe(self) -> PowerIntervalFrame:
         """
-        Sum of all post_intervalframes in self.der_products.
+        Sum of all post_der_intervalframes in self.der_products.
         """
         return reduce(
             lambda x, y: x + y,
-            [x.post_intervalframe for x in self.der_products.values()],
+            [x.post_der_intervalframe for x in self.der_products.values()],
         )
-
-    @property
-    def post_der_intervalframe(self) -> PowerIntervalFrame:
-        """
-        Alias for self.post_intervalframe.
-        """
-        return self.post_intervalframe
 
 
 @attr.s(frozen=True)
@@ -225,7 +201,9 @@ class DERSimulationDirector:
         """
         Create a single DERProduct from a single ValidationIntervalFrame.
         """
-        return self.builder.operate_der(intervalframe=intervalframe)
+        return self.builder.operate_der(
+            intervalframe=intervalframe.filter_by_datetime(start, end_limit)
+        )
 
     def operate_many_ders(
         self,
