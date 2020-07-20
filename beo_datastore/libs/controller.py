@@ -329,7 +329,7 @@ class AggregateResourceAdequacyCalculation(DERCostCalculation):
         The PowerIntervalFrame index year will be changed so that the
         SystemProfile dates align with PowerIntervalFrame dates.
         """
-        intervalframe = self.agg_simulation.net_intervalframe
+        intervalframe = self.agg_simulation.der_intervalframe
         if (
             intervalframe.end_limit_timestamp - intervalframe.start_timestamp
         ) > timedelta(days=366):
@@ -341,7 +341,7 @@ class AggregateResourceAdequacyCalculation(DERCostCalculation):
         )
         intervalframe.dataframe.index = updated_index
 
-        return intervalframe + self.system_profile_intervalframe
+        return self.system_profile_intervalframe + intervalframe
 
     @cached_property
     def comparison_table(self):
