@@ -436,8 +436,8 @@ class CustomerMeter(Meter):
         blank=True,
         null=True,
     )
-    import_hash = models.CharField(max_length=64, blank=True, null=True)
-    export_hash = models.CharField(max_length=64, blank=True, null=True)
+    import_hash = models.BigIntegerField(blank=True, null=True)
+    export_hash = models.BigIntegerField(blank=True, null=True)
 
     class Meta:
         ordering = ["id"]

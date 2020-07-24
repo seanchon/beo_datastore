@@ -1,7 +1,6 @@
 from cached_property import cached_property
 from datetime import timedelta
 from functools import reduce
-import hashlib
 import numpy as np
 import pandas as pd
 
@@ -39,9 +38,7 @@ class ValidationDataFrame(object):
         """
         Return hash of dataframe elements.
         """
-        return hashlib.sha256(
-            pd.util.hash_pandas_object(self.dataframe, index=True).values
-        ).hexdigest()
+        return int(pd.util.hash_pandas_object(self.dataframe).sum())
 
     def __eq__(self, other):
         """
