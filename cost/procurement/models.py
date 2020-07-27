@@ -15,6 +15,7 @@ from beo_datastore.libs.controller import (
     AggregateProcurementCostCalculation,
     AggregateResourceAdequacyCalculation,
 )
+from beo_datastore.libs.dataframe import get_dataframe_period
 from beo_datastore.libs.intervalframe import ValidationFrame288
 from beo_datastore.libs.intervalframe_file import (
     ArbitraryDataFrameFile,
@@ -327,7 +328,7 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
                 )
                 caiso_report.save()
 
-            return (caiso_report, created)
+            return caiso_report, created
 
     @staticmethod
     def fetch_report(
@@ -401,10 +402,22 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
             report_dataframe[end_column]
         )
 
-        return report_dataframe[
+        sorted_frame = report_dataframe[
             (report_dataframe[start_column] >= start)
             & (report_dataframe[end_column] <= end_limit)
         ].sort_values(by=sort_by)
+
+        # Check for data gaps
+        period = get_dataframe_period(sorted_frame.set_index(start_column))
+        date_range = pd.date_range(
+            start, end_limit, freq=period, closed="left"
+        )
+
+        dates_present = date_range.isin(sorted_frame[start_column])
+        if date_range[~dates_present].size > 0:
+            raise RuntimeError("OASIS report has missing intervals")
+
+        return sorted_frame
 
     def get_procurement_rate_intervalframe(
         self,
