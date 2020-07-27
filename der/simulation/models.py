@@ -52,7 +52,7 @@ class BatterySchedule(Frame288FileMixin, ValidationModel):
     Container for storing charge and discharge schedule ValidationFrame288s.
     """
 
-    hash = models.CharField(max_length=64, unique=True)
+    hash = models.BigIntegerField(unique=True)
 
     # Required by Frame288FileMixin.
     frame_file_class = BatteryScheduleFrame288
