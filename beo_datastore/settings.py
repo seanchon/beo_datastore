@@ -207,7 +207,10 @@ if AWS_MEDIA_BUCKET_NAME:
 # Override Swagger's 'Django Login' Button to use DRF login page
 LOGIN_URL = "rest_framework:login"
 LOGOUT_URL = "rest_framework:logout"
-ACCOUNT_LOGOUT_ON_GET = True
+
+# Require old password to be provided when changing passwords
+OLD_PASSWORD_FIELD_ENABLED = True
+LOGOUT_ON_PASSWORD_CHANGE = False
 
 # DRF Settings
 REST_FRAMEWORK = {
