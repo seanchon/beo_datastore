@@ -26,6 +26,7 @@ The following can be used with PostgreSQL.
 
 ```
 APP_ENV=local
+APP_URL=http://localhost:3000
 BROKER_URL=redis://localhost
 CORS_ORIGIN_WHITELIST=http://localhost:3000
 DEBUG=1

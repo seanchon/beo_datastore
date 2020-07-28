@@ -26,6 +26,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = int(os.environ.get("DEBUG", default=0))
 APP_ENV = os.environ.get("APP_ENV")
+APP_URL = os.environ.get("APP_URL")
 
 try:
     ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS").split(" ")
@@ -59,6 +60,7 @@ INSTALLED_APPS = [
     "rest_framework_swagger",
     "storages",
     # apps
+    "user",
     "beo_datastore",
     "cost",
     "cost.ghg.apps.GhgConfig",
@@ -263,6 +265,7 @@ EMAIL_PORT = 587
 EMAIL_HOST_USER = os.environ.get("SMTP_USER", None)
 EMAIL_HOST_PASSWORD = os.environ.get("SMTP_PASSWORD", None)
 EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = "support@navigader.com"
 
 # django.utils.log.AdminEmailHandler configuration
 SERVER_EMAIL = "support@navigader.com"  # source email
