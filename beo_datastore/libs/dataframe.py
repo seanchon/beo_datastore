@@ -97,6 +97,20 @@ def get_dataframe_period(dataframe, n=96):
         )
 
 
+def get_dataframe_max_difference(dataframe_1, dataframe_2):
+    """
+    Return the maximum absolute difference between corresponding cells in two
+    dataframes.
+
+    Ex.
+    dataframe_1 = pd.DataFrame([[-2.5, -1.5], [1, 2]])
+    dataframe_2 = pd.DataFrame([[0, 0], [0, 0]])
+
+    returns 2.5
+    """
+    return np.max(np.max(np.absolute(dataframe_1 - dataframe_2)))
+
+
 def get_unique_values(dataframe):
     """
     Return sorted array of unique values found in a dataframe.

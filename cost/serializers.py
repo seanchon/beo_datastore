@@ -210,7 +210,7 @@ class GHGRateSerializer(DynamicModelSerializer):
 
             return obj.frame288.compute_intervalframe(
                 start=start, end_limit=end_limit, period=period
-            )
+            ).reset_index()
         else:
             return None
 

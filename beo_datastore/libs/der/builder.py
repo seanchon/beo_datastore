@@ -2,10 +2,12 @@ from abc import ABC, abstractmethod
 import attr
 from attr.validators import instance_of
 from cached_property import cached_property
+from collections import OrderedDict
 from datetime import datetime
 from functools import reduce
 from multiprocessing import Pool
 import pandas as pd
+from typing import Any
 
 from beo_datastore.libs.intervalframe import (
     PowerIntervalFrame,
@@ -30,6 +32,82 @@ class DERStrategy(ABC):
     """
 
     pass
+
+
+class DataFrameQueueMixin(ABC):
+    """
+    For operations that require sequential inserts into a DataFrame, it is much
+    faster to write to bulk update a DataFrame versus sequential updates to
+    the DataFrame.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.queued_operations = []
+        super().__init__(*args, **kwargs)
+
+    @property
+    def latest_interval_dict(self) -> OrderedDict:
+        """
+        Latest interval represented as an OrderedDict.
+        """
+        if self.queued_operations:
+            return self.queued_operations[-1]
+        elif not self.dataframe.empty:
+            return OrderedDict(
+                self.dataframe.reset_index()
+                .rename(columns={"index": "start"})
+                .iloc[-1]
+            )
+        else:
+            return OrderedDict()
+
+    @property
+    def latest_interval_timestamp(self) -> datetime:
+        """
+        Current interval timestamp.
+        """
+        return self.latest_interval_dict.get("start", self.start_timestamp)
+
+    def get_latest_value(self, column: str, default: Any):
+        """
+        Returns latest value from self.dataframe or self.queued_operations.
+
+        :param column: name of dataframe column or queued_operations key
+        :param default: default value if dataframe and queued_operations are
+            both empty
+        """
+        return self.latest_interval_dict.get(column, default)
+
+    def append_operations(self, operations: list) -> None:
+        """
+        Appends operations to queued_operations  for performance benefits
+        associated with a bulk update of a pandas DataFrame.
+
+        This must be followed by self.commit_operations() to perform a
+        bulk update to self.dataframe.
+
+        operations are in the format:
+
+        [
+            OrderedDict([('kw', 5), ('charge', 3.125), ('capacity', 20.0)]),
+            OrderedDict([('kw', 5), ('charge', 4.25), ('capacity', 20.0)])
+        ]
+        """
+        self.queued_operations.extend(operations)
+
+    def commit_operations(self) -> None:
+        """
+        After performing self.append_operations() many times, this
+        method can be run to perform a single state update, which saves time.
+        """
+        if self.queued_operations:
+            self.dataframe = pd.concat(
+                [
+                    self.dataframe,
+                    pd.DataFrame(self.queued_operations).set_index("start"),
+                ]
+            )
+            self.queued_operations = []
 
 
 @attr.s(frozen=True)

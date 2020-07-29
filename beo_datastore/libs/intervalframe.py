@@ -844,9 +844,11 @@ class ValidationFrame288(ValidationDataFrame):
         df_288["month-hour"] = df_288.index.map(lambda x: x[0] * 100 + x[1])
         df["month-hour"] = df.index.map(lambda x: x.month * 100 + x.hour)
 
-        return df.reset_index().merge(df_288, on="month-hour", how="left")[
-            ["start", "value"]
-        ]
+        return (
+            df.reset_index()
+            .merge(df_288, on="month-hour", how="left")[["start", "value"]]
+            .set_index("start")
+        )
 
 
 class ArbitraryDataFrame(ValidationDataFrame):
