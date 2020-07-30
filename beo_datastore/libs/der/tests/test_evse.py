@@ -375,10 +375,10 @@ class TestEVSE(TestCase):
             target_period=quarter_hour
         )
 
-        simulation_60 = self.builder.operate_der(
+        simulation_60 = self.builder.run_simulation(
             intervalframe=intervalframe_60
         )
-        simulation_15 = self.builder.operate_der(
+        simulation_15 = self.builder.run_simulation(
             intervalframe=intervalframe_15
         )
 

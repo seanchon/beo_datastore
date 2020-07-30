@@ -3,21 +3,16 @@ from attr.validators import instance_of
 from cached_property import cached_property
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from functools import lru_cache
 from math import floor
 import pandas as pd
 
 from beo_datastore.libs.der.builder import (
-    DataFrameQueueMixin,
+    DataFrameQueue,
     DER,
     DERSimulationBuilder,
     DERStrategy,
-    DERProduct,
 )
-from beo_datastore.libs.intervalframe import (
-    PowerIntervalFrame,
-    ValidationFrame288,
-)
+from beo_datastore.libs.intervalframe import ValidationFrame288
 from beo_datastore.libs.utils import timedelta_to_hours
 
 
@@ -98,76 +93,6 @@ class Battery(DER):
         Maximum capacity a battery has available for discharge.
         """
         return self.rating * self.discharge_duration_hours
-
-    @lru_cache(maxsize=None)
-    def generate_battery_operations(
-        self,
-        start: datetime,
-        power: float,
-        duration: timedelta,
-        load_period: timedelta,
-        charge: float,
-    ) -> list:
-        """
-        Generate battery operations based off of input power and duration,
-        a load's period, battery, and battery's beginning charge level.
-
-        Calculations are cached for speed-up purposes.
-
-        Results are in the format:
-
-        [
-            OrderedDict([('kw', 5), ('charge', 3.125), ('capacity', 20.0)]),
-            OrderedDict([('kw', 5), ('charge', 4.25), ('capacity', 20.0)])
-        ]
-
-        :param power: input power (kw)
-        :param duration: timedelta
-        :param load_period: timedelta
-        :param charge: beginning charge level (kwh)
-        :return: list of OrderedDict
-        """
-        if power >= 0:  # charge
-            charge_limit = self.capacity
-        else:  # discharge
-            charge_limit = 0
-
-        operations = []
-        remaining_time = duration
-        current_charge = charge
-        timestamp = start
-        while remaining_time > timedelta():
-            power_limit = self.get_target_power(
-                duration=load_period,
-                current_charge=current_charge,
-                target_charge=charge_limit,
-            )
-
-            if power >= 0:  # charge
-                operational_power = min(power, power_limit)
-            else:  # discharge
-                operational_power = max(power, power_limit)
-
-            current_charge = self.get_next_charge(
-                power=operational_power,
-                duration=load_period,
-                current_charge=current_charge,
-            )
-
-            operations.append(
-                OrderedDict(
-                    [
-                        ("start", timestamp),
-                        ("kw", operational_power),
-                        ("charge", current_charge),
-                        ("capacity", self.capacity),
-                    ]
-                )
-            )
-            timestamp += load_period
-            remaining_time -= load_period
-
-        return operations
 
     def get_target_power(
         self, duration: timedelta, current_charge: float, target_charge: float
@@ -262,7 +187,7 @@ class BatteryStrategy(DERStrategy):
         - When power is below the charge threshold, the battery will attempt to
         charge up to the charge threshold.
         - When power is above discharge threshold, the battery will attempt to
-        discharge down to the discharge thresholdd.
+        discharge down to the discharge threshold.
 
         Note: Power level is rounded to nearest kw to increase hits in
         generate_battery_operations()'s lru_cache.
@@ -290,7 +215,7 @@ class BatteryStrategy(DERStrategy):
         return power_level
 
 
-class BatteryIntervalFrame(DataFrameQueueMixin, PowerIntervalFrame):
+class BatteryIntervalFrame(DataFrameQueue):
     """
     Container for generating and storing battery operation intervals.
     """
@@ -332,39 +257,6 @@ class BatteryIntervalFrame(DataFrameQueueMixin, PowerIntervalFrame):
             - self.dataframe.iloc[-1].charge
         )
 
-    def operate_battery(
-        self,
-        battery: Battery,
-        power: float,
-        duration: timedelta,
-        load_period: timedelta,
-        start: datetime = pd.NaT,
-    ) -> None:
-        """
-        Operate battery beginning at latest interval in battery_intervalframe
-        at specified power for specified duration. Intervals are recorded
-        according to the load_period.
-
-        Generated operations queued for speed purposes and not written to the
-        DataFrame until battery_intervalframe.commit_operations() is called.
-        """
-        if pd.isnull(self.latest_interval_timestamp) and pd.isnull(start):
-            raise ValueError(
-                "start must be specified if BatteryIntervalFrame is empty."
-            )
-        elif not pd.isnull(self.latest_interval_timestamp):
-            start = self.latest_interval_timestamp + load_period
-
-        self.append_operations(
-            battery.generate_battery_operations(
-                start=start,
-                power=power,
-                duration=duration,
-                load_period=load_period,
-                charge=self.current_charge,
-            )
-        )
-
 
 @attr.s(frozen=True)
 class BatterySimulationBuilder(DERSimulationBuilder):
@@ -375,46 +267,60 @@ class BatterySimulationBuilder(DERSimulationBuilder):
     der = attr.ib(validator=instance_of(Battery))
     der_strategy = attr.ib(validator=instance_of(BatteryStrategy))
 
-    def operate_der(self, intervalframe: PowerIntervalFrame) -> DERProduct:
-        """
-        Generate full charge/discharge sequence.
-        """
-        battery_intervalframe = BatteryIntervalFrame()
+    def get_der_intervalframe(self) -> DataFrameQueue:
+        return BatteryIntervalFrame()
 
-        for index, row in intervalframe.dataframe.iterrows():
-            next_interval = (
-                battery_intervalframe.latest_interval_timestamp
-                + intervalframe.period
-            )
-            if index - next_interval > timedelta():
-                # fill gaps with no operations
-                time_gap = index - next_interval
-                battery_intervalframe.operate_battery(
-                    battery=self.der,
-                    power=0,
-                    duration=time_gap,
-                    load_period=intervalframe.period,
-                    start=intervalframe.start_datetime,
-                )
+    def get_noop(
+        self, interval_start: datetime, der_intervalframe: BatteryIntervalFrame
+    ) -> OrderedDict:
+        return OrderedDict(
+            {
+                "start": interval_start,
+                "kw": 0,
+                "charge": der_intervalframe.current_charge,
+                "capacity": self.der.capacity,
+            }
+        )
 
-            power_level = self.der_strategy.get_target_power(
-                timestamp=index, meter_reading=row.kw
-            )
+    def operate_der(
+        self,
+        interval_start: datetime,
+        interval_load: float,
+        duration: timedelta,
+        der_intervalframe: BatteryIntervalFrame,
+    ) -> OrderedDict:
+        power_level = self.der_strategy.get_target_power(
+            timestamp=interval_start, meter_reading=interval_load
+        )
 
-            battery_intervalframe.operate_battery(
-                battery=self.der,
-                power=power_level,
-                duration=intervalframe.period,
-                load_period=intervalframe.period,
-                start=intervalframe.start_datetime,
-            )
+        if power_level >= 0:  # charge
+            charge_limit = self.der.capacity
+        else:  # discharge
+            charge_limit = 0
 
-        battery_intervalframe.commit_operations()
+        current_charge = der_intervalframe.current_charge
+        power_limit = self.der.get_target_power(
+            duration=duration,
+            current_charge=current_charge,
+            target_charge=charge_limit,
+        )
 
-        return DERProduct(
-            der=self.der,
-            der_strategy=self.der_strategy,
-            pre_der_intervalframe=intervalframe,
-            der_intervalframe=battery_intervalframe,
-            post_der_intervalframe=(intervalframe + battery_intervalframe),
+        if power_level >= 0:  # charge
+            operational_power = min(power_level, power_limit)
+        else:  # discharge
+            operational_power = max(power_level, power_limit)
+
+        current_charge = self.der.get_next_charge(
+            power=operational_power,
+            duration=duration,
+            current_charge=current_charge,
+        )
+
+        return OrderedDict(
+            {
+                "start": interval_start,
+                "kw": operational_power,
+                "charge": current_charge,
+                "capacity": self.der.capacity,
+            }
         )

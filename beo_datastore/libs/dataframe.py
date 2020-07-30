@@ -70,7 +70,7 @@ def csv_url_to_dataframe(url):
     return pd.read_csv(io.StringIO(csv.decode("utf-8")))
 
 
-def get_dataframe_period(dataframe, n=96):
+def get_dataframe_period(dataframe, n=96) -> timedelta:
     """
     Return dataframe period as a timedelta object.
 

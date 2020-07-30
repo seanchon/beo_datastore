@@ -1,14 +1,13 @@
 import attr
 from attr.validators import instance_of
 from collections import OrderedDict
-from datetime import timedelta
+from datetime import datetime, timedelta
 from math import floor
 import pandas as pd
 
 from beo_datastore.libs.der.builder import (
-    DataFrameQueueMixin,
+    DataFrameQueue,
     DER,
-    DERProduct,
     DERSimulationBuilder,
     DERStrategy,
 )
@@ -189,24 +188,10 @@ class MixedFuelIntervalFrame(PowerIntervalFrame):
     Container for kW and gallon_per_hour readings.
     """
 
+    default_aggregation_column = "kw"
     default_dataframe = pd.DataFrame(
         columns=["kw", "gallon_per_hour"], index=pd.to_datetime([])
     )
-    default_aggregation_column = "kw"
-
-    @property
-    def current_charge(self) -> float:
-        """
-        Current charge on battery.
-        """
-        return self.get_latest_value(column="charge", default=0.0)
-
-    @property
-    def current_capacity(self) -> float:
-        """
-        Current capacity of battery.
-        """
-        return self.get_latest_value(column="capacity", default=float("inf"))
 
     @classmethod
     def create_pre_der_intervalframe(
@@ -245,7 +230,7 @@ class MixedFuelIntervalFrame(PowerIntervalFrame):
         )
 
 
-class EVSEIntervalFrame(DataFrameQueueMixin, PowerIntervalFrame):
+class EVSEIntervalFrame(DataFrameQueue):
     """
     Container for generating and storing EVSE operation intervals.
 
@@ -283,6 +268,25 @@ class EVSESimulationBuilder(DERSimulationBuilder):
     der = attr.ib(validator=instance_of(EVSE))
     der_strategy = attr.ib(validator=instance_of(EVSEStrategy))
     begin_charged = attr.ib(validator=instance_of(bool), default=False)
+
+    def get_der_intervalframe(self) -> DataFrameQueue:
+        return EVSEIntervalFrame()
+
+    def get_latest_charge(self, der_intervalframe: DataFrameQueue):
+        """
+        Returns the current state of the EV batteries' charge. On the first
+        interval, the charge is either 0 (if the EV's are not charged
+        initially) or the full capacity of the EV's, as given in the DER
+        configuration
+        """
+        latest_evse_interval = der_intervalframe.latest_interval_dict
+        if latest_evse_interval:
+            return latest_evse_interval["charge"]
+        else:
+            if self.begin_charged:
+                return self.der.ev_total_capacity
+            else:
+                return 0
 
     def get_target_power(
         self,
@@ -394,13 +398,47 @@ class EVSESimulationBuilder(DERSimulationBuilder):
         else:
             return charge
 
-    def get_operation(
+    def get_noop(
+        self, interval_start: datetime, der_intervalframe: DataFrameQueue
+    ) -> OrderedDict:
+        return OrderedDict(
+            {
+                "start": interval_start,
+                "distance": 0,
+                "kw": 0,
+                "ev_kw": 0,
+                "gallon_per_hour": 0,
+                "charge": self.get_latest_charge(der_intervalframe),
+                "capacity": self.der.ev_total_capacity,
+            }
+        )
+
+    def get_pre_der_intervalframe(self, intervalframe: PowerIntervalFrame) -> MixedFuelIntervalFrame:
+        return MixedFuelIntervalFrame.create_pre_der_intervalframe(
+            power_intervalframe=intervalframe,
+            evse=self.der,
+            evse_strategy=self.der_strategy,
+        )
+
+    def get_post_der_intervalframe(
         self,
-        month: int,
-        hour: int,
+        pre_der_intervalframe: PowerIntervalFrame,
+        der_intervalframe: PowerIntervalFrame,
+    ) -> PowerIntervalFrame:
+        post_der_if = super().get_post_der_intervalframe(
+            pre_der_intervalframe, der_intervalframe
+        )
+        post_der_if.dataframe["gallon_per_hour"] = der_intervalframe.dataframe[
+            "gallon_per_hour"
+        ]
+        return post_der_if
+
+    def operate_der(
+        self,
+        der_intervalframe: DataFrameQueue,
+        interval_start: datetime,
+        interval_load: float,
         duration: timedelta,
-        meter_reading: float,
-        latest_charge: float,
     ) -> OrderedDict:
         """
         Generate EVSE operation based off of EVSE state. EVSE state is an
@@ -408,6 +446,7 @@ class EVSESimulationBuilder(DERSimulationBuilder):
 
         The return value is an OrderedDict with values for the following, which
         represent values in an EVSEIntervalFrame:
+            - start
             - distance
             - kw
             - ev_kw
@@ -418,6 +457,10 @@ class EVSESimulationBuilder(DERSimulationBuilder):
         if duration <= timedelta(0):
             raise ValueError("duration must be greater than timedelta(0).")
 
+        month = interval_start.month
+        hour = interval_start.hour
+        latest_charge = self.get_latest_charge(der_intervalframe)
+
         # miles driven by all EVs during duration
         distance = self.get_drive_distance(
             month=month, hour=hour, duration=duration
@@ -426,7 +469,7 @@ class EVSESimulationBuilder(DERSimulationBuilder):
         kw = self.get_target_power(
             month=month,
             hour=hour,
-            meter_reading=meter_reading,
+            meter_reading=interval_load,
             duration=duration,
             current_charge=latest_charge,
         )
@@ -445,6 +488,7 @@ class EVSESimulationBuilder(DERSimulationBuilder):
 
         return OrderedDict(
             {
+                "start": interval_start,
                 "distance": distance,
                 "kw": kw,
                 "ev_kw": ev_kw,
@@ -452,60 +496,4 @@ class EVSESimulationBuilder(DERSimulationBuilder):
                 "charge": charge,
                 "capacity": self.der.ev_total_capacity,
             }
-        )
-
-    def operate_der(self, intervalframe: PowerIntervalFrame) -> DERProduct:
-        intervalframe = intervalframe.power_intervalframe
-        evse_intervalframe = EVSEIntervalFrame()
-
-        for index, row in intervalframe.dataframe.iterrows():
-            next_timestamp = (
-                evse_intervalframe.latest_interval_timestamp
-                + intervalframe.period
-            )
-            if index - next_timestamp > timedelta():
-                # fill gaps with no operations
-                # TODO: add no-ops
-                pass
-
-            latest_evse_interval = evse_intervalframe.latest_interval_dict
-            if latest_evse_interval:
-                latest_charge = latest_evse_interval["charge"]
-            else:  # initialize charge
-                if self.begin_charged:
-                    latest_charge = self.der.ev_total_capacity
-                else:
-                    latest_charge = 0
-
-            operation = self.get_operation(
-                month=index.month,
-                hour=index.hour,
-                duration=intervalframe.period,
-                meter_reading=row["kw"],
-                latest_charge=latest_charge,
-            )
-            operation.update({"start": index})  # add timestamp
-            operation.move_to_end("start", last=False)  # move to beginning
-            evse_intervalframe.append_operations([operation])
-
-        evse_intervalframe.commit_operations()
-
-        pre_der_if = MixedFuelIntervalFrame.create_pre_der_intervalframe(
-            power_intervalframe=intervalframe,
-            evse=self.der,
-            evse_strategy=self.der_strategy,
-        )
-        # add pre_der kw reading and evse_intervalframe kw readings
-        post_der_if = pre_der_if + evse_intervalframe
-        # use gallon_per_hour from evse_intervalframe
-        post_der_if.dataframe[
-            "gallon_per_hour"
-        ] = evse_intervalframe.dataframe["gallon_per_hour"]
-
-        return DERProduct(
-            der=self.der,
-            der_strategy=self.der_strategy,
-            pre_der_intervalframe=pre_der_if,
-            der_intervalframe=evse_intervalframe,
-            post_der_intervalframe=post_der_if,
         )

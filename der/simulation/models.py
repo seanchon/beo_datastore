@@ -553,7 +553,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
                 der=battery, der_strategy=der_strategy.der_strategy
             )
             director = DERSimulationDirector(builder=builder)
-            new_simulation = director.operate_many_ders(
+            new_simulation = director.run_many_simulations(
                 intervalframe_dict={
                     meter: meter.intervalframe for meter in new_meters
                 },

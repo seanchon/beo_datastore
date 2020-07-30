@@ -154,7 +154,7 @@ class PeakShavingScheduleOptimizer(object):
             der=battery, der_strategy=der_strategy
         )
         director = DERSimulationDirector(builder=builder)
-        battery_simulation = director.operate_single_der(
+        battery_simulation = director.run_single_simulation(
             intervalframe=load_intervalframe
         )
 

@@ -3,7 +3,7 @@ import attr
 from attr.validators import instance_of
 from cached_property import cached_property
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import reduce
 from multiprocessing import Pool
 import pandas as pd
@@ -34,7 +34,7 @@ class DERStrategy(ABC):
     pass
 
 
-class DataFrameQueueMixin(ABC):
+class DataFrameQueue(ABC, PowerIntervalFrame):
     """
     For operations that require sequential inserts into a DataFrame, it is much
     faster to write to bulk update a DataFrame versus sequential updates to
@@ -78,7 +78,7 @@ class DataFrameQueueMixin(ABC):
         """
         return self.latest_interval_dict.get(column, default)
 
-    def append_operations(self, operations: list) -> None:
+    def append_operation(self, operation: OrderedDict) -> None:
         """
         Appends operations to queued_operations  for performance benefits
         associated with a bulk update of a pandas DataFrame.
@@ -93,7 +93,7 @@ class DataFrameQueueMixin(ABC):
             OrderedDict([('kw', 5), ('charge', 4.25), ('capacity', 20.0)])
         ]
         """
-        self.queued_operations.extend(operations)
+        self.queued_operations.append(operation)
 
     def commit_operations(self) -> None:
         """
@@ -252,13 +252,117 @@ class DERSimulationBuilder(ABC):
     der_strategy = attr.ib(validator=instance_of(DERStrategy))
 
     @abstractmethod
-    def operate_der(
-        self, intervalframe: ValidationIntervalFrame
-    ) -> DERProduct:
+    def get_der_intervalframe(self) -> DataFrameQueue:
         """
-        Simulate DER operations.
+        Returns a DER intervalframe for use with a single simulation
         """
         pass
+
+    def get_pre_der_intervalframe(
+        self, intervalframe: PowerIntervalFrame
+    ) -> PowerIntervalFrame:
+        """
+        Returns the DER simulation's pre-DER intervalframe.
+        """
+        return intervalframe
+
+    @abstractmethod
+    def get_noop(
+        self, interval_start: datetime, der_intervalframe: DataFrameQueue
+    ) -> OrderedDict:
+        """
+        Returns a no-op for the given interval
+        """
+        pass
+
+    @abstractmethod
+    def operate_der(
+        self,
+        interval_start: datetime,
+        interval_load: float,
+        duration: timedelta,
+        der_intervalframe: DataFrameQueue,
+    ) -> OrderedDict:
+        """
+        Generate a DER operation over a given interval based off of current DER
+        state. The return value is an OrderedDict representing the operation of
+        the DER during the given interval.
+
+        :param interval_start: start of the interval
+        :param interval_load: the pre-DER intervalframe's kw reading for the
+          interval
+        :param duration: the length of the interval
+        :param der_intervalframe: DataFrameQueue holding DER state
+        """
+        pass
+
+    def get_post_der_intervalframe(
+        self,
+        pre_der_intervalframe: PowerIntervalFrame,
+        der_intervalframe: PowerIntervalFrame,
+    ) -> PowerIntervalFrame:
+        """
+        Returns the DER simulation's post-DER intervalframe. By default the
+        post-DER intervalframe is the sum of the pre-DER intervalframe and the
+        DER intervalframe. Additional modifications can be made in subclasses.
+        """
+        return pre_der_intervalframe + der_intervalframe
+
+    def run_simulation(self, intervalframe: PowerIntervalFrame) -> DERProduct:
+        """
+        Runs a DER simulation given a pre-DER intervalframe. Each row of the
+        pre-DER intervalframe is iterated over and the state of the DER/load
+        is modified according to DER-specific logic.
+
+        :param intervalframe: the pre-DER intervalframe
+        """
+        intervalframe = intervalframe.power_intervalframe
+        der_intervalframe = self.get_der_intervalframe()
+        interval_duration = intervalframe.period
+
+        for index, row in intervalframe.dataframe.iterrows():
+            interval_start = index
+            next_timestamp = (
+                der_intervalframe.latest_interval_timestamp + interval_duration
+            )
+
+            # fill gaps with no-ops
+            while interval_start - next_timestamp > timedelta():
+                noop = self.get_noop(
+                    interval_start=next_timestamp,
+                    der_intervalframe=der_intervalframe,
+                )
+                der_intervalframe.append_operation(noop)
+                next_timestamp += interval_duration
+
+            if not interval_duration:
+                # if the interval duration is 0, return a no-op
+                operation = self.get_noop(
+                    interval_start=interval_start,
+                    der_intervalframe=der_intervalframe,
+                )
+            else:
+                # otherwise get the next DER operation
+                operation = self.operate_der(
+                    interval_start=interval_start,
+                    interval_load=row.kw,
+                    duration=interval_duration,
+                    der_intervalframe=der_intervalframe,
+                )
+
+            der_intervalframe.append_operation(operation)
+
+        der_intervalframe.commit_operations()
+        pre_der_intervalframe = self.get_pre_der_intervalframe(intervalframe)
+        return DERProduct(
+            der=self.der,
+            der_strategy=self.der_strategy,
+            pre_der_intervalframe=pre_der_intervalframe,
+            der_intervalframe=der_intervalframe,
+            post_der_intervalframe=self.get_post_der_intervalframe(
+                pre_der_intervalframe, der_intervalframe
+            ),
+        )
 
 
 @attr.s(frozen=True)
@@ -270,7 +374,7 @@ class DERSimulationDirector:
 
     builder = attr.ib(validator=instance_of(DERSimulationBuilder))
 
-    def operate_single_der(
+    def run_single_simulation(
         self,
         intervalframe: ValidationIntervalFrame,
         start: datetime = pd.Timestamp.min,
@@ -279,11 +383,11 @@ class DERSimulationDirector:
         """
         Create a single DERProduct from a single ValidationIntervalFrame.
         """
-        return self.builder.operate_der(
+        return self.builder.run_simulation(
             intervalframe=intervalframe.filter_by_datetime(start, end_limit)
         )
 
-    def operate_many_ders(
+    def run_many_simulations(
         self,
         intervalframe_dict: dict,
         start: datetime = pd.Timestamp.min,
@@ -307,13 +411,13 @@ class DERSimulationDirector:
         if multiprocess:
             with Pool() as pool:
                 der_simulations = pool.starmap(
-                    self.builder.operate_der, zip(intervalframes)
+                    self.builder.run_simulation, zip(intervalframes)
                 )
         else:
             der_simulations = []
             for intervalframe in intervalframes:
                 der_simulations.append(
-                    self.builder.operate_der(intervalframe=intervalframe)
+                    self.builder.run_simulation(intervalframe=intervalframe)
                 )
 
         return AggregateDERProduct(

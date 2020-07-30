@@ -109,7 +109,7 @@ class TestProcurementCost(TestCase):
         builder = BatterySimulationBuilder(der=der, der_strategy=der_strategy)
         director = DERSimulationDirector(builder=builder)
 
-        agg_simulation = director.operate_many_ders(
+        agg_simulation = director.run_many_simulations(
             start=datetime(2020, 1, 1),
             end_limit=datetime(2020, 1, 2),
             intervalframe_dict={

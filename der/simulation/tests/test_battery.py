@@ -87,7 +87,7 @@ class TestBattery(TestCase):
             ),
         )
         self.director = DERSimulationDirector(builder=builder)
-        self.simulation = self.director.operate_single_der(
+        self.simulation = self.director.run_single_simulation(
             intervalframe=self.intervalframe
         )
 
