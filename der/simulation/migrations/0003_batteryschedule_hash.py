@@ -2,16 +2,6 @@
 
 from django.db import migrations, models
 
-from der.simulation.models import BatterySchedule
-
-
-def update_hash(apps, schema_editor):
-    """
-    Update hash values on BatterySchedule handled in clean() method.
-    """
-    for strategy in BatterySchedule.objects.all():
-        strategy.save()
-
 
 class Migration(migrations.Migration):
 
@@ -23,9 +13,6 @@ class Migration(migrations.Migration):
             name="hash",
             field=models.BigIntegerField(default=0),
             preserve_default=False,
-        ),
-        migrations.RunPython(
-            update_hash, reverse_code=migrations.RunPython.noop
         ),
         migrations.AlterField(
             model_name="batteryschedule",

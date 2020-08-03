@@ -9,7 +9,7 @@ from django.utils.functional import cached_property
 
 from beo_datastore.libs.battery_schedule import optimize_battery_schedule
 from beo_datastore.libs.der.battery import (
-    Battery as pyBattery,
+    Battery,
     BatterySimulationBuilder,
     BatteryStrategy as pyBatteryStrategy,
 )
@@ -18,6 +18,7 @@ from beo_datastore.libs.der.builder import (
     DERSimulationDirector,
     DERProduct,
 )
+from beo_datastore.libs.der.evse import EVSE, EVSEStrategy as pyEVSEStrategy
 from beo_datastore.libs.intervalframe_file import (
     BatteryIntervalFrameFile,
     Frame288File,
@@ -39,23 +40,23 @@ from reference.reference_model.models import (
 )
 
 
-class BatteryScheduleFrame288(Frame288File):
+class DERScheduleFrame288(Frame288File):
     """
-    Model for handling BatterySchedule Frame288Files.
+    Model for handling DERSchedule Frame288Files.
     """
 
-    file_directory = os.path.join(MEDIA_ROOT, "battery_simulations")
+    file_directory = os.path.join(MEDIA_ROOT, "der_schedules")
 
 
-class BatterySchedule(Frame288FileMixin, ValidationModel):
+class DERSchedule(Frame288FileMixin, ValidationModel):
     """
-    Container for storing charge and discharge schedule ValidationFrame288s.
+    Container for storing schedules based upon 288 models.
     """
 
     hash = models.BigIntegerField(unique=True)
 
     # Required by Frame288FileMixin.
-    frame_file_class = BatteryScheduleFrame288
+    frame_file_class = DERScheduleFrame288
 
     class Meta:
         ordering = ["id"]
@@ -63,10 +64,10 @@ class BatterySchedule(Frame288FileMixin, ValidationModel):
     @classmethod
     def create_from_frame288(cls, frame288):
         """
-        Create BatterySchedule from ValidationFrame288.
+        Create DERSchedule from ValidationFrame288.
 
         :param frame288: ValidationFrame288
-        :return: BatterySchedule
+        :return: DERSchedule
         """
         return cls.create(
             hash=frame288.__hash__(), dataframe=frame288.dataframe
@@ -75,10 +76,10 @@ class BatterySchedule(Frame288FileMixin, ValidationModel):
     @classmethod
     def get_or_create_from_frame288(cls, frame288):
         """
-        Get or create BatterySchedule from ValidationFrame288.
+        Get or create DERSchedule from ValidationFrame288.
 
         :param frame288: ValidationFrame288
-        :return: BatterySchedule
+        :return: DERSchedule
         """
         objects = cls.objects.filter(hash=frame288.__hash__())
         if objects:
@@ -100,12 +101,12 @@ class BatteryStrategy(DERStrategy):
     """
 
     charge_schedule = models.ForeignKey(
-        to=BatterySchedule,
+        to=DERSchedule,
         related_name="charge_schedule_battery_strategies",
         on_delete=models.PROTECT,
     )
     discharge_schedule = models.ForeignKey(
-        to=BatterySchedule,
+        to=DERSchedule,
         related_name="discharge_schedule_battery_strategies",
         on_delete=models.PROTECT,
     )
@@ -190,7 +191,7 @@ class BatteryStrategy(DERStrategy):
             minimize=minimize,
             threshold=charge_threshold,
         )
-        charge_schedule, _ = BatterySchedule.get_or_create(
+        charge_schedule, _ = DERSchedule.get_or_create(
             hash=charge_schedule_frame_288.__hash__(),
             dataframe=charge_schedule_frame_288.dataframe,
         )
@@ -201,7 +202,7 @@ class BatteryStrategy(DERStrategy):
             minimize=minimize,
             threshold=discharge_threshold,
         )
-        discharge_schedule, _ = BatterySchedule.get_or_create(
+        discharge_schedule, _ = DERSchedule.get_or_create(
             hash=discharge_schedule_frame_288.__hash__(),
             dataframe=discharge_schedule_frame_288.dataframe,
         )
@@ -257,7 +258,7 @@ class BatteryConfiguration(DERConfiguration):
         """
         Return Battery equivalent of self.
         """
-        return pyBattery(
+        return Battery(
             rating=self.rating,
             discharge_duration=timedelta(hours=self.discharge_duration_hours),
             efficiency=self.efficiency,
@@ -294,6 +295,122 @@ class BatteryConfiguration(DERConfiguration):
             return (objects.first(), False)
         else:
             return (cls.create_from_battery(battery), True)
+
+
+class EVSEStrategy(DERStrategy):
+    """
+    Container for storing a combination of charge and drive schedules.
+    """
+
+    charge_schedule = models.ForeignKey(
+        to=DERSchedule,
+        related_name="charge_schedule_evse_strategies",
+        on_delete=models.PROTECT,
+    )
+
+    drive_schedule = models.ForeignKey(
+        to=DERSchedule,
+        related_name="drive_schedule_evse_strategies",
+        on_delete=models.PROTECT,
+    )
+
+    der_type = "EVSE"
+
+    class Meta:
+        ordering = ["id"]
+        unique_together = ("charge_schedule", "drive_schedule")
+        verbose_name_plural = "EVSE strategies"
+
+    @property
+    def der_strategy(self):
+        return pyEVSEStrategy(
+            charge_schedule=self.charge_schedule.frame288,
+            drive_schedule=self.drive_schedule.frame288,
+        )
+
+    @property
+    def charge_schedule_html_table(self):
+        return self.charge_schedule.html_table
+
+    @property
+    def drive_schedule_html_table(self):
+        return self.drive_schedule.html_table
+
+    @property
+    def charge_drive_html_plot(self):
+        """
+        Return Django-formatted HTML charge vs. drive 288 plt.
+        """
+        return plot_frame288_monthly_comparison(
+            original_frame288=self.charge_schedule.frame288,
+            original_line_color="green",
+            modified_frame288=self.drive_schedule.frame288,
+            modified_line_color="red",
+            to_html=True,
+        )
+
+
+class EVSEConfiguration(DERConfiguration):
+    """
+    Container for storing EVSE configurations.
+    """
+
+    ev_mpkwh = models.FloatField(
+        blank=False, null=False, validators=[MinValueValidator(limit_value=0)],
+    )
+    ev_mpg_eq = models.FloatField(
+        blank=False, null=False, validators=[MinValueValidator(limit_value=0)],
+    )
+    ev_capacity = models.FloatField(
+        blank=False, null=False, validators=[MinValueValidator(limit_value=0)],
+    )
+    ev_efficiency = models.FloatField(
+        blank=False,
+        null=False,
+        validators=[
+            MinValueValidator(limit_value=0),
+            MaxValueValidator(limit_value=1),
+        ],
+    )
+    evse_rating = models.FloatField(
+        blank=False, null=False, validators=[MinValueValidator(limit_value=0)],
+    )
+    ev_count = models.IntegerField(
+        blank=False, null=False, validators=[MinValueValidator(limit_value=0)]
+    )
+    evse_count = models.IntegerField(
+        blank=False, null=False, validators=[MinValueValidator(limit_value=0)]
+    )
+
+    der_type = "EVSE"
+
+    class Meta:
+        ordering = ["id"]
+        unique_together = (
+            "ev_mpkwh",
+            "ev_mpg_eq",
+            "ev_capacity",
+            "ev_efficiency",
+            "evse_rating",
+            "ev_count",
+            "evse_count",
+        )
+        verbose_name_plural = "EVSE configurations"
+
+    @property
+    def der(self):
+        """
+        Return EVSE equivalent of self.
+        """
+        return EVSE(
+            ev_mpkwh=self.ev_mpkwh,
+            ev_mpg_eq=self.ev_mpg_eq,
+            ev_capacity=self.ev_capacity,
+            ev_efficiency=self.ev_efficiency,
+            evse_rating=self.evse_rating,
+            ev_count=self.ev_count,
+            evse_count=self.evse_count,
+        )
 
 
 @receiver(post_save, sender=BatteryConfiguration)
@@ -439,7 +556,7 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
         """
         Get existing or create new StoredBatterySimulation from a Meter and
         Simulation. Creates necessary BatteryConfiguration and charge and
-        discharge BatterySchedule objects.
+        discharge DERSchedule objects.
 
         :param meter: Meter
         :param simulation: DERProduct
@@ -463,11 +580,11 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
                 ),
                 efficiency=simulation.der.efficiency,
             )
-            charge_schedule, _ = BatterySchedule.get_or_create(
+            charge_schedule, _ = DERSchedule.get_or_create(
                 hash=simulation.der_strategy.charge_schedule.__hash__(),
                 dataframe=simulation.der_strategy.charge_schedule.dataframe,
             )
-            discharge_schedule, _ = BatterySchedule.get_or_create(
+            discharge_schedule, _ = DERSchedule.get_or_create(
                 hash=simulation.der_strategy.discharge_schedule.__hash__(),
                 dataframe=simulation.der_strategy.discharge_schedule.dataframe,
             )
@@ -525,11 +642,11 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
                 discharge_duration_hours=(battery.discharge_duration_hours),
                 efficiency=battery.efficiency,
             )
-            charge_schedule, _ = BatterySchedule.get_or_create(
+            charge_schedule, _ = DERSchedule.get_or_create(
                 hash=charge_schedule.__hash__(),
                 dataframe=charge_schedule.dataframe,
             )
-            discharge_schedule, _ = BatterySchedule.get_or_create(
+            discharge_schedule, _ = DERSchedule.get_or_create(
                 hash=discharge_schedule.__hash__(),
                 dataframe=discharge_schedule.dataframe,
             )
