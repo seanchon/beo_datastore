@@ -10,6 +10,10 @@ def update_hash(apps, schema_editor):
     Update hash values on BatterySchedule handled in clean() method.
     """
     for meter in CustomerMeter.objects.all():
+        if meter.import_channel:
+            meter.import_hash = meter.import_channel.intervalframe.__hash__()
+        if meter.export_channel:
+            meter.export_hash = meter.export_channel.intervalframe.__hash__()
         meter.save()
 
 
