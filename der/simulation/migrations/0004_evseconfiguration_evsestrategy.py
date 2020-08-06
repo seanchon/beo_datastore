@@ -5,7 +5,6 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 from beo_datastore.libs.storages import media_migration_helper
-from der.simulation.models import DERSchedule
 
 
 def relocate_der_schedules(apps, schema_editor):
@@ -17,7 +16,7 @@ def relocate_der_schedules(apps, schema_editor):
     old_path = "battery_simulations/BatteryScheduleFrame288_{id}.parquet"
     new_path = "der_schedules/DERScheduleFrame288_{id}.parquet"
 
-    for schedule in DERSchedule.objects.all():
+    for schedule in apps.get_model("simulation.DERSchedule").objects.all():
         try:
             media_migration_helper.migrate_file(
                 old_path.format(id=schedule.id),
