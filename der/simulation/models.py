@@ -10,23 +10,21 @@ from django.utils.functional import cached_property
 from beo_datastore.libs.battery_schedule import optimize_battery_schedule
 from beo_datastore.libs.der.battery import (
     Battery,
+    BatteryIntervalFrame,
     BatterySimulationBuilder,
     BatteryStrategy as pyBatteryStrategy,
 )
-from beo_datastore.libs.der.builder import (
-    AggregateDERProduct,
-    DERSimulationDirector,
-    DERProduct,
+from beo_datastore.libs.der.evse import (
+    EVSE,
+    EVSEIntervalFrame,
+    EVSESimulationBuilder,
+    EVSEStrategy as pyEVSEStrategy,
 )
-from beo_datastore.libs.der.evse import EVSE, EVSEStrategy as pyEVSEStrategy
-from beo_datastore.libs.intervalframe_file import (
-    BatteryIntervalFrameFile,
-    Frame288File,
-)
+from beo_datastore.libs.intervalframe import ValidationFrame288
+from beo_datastore.libs.intervalframe_file import DataFrameFile, Frame288File
 from beo_datastore.libs.models import (
     ValidationModel,
     Frame288FileMixin,
-    IntervalFrameFileMixin,
 )
 from beo_datastore.settings import MEDIA_ROOT
 from beo_datastore.libs.plot_intervalframe import (
@@ -425,7 +423,7 @@ def assign_battery_configuration_name(sender, instance, **kwargs):
         instance.save()
 
 
-class StoredBatterySimulationFrame(BatteryIntervalFrameFile):
+class StoredBatterySimulationFrame(BatteryIntervalFrame, DataFrameFile):
     """
     Model for handling StoredBatterySimulation BatteryIntervalFrameFiles.
     """
@@ -434,25 +432,15 @@ class StoredBatterySimulationFrame(BatteryIntervalFrameFile):
     file_directory = os.path.join(MEDIA_ROOT, "battery_simulations")
 
 
-class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
+class StoredBatterySimulation(DERSimulation):
     """
     Container for storing BatterySimulations.
     """
-
-    pre_DER_total = models.FloatField()
-    post_DER_total = models.FloatField()
 
     # Required by IntervalFrameFileMixin.
     frame_file_class = StoredBatterySimulationFrame
 
     der_type = "Battery"
-
-    @property
-    def der_intervalframe(self):
-        """
-        ValidationIntervalFrame represention all DER operations.
-        """
-        return self.intervalframe
 
     @property
     def charge_schedule(self):
@@ -468,10 +456,6 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
         Return all energy lost due to battery roundtrip efficiency.
         """
         return self.intervalframe.energy_loss
-
-    @cached_property
-    def net_impact(self):
-        return self.post_DER_total - self.pre_DER_total
 
     @cached_property
     def average_state_of_charge_frame288(self):
@@ -519,35 +503,6 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
         return plot_frame288(
             frame288=self.average_state_of_charge_frame288, to_html=True
         )
-
-    @cached_property
-    def simulation(self):
-        """
-        Return DERProduct equivalent of self.
-        """
-        pre_der_intervalframe = self.meter.intervalframe.filter_by_datetime(
-            start=self.start, end_limit=self.end_limit
-        )
-        return DERProduct(
-            der=self.der_configuration.der,
-            der_strategy=self.der_strategy.der_strategy,
-            pre_der_intervalframe=pre_der_intervalframe,
-            der_intervalframe=self.intervalframe,
-            post_der_intervalframe=(
-                pre_der_intervalframe + self.intervalframe
-            ),
-        )
-
-    @cached_property
-    def agg_simulation(self):
-        """
-        Return AggregateBatterySimulation equivalent of self.
-
-        AggregateBatterySimulations with the same parameters can be added to
-        one another and can be used for aggregate "cost calculations" found in
-        beo_datastore/libs/controller.py.
-        """
-        return AggregateDERProduct(der_products={self.id: self.simulation})
 
     @classmethod
     def get_or_create_from_objects(
@@ -612,89 +567,97 @@ class StoredBatterySimulation(IntervalFrameFileMixin, DERSimulation):
             )
 
     @classmethod
-    def generate(
+    def get_configuration(cls, der: Battery) -> BatteryConfiguration:
+        configuration, _ = BatteryConfiguration.objects.get_or_create(
+            rating=der.rating,
+            discharge_duration_hours=der.discharge_duration_hours,
+            efficiency=der.efficiency,
+        )
+        return configuration
+
+    @classmethod
+    def get_strategy(
         cls,
-        battery,
-        start,
-        end_limit,
-        meter_set,
-        charge_schedule,
-        discharge_schedule,
-        multiprocess=False,
-    ):
-        """
-        Get or create many StoredBatterySimulations at once. Pre-existing
-        StoredBatterySimulations are retrieved and non-existing
-        StoredBatterySimulations are created.
+        charge_schedule: ValidationFrame288,
+        discharge_schedule: ValidationFrame288,
+    ) -> BatteryStrategy:
+        charge_schedule, _ = DERSchedule.get_or_create(
+            hash=charge_schedule.__hash__(),
+            dataframe=charge_schedule.dataframe,
+        )
+        discharge_schedule, _ = DERSchedule.get_or_create(
+            hash=discharge_schedule.__hash__(),
+            dataframe=discharge_schedule.dataframe,
+        )
+        der_strategy, _ = BatteryStrategy.objects.get_or_create(
+            charge_schedule=charge_schedule,
+            discharge_schedule=discharge_schedule,
+        )
+        return der_strategy
 
-        :param battery: Battery
-        :param start: datetime
-        :param end_limit: datetime
-        :param meter_set: QuerySet or set of Meters
-        :param charge_schedule: ValidationFrame288
-        :param discharge_schedule: ValidationFrame288
-        :param multiprocess: True or False
-        :return: StoredBatterySimulation QuerySet
-        """
-        with transaction.atomic():
-            configuration, _ = BatteryConfiguration.objects.get_or_create(
-                rating=battery.rating,
-                discharge_duration_hours=(battery.discharge_duration_hours),
-                efficiency=battery.efficiency,
-            )
-            charge_schedule, _ = DERSchedule.get_or_create(
-                hash=charge_schedule.__hash__(),
-                dataframe=charge_schedule.dataframe,
-            )
-            discharge_schedule, _ = DERSchedule.get_or_create(
-                hash=discharge_schedule.__hash__(),
-                dataframe=discharge_schedule.dataframe,
-            )
-            der_strategy, _ = BatteryStrategy.objects.get_or_create(
-                charge_schedule=charge_schedule,
-                discharge_schedule=discharge_schedule,
-            )
+    @classmethod
+    def get_simulation_builder(
+        cls, der: Battery, der_strategy: BatteryStrategy
+    ) -> BatterySimulationBuilder:
+        return BatterySimulationBuilder(
+            der=der, der_strategy=der_strategy.der_strategy
+        )
 
-            # get existing aggregate simulation
-            stored_simulations = cls.objects.filter(
-                meter__id__in=[x.id for x in meter_set],
-                der_configuration=configuration,
-                der_strategy=der_strategy,
-                start=start,
-                end_limit=end_limit,
-            )
 
-            # generate new aggregate simulation for remaining meters
-            new_meters = set(meter_set) - {x.meter for x in stored_simulations}
-            builder = BatterySimulationBuilder(
-                der=battery, der_strategy=der_strategy.der_strategy
-            )
-            director = DERSimulationDirector(builder=builder)
-            new_simulation = director.run_many_simulations(
-                intervalframe_dict={
-                    meter: meter.intervalframe for meter in new_meters
-                },
-                start=start,
-                end_limit=end_limit,
-                multiprocess=multiprocess,
-            )
+class EVSESimulationFrame(EVSEIntervalFrame, DataFrameFile):
+    """
+    Model for handling EVSESimulation EVSEIntervalFrame.
+    """
 
-            # store new simulations
-            for (
-                meter,
-                battery_simulation,
-            ) in new_simulation.der_products.items():
-                cls.get_or_create_from_objects(
-                    meter=meter,
-                    simulation=battery_simulation,
-                    start=start,
-                    end_limit=end_limit,
-                )
+    # directory for parquet file storage
+    file_directory = os.path.join(MEDIA_ROOT, "battery_simulations")
 
-            return cls.objects.filter(
-                meter__in=meter_set,
-                der_configuration=configuration,
-                der_strategy=der_strategy,
-                start=start,
-                end_limit=end_limit,
-            )
+
+class EVSESimulation(DERSimulation):
+    """
+    Container for storing EVSE simulations
+    """
+
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = EVSESimulationFrame
+
+    der_type = "EVSE"
+
+    @classmethod
+    def get_configuration(cls, der: EVSE) -> EVSEConfiguration:
+        configuration, _ = EVSEConfiguration.objects.get_or_create(
+            ev_mpkwh=der.ev_mpkwh,
+            ev_mpg_eq=der.ev_mpg_eq,
+            ev_capacity=der.ev_capacity,
+            ev_efficiency=der.ev_efficiency,
+            evse_rating=der.evse_rating,
+            ev_count=der.ev_count,
+            evse_count=der.evse_count,
+        )
+        return configuration
+
+    @classmethod
+    def get_strategy(
+        cls,
+        charge_schedule: ValidationFrame288,
+        drive_schedule: ValidationFrame288,
+    ) -> EVSEStrategy:
+        charge_schedule, _ = DERSchedule.get_or_create(
+            hash=charge_schedule.__hash__(),
+            dataframe=charge_schedule.dataframe,
+        )
+        drive_schedule, _ = DERSchedule.get_or_create(
+            hash=drive_schedule.__hash__(), dataframe=drive_schedule.dataframe,
+        )
+        der_strategy, _ = EVSEStrategy.objects.get_or_create(
+            charge_schedule=charge_schedule, discharge_schedule=drive_schedule,
+        )
+        return der_strategy
+
+    @classmethod
+    def get_simulation_builder(
+        cls, der: EVSE, der_strategy: EVSEStrategy
+    ) -> EVSESimulationBuilder:
+        return EVSESimulationBuilder(
+            der=der, der_strategy=der_strategy.der_strategy
+        )

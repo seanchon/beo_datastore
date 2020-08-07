@@ -123,7 +123,7 @@ class TestBattery(TestCase):
         Test the retreival of aggregate battery simulations from disk/database.
         """
         StoredBatterySimulation.generate(
-            battery=self.battery,
+            der=self.battery,
             start=self.intervalframe.start_datetime,
             end_limit=self.intervalframe.end_limit_datetime,
             meter_set={self.meter},
@@ -134,7 +134,7 @@ class TestBattery(TestCase):
 
         # retrieve aggregate simulation from disk
         stored_simulations = StoredBatterySimulation.generate(
-            battery=self.battery,
+            der=self.battery,
             start=self.intervalframe.start_datetime,
             end_limit=self.intervalframe.end_limit_datetime,
             meter_set={self.meter},

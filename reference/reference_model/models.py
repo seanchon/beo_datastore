@@ -5,10 +5,19 @@ import uuid
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.utils.functional import cached_property
 
+from beo_datastore.libs.der.builder import (
+    AggregateDERProduct,
+    DER,
+    DERProduct,
+    DERSimulationBuilder,
+    DERSimulationDirector,
+    DERStrategy as pyDERStrategy,
+)
 from beo_datastore.libs.models import (
+    IntervalFrameFileMixin,
     PolymorphicValidationModel,
     ValidationModel,
 )
@@ -285,8 +294,6 @@ class Meter(PolymorphicValidationModel, MeterDataMixin):
 class DERConfiguration(PolymorphicValidationModel):
     """
     Base model containing particular DER configurations.
-
-    ex. Battery rating and duration.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -319,8 +326,6 @@ class DERConfiguration(PolymorphicValidationModel):
 class DERStrategy(PolymorphicValidationModel):
     """
     Base model containing particular DER strategies.
-
-    ex. Battery charge with solar and discharge evening load.
     """
 
     class Objective(Enum):
@@ -354,16 +359,16 @@ class DERStrategy(PolymorphicValidationModel):
         )
 
     @property
-    def strategy(self):
+    def der_strategy(self) -> pyDERStrategy:
         """
-        Return dictionary containing strategy values.
+        Returns a `pyDERStrategy` that the `DERStrategy` model wraps
         """
         raise NotImplementedError(
-            "strategy must be set in {}".format(self.__class__)
+            "der_strategy must be set in {}".format(self.__class__)
         )
 
 
-class DERSimulation(Meter):
+class DERSimulation(IntervalFrameFileMixin, Meter):
     """
     Base model containing simulated load resulting from DER simulations.
     """
@@ -391,6 +396,8 @@ class DERSimulation(Meter):
         blank=True,
         null=True,
     )
+    pre_DER_total = models.FloatField()
+    post_DER_total = models.FloatField()
 
     class Meta:
         ordering = ["-created_at"]
@@ -415,23 +422,15 @@ class DERSimulation(Meter):
             )
         super().clean(*args, **kwargs)
 
-    @cached_property
-    def pre_DER_total(self):
-        """
-        Total kWh before running a DERSimulation.
-        """
+    @property
+    def frame_file_class(self):
         raise NotImplementedError(
-            "pre_DER_total must be set in {}".format(self.__class__)
+            "frame_file_class must be set in {}".format(self.__class__)
         )
 
     @cached_property
-    def post_DER_total(self):
-        """
-        Total kWh after running a DERSimulation.
-        """
-        raise NotImplementedError(
-            "post_DER_total must be set in {}".format(self.__class__)
-        )
+    def net_impact(self):
+        return self.post_DER_total - self.pre_DER_total
 
     @cached_property
     def pre_der_intervalframe(self):
@@ -443,13 +442,9 @@ class DERSimulation(Meter):
     @property
     def der_intervalframe(self):
         """
-        PowerIntervalFrame related to a DER's impact to a building's load.
-        The original building's load plus the der_intervalframe would yield the
-        post_der_intervalframe a.k.a. meter_intervalframe.
+        ValidationIntervalFrame representing all DER operations.
         """
-        raise NotImplementedError(
-            "der_intervalframe must be set in {}".format(self.__class__)
-        )
+        return self.intervalframe
 
     @property
     def der_columns(self):
@@ -515,6 +510,134 @@ class DERSimulation(Meter):
             ).set_index("ID")
         else:
             return pd.DataFrame()
+
+    @cached_property
+    def simulation(self):
+        """
+        Return DERProduct equivalent of self.
+        """
+        pre_der_intervalframe = self.meter.intervalframe.filter_by_datetime(
+            start=self.start, end_limit=self.end_limit
+        )
+
+        return DERProduct(
+            der=self.der_configuration.der,
+            der_strategy=self.der_strategy.der_strategy,
+            pre_der_intervalframe=pre_der_intervalframe,
+            der_intervalframe=self.intervalframe,
+            post_der_intervalframe=(
+                pre_der_intervalframe + self.intervalframe
+            ),
+        )
+
+    @cached_property
+    def agg_simulation(self):
+        """
+        Return AggregateDERProduct equivalent of self.
+
+        AggregateDERProduct with the same parameters can be added to
+        one another and can be used for aggregate "cost calculations" found in
+        beo_datastore/libs/controller.py.
+        """
+        return AggregateDERProduct(der_products={self.id: self.simulation})
+
+    @classmethod
+    def get_configuration(cls, der: DER) -> DERConfiguration:
+        """
+        Gets a `DERConfiguration` for use in a simulation, given the DER python
+        model that the configuration wraps
+        """
+        raise NotImplementedError(
+            "get_configuration must be set in {}".format(cls.__class__)
+        )
+
+    @classmethod
+    def get_strategy(cls, **kwargs) -> DERStrategy:
+        """
+        Gets a `DERStrategy` for use in a simulation. The particular arguments
+        required to get the strategy differ across DER types. Child classes may
+        specify the specific arguments they expect
+        """
+        raise NotImplementedError(
+            "get_strategy must be set in {}".format(cls.__class__)
+        )
+
+    @classmethod
+    def get_simulation_builder(
+        cls, der: DER, der_strategy: DERStrategy
+    ) -> DERSimulationBuilder:
+        """
+        Gets the `DERSimulationBuilder` for use in a simulation.
+        """
+        raise NotImplementedError(
+            "get_simulation_builder must be set in {}".format(cls.__class__)
+        )
+
+    @classmethod
+    def generate(
+        cls,
+        der: DER,
+        start,
+        end_limit,
+        meter_set,
+        multiprocess=False,
+        **kwargs
+    ):
+        """
+        Get or create many DERSimulations at once. Pre-existing simulations are
+        retrieved and non-existing simulations are created.
+
+        :param der: DER
+        :param start: datetime
+        :param end_limit: datetime
+        :param meter_set: QuerySet or set of Meters
+        :param multiprocess: True or False
+        :return: simulation QuerySet
+        """
+        with transaction.atomic():
+            configuration = cls.get_configuration(der)
+            strategy = cls.get_strategy(**kwargs)
+
+            # get existing simulations
+            stored_simulations = cls.objects.filter(
+                meter__id__in=[x.id for x in meter_set],
+                der_configuration=configuration,
+                der_strategy=strategy,
+                start=start,
+                end_limit=end_limit,
+            )
+
+            # generate new simulations for remaining meters
+            new_meters = set(meter_set) - {x.meter for x in stored_simulations}
+            builder = cls.get_simulation_builder(
+                der=der, der_strategy=strategy
+            )
+            director = DERSimulationDirector(builder=builder)
+            new_simulation = director.run_many_simulations(
+                intervalframe_dict={
+                    meter: meter.intervalframe for meter in new_meters
+                },
+                start=start,
+                end_limit=end_limit,
+                multiprocess=multiprocess,
+            )
+
+            # store new simulations
+            for (meter, der_simulation) in new_simulation.der_products.items():
+                cls.get_or_create_from_objects(
+                    meter=meter,
+                    simulation=der_simulation,
+                    start=start,
+                    end_limit=end_limit,
+                )
+
+            return cls.objects.filter(
+                meter__in=meter_set,
+                der_configuration=configuration,
+                der_strategy=strategy,
+                start=start,
+                end_limit=end_limit,
+            )
 
 
 # STUDY BASE MODELS

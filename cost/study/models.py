@@ -484,7 +484,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         Run a single Meter's DERSimulation and cost calculations.
         """
         der_simulation_set = StoredBatterySimulation.generate(
-            battery=self.der_configuration.der,
+            der=self.der_configuration.der,
             start=self.start,
             end_limit=self.end_limit,
             meter_set={meter},

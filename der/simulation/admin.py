@@ -8,6 +8,7 @@ from der.simulation.models import (
     BatteryStrategy,
     BatteryConfiguration,
     EVSEConfiguration,
+    EVSESimulation,
     EVSEStrategy,
     StoredBatterySimulation,
 )
@@ -77,4 +78,9 @@ class StoredBatterySimulation(admin.ModelAdmin):
         "average_battery_operations_html_plot",
         "average_state_of_charge_html_plot",
     ]
+    search_fields = ["id", "meter__sa_id"]
+
+
+@admin.register(EVSESimulation)
+class EVSESimulation(admin.ModelAdmin):
     search_fields = ["id", "meter__sa_id"]

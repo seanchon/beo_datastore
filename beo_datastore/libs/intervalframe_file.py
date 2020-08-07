@@ -1,7 +1,6 @@
 import numpy as np
 import os
 
-from beo_datastore.libs.der.battery import BatteryIntervalFrame
 from beo_datastore.libs.dataframe import convert_columns_type, read_parquet
 from beo_datastore.libs.intervalframe import (
     ValidationDataFrame,
@@ -159,15 +158,6 @@ class Frame288File(ValidationFrame288, DataFrameFile):
                 dataframe=cls.default_dataframe,
                 reference_object=reference_object,
             )
-
-
-class BatteryIntervalFrameFile(BatteryIntervalFrame, DataFrameFile):
-    """
-    Combines a BatteryIntervalFrame with file-handling capabilities of a
-    DataFrameFile.
-    """
-
-    pass
 
 
 class ArbitraryDataFrameFile(ArbitraryDataFrame, DataFrameFile):
