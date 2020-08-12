@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "django.contrib.sites",
     "allauth",
     "allauth.account",
+    "allauth.socialaccount",
     "corsheaders",
     "django_celery_beat",
     "django_celery_results",
@@ -60,7 +61,6 @@ INSTALLED_APPS = [
     "rest_framework_swagger",
     "storages",
     # apps
-    "user",
     "beo_datastore",
     "cost",
     "cost.ghg.apps.GhgConfig",
@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     "reference",
     "reference.reference_model.apps.ReferenceModelConfig",
     "reference.auth_user.apps.AuthUserConfig",
+    "user",
 ]
 
 MIDDLEWARE = [
@@ -151,8 +152,10 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Account authentication
+ACCOUNT_ADAPTER = "user.adapter.AccountAPIAdapter"
 ACCOUNT_AUTHENTICATION_METHOD = "email"
 ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_EMAIL_VERIFICATION = True
 ACCOUNT_USERNAME_REQUIRED = False
 
 # Enable registration with email instead of username
@@ -227,6 +230,11 @@ REST_FRAMEWORK = {
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend"
     ],
+}
+
+# Rest Auth settings
+REST_AUTH_REGISTER_SERIALIZERS = {
+    "REGISTER_SERIALIZER": "user.serializers.RegisterSerializer"
 }
 
 # Enable registration in django-rest-auth

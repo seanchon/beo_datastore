@@ -13,6 +13,7 @@ jobs:
           POSTGRES_DB: circle_test
     environment:
       APP_ENV: local
+      APP_URL: localhost:8000
       SECRET_KEY: CIRCLETEST
       SQL_ENGINE: django.db.backends.postgresql
       SQL_DATABASE: beo_datastore
