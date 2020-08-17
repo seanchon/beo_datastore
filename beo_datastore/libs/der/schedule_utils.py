@@ -3,6 +3,7 @@ from itertools import repeat
 from math import ceil
 from multiprocessing import Pool
 import numpy as np
+from typing import List
 
 from beo_datastore.libs.der.battery import (
     BatterySimulationBuilder,
@@ -13,17 +14,29 @@ from beo_datastore.libs.dataframe import get_unique_values
 from beo_datastore.libs.intervalframe import ValidationFrame288
 
 
-def create_fixed_schedule(
-    start_hour, end_limit_hour, power_limit_1, power_limit_2
-):
+def create_fixed_schedule(month_matrix: List[float]) -> ValidationFrame288:
+    """
+    Creates a 288 schedule in which each month has the same schedule
+
+    :param month_matrix: the month-hour values to use for all months
+    """
+    return ValidationFrame288.convert_matrix_to_frame288([month_matrix] * 12)
+
+
+def create_diurnal_schedule(
+    start_hour: int,
+    end_limit_hour: int,
+    power_limit_1: float,
+    power_limit_2: float,
+) -> ValidationFrame288:
     """
     Return ValidationFrame288 where:
         - inside of start_hour and end_limit_hour (not including
         end_limit_hour) power_limit_1 is used.
         - outside of start_hour and end_hour, power_limit_2 is used.
 
-    :param start_hour: value from 0 to 23
-    :param end_hour: value from 0 to 23
+    :param start_hour: value from 0 (12 am) to 23 (11 p.m.)
+    :param end_limit_hour: value from 0 (12 am) to 23 (11 p.m.)
     :param power_limit_1: kw (float)
     :param power_limit_2: kw (float)
     :return: ValidationFrame288
@@ -32,19 +45,16 @@ def create_fixed_schedule(
         end_limit_hour, start_hour = start_hour, end_limit_hour
         power_limit_1, power_limit_2 = power_limit_2, power_limit_1
 
-    return ValidationFrame288.convert_matrix_to_frame288(
-        [
-            [power_limit_2] * (start_hour - 0)
-            + [power_limit_1] * (end_limit_hour - start_hour)
-            + [power_limit_2] * (24 - end_limit_hour)
-        ]
-        * 12
+    return create_fixed_schedule(
+        [power_limit_2] * start_hour
+        + [power_limit_1] * (end_limit_hour - start_hour)
+        + [power_limit_2] * (24 - end_limit_hour)
     )
 
 
 def optimize_battery_schedule(
     frame288, level, charge, minimize=True, threshold=None
-):
+) -> ValidationFrame288:
     """
     Create a ValidationFrame288 schedule that would charge/discharge
     battery at best levels based on values from a ValidationFrame288.

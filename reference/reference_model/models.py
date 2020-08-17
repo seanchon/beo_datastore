@@ -542,6 +542,53 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         return AggregateDERProduct(der_products={self.id: self.simulation})
 
     @classmethod
+    def get_or_create_from_objects(
+        cls, meter, der_product, start=None, end_limit=None
+    ):
+        """
+        Get existing or create new DERSimulation from a Meter and DERProduct.
+        Creates necessary DERConfiguration and DERSchedule objects
+
+        :param meter: Meter
+        :param der_product: DERProduct
+        :param start: datetime
+        :param end_limit: datetime
+        :return: (
+            StoredBatterySimulation,
+            StoredBatterySimulation created (True/False)
+        )
+        """
+        if start is None:
+            start = der_product.der_intervalframe.start_datetime
+        if end_limit is None:
+            end_limit = der_product.der_intervalframe.end_limit_datetime
+
+        with transaction.atomic():
+            configuration = cls.get_configuration(der_product.der)
+            der_strategy = cls.get_strategy(der_product.der_strategy)
+
+            pre_total_frame288 = (
+                der_product.pre_der_intervalframe.total_frame288
+            )
+
+            pre_der_total = pre_total_frame288.dataframe.sum().sum()
+            post_total_frame288 = (
+                der_product.post_der_intervalframe.total_frame288
+            )
+            post_der_total = post_total_frame288.dataframe.sum().sum()
+
+            return cls.get_or_create(
+                start=start,
+                end_limit=end_limit,
+                meter=meter,
+                der_configuration=configuration,
+                der_strategy=der_strategy,
+                pre_DER_total=pre_der_total,
+                post_DER_total=post_der_total,
+                dataframe=der_product.der_intervalframe.dataframe,
+            )
+
+    @classmethod
     def get_configuration(cls, der: DER) -> DERConfiguration:
         """
         Gets a `DERConfiguration` for use in a simulation, given the DER python
@@ -552,11 +599,10 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         )
 
     @classmethod
-    def get_strategy(cls, **kwargs) -> DERStrategy:
+    def get_strategy(cls, der_strategy: pyDERStrategy) -> DERStrategy:
         """
-        Gets a `DERStrategy` for use in a simulation. The particular arguments
-        required to get the strategy differ across DER types. Child classes may
-        specify the specific arguments they expect
+        Gets a `DERStrategy` for use in a simulation, given the DERStrategy
+        python model that the strategy wraps
         """
         raise NotImplementedError(
             "get_strategy must be set in {}".format(cls.__class__)
@@ -577,17 +623,18 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
     def generate(
         cls,
         der: DER,
+        der_strategy: pyDERStrategy,
         start,
         end_limit,
         meter_set,
         multiprocess=False,
-        **kwargs
     ):
         """
         Get or create many DERSimulations at once. Pre-existing simulations are
         retrieved and non-existing simulations are created.
 
         :param der: DER
+        :param der_strategy: pyDERStrategy
         :param start: datetime
         :param end_limit: datetime
         :param meter_set: QuerySet or set of Meters
@@ -596,7 +643,7 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         """
         with transaction.atomic():
             configuration = cls.get_configuration(der)
-            strategy = cls.get_strategy(**kwargs)
+            strategy = cls.get_strategy(der_strategy)
 
             # get existing simulations
             stored_simulations = cls.objects.filter(
@@ -626,7 +673,7 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
             for (meter, der_simulation) in new_simulation.der_products.items():
                 cls.get_or_create_from_objects(
                     meter=meter,
-                    simulation=der_simulation,
+                    der_product=der_simulation,
                     start=start,
                     end_limit=end_limit,
                 )

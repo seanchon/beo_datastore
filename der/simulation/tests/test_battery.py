@@ -3,7 +3,7 @@ import pandas as pd
 
 from django.test import TestCase
 
-from beo_datastore.libs.battery_schedule import create_fixed_schedule
+from beo_datastore.libs.der.schedule_utils import create_diurnal_schedule
 from beo_datastore.libs.der.battery import (
     Battery,
     BatterySimulationBuilder,
@@ -70,21 +70,22 @@ class TestBattery(TestCase):
             rating=5, discharge_duration=timedelta(hours=2), efficiency=0.5
         )
         # always attempt to charge on negative kW readings
-        self.charge_schedule = create_fixed_schedule(
+        self.charge_schedule = create_diurnal_schedule(
             start_hour=0, end_limit_hour=0, power_limit_1=0, power_limit_2=0
         )
         # always attempt to discharge when load is above 5 kW
-        self.discharge_schedule = create_fixed_schedule(
+        self.discharge_schedule = create_diurnal_schedule(
             start_hour=0, end_limit_hour=0, power_limit_1=5, power_limit_2=5
+        )
+
+        self.battery_strategy = BatteryStrategy(
+            charge_schedule=self.charge_schedule,
+            discharge_schedule=self.discharge_schedule,
         )
 
         # run battery simulation
         builder = BatterySimulationBuilder(
-            der=self.battery,
-            der_strategy=BatteryStrategy(
-                charge_schedule=self.charge_schedule,
-                discharge_schedule=self.discharge_schedule,
-            ),
+            der=self.battery, der_strategy=self.battery_strategy,
         )
         self.director = DERSimulationDirector(builder=builder)
         self.simulation = self.director.run_single_simulation(
@@ -99,7 +100,7 @@ class TestBattery(TestCase):
         Test the retrieval of battery simulation elements from disk/database.
         """
         StoredBatterySimulation.get_or_create_from_objects(
-            meter=self.meter, simulation=self.simulation
+            meter=self.meter, der_product=self.simulation
         )
 
         # retrieve simulation from disk
@@ -124,22 +125,20 @@ class TestBattery(TestCase):
         """
         StoredBatterySimulation.generate(
             der=self.battery,
+            der_strategy=self.battery_strategy,
             start=self.intervalframe.start_datetime,
             end_limit=self.intervalframe.end_limit_datetime,
             meter_set={self.meter},
-            charge_schedule=self.charge_schedule,
-            discharge_schedule=self.discharge_schedule,
             multiprocess=False,
         )
 
         # retrieve aggregate simulation from disk
         stored_simulations = StoredBatterySimulation.generate(
             der=self.battery,
+            der_strategy=self.battery_strategy,
             start=self.intervalframe.start_datetime,
             end_limit=self.intervalframe.end_limit_datetime,
             meter_set={self.meter},
-            charge_schedule=self.charge_schedule,
-            discharge_schedule=self.discharge_schedule,
         )
 
         # test same intervalframes

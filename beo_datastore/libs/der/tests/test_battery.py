@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 from unittest import TestCase
 
-from beo_datastore.libs.battery_schedule import create_fixed_schedule
+from beo_datastore.libs.der.schedule_utils import create_diurnal_schedule
 from beo_datastore.libs.der.battery import (
     Battery,
     BatterySimulationBuilder,
@@ -50,11 +50,11 @@ class TestBattery(TestCase):
             rating=5, discharge_duration=timedelta(hours=2), efficiency=0.5
         )
         # always attempt to charge on negative kW readings
-        self.charge_schedule = create_fixed_schedule(
+        self.charge_schedule = create_diurnal_schedule(
             start_hour=0, end_limit_hour=0, power_limit_1=0, power_limit_2=0
         )
         # always attempt to discharge when load is above 5 kW
-        self.discharge_schedule = create_fixed_schedule(
+        self.discharge_schedule = create_diurnal_schedule(
             start_hour=0, end_limit_hour=0, power_limit_1=5, power_limit_2=5
         )
 

@@ -3,7 +3,7 @@ import pandas as pd
 
 from unittest import TestCase
 
-from beo_datastore.libs.battery_schedule import create_fixed_schedule
+from beo_datastore.libs.der.schedule_utils import create_diurnal_schedule
 from beo_datastore.libs.dataframe import get_dataframe_max_difference
 from beo_datastore.libs.intervalframe import (
     PowerIntervalFrame,
@@ -70,7 +70,7 @@ class TestEVSE(TestCase):
         )
 
         # charge from 8 a.m. to 5 p.m. on solar exports only
-        charge_schedule = create_fixed_schedule(
+        charge_schedule = create_diurnal_schedule(
             start_hour=8,
             end_limit_hour=17,
             power_limit_1=0.0,

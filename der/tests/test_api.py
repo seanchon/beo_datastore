@@ -12,7 +12,7 @@ from beo_datastore.libs.fixtures import (
 )
 from cost.ghg.models import GHGRate
 from der.simulation.models import BatteryConfiguration, StoredBatterySimulation
-from der.simulation.scripts.generate_battery_strategy import (
+from der.simulation.scripts.generate_der_strategy import (
     generate_ghg_reduction_battery_strategy,
 )
 from load.customer.models import CustomerMeter
@@ -70,11 +70,10 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
         # create a battery simulation
         StoredBatterySimulation.generate(
             der=configuration.der,
+            der_strategy=strategy.der_strategy,
             start=datetime(2018, 1, 1),
             end_limit=datetime(2018, 1, 2),
             meter_set=CustomerMeter.objects.all(),
-            charge_schedule=strategy.charge_schedule.frame288,
-            discharge_schedule=strategy.discharge_schedule.frame288,
         )
 
     def tearDown(self):

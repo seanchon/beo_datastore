@@ -24,7 +24,7 @@ from cost.procurement.models import (
     StoredResourceAdequacyCalculation,
 )
 from cost.utility_rate.models import RatePlan, StoredBillCalculation
-from der.simulation.models import StoredBatterySimulation
+from der.simulation.models import EVSESimulation, StoredBatterySimulation
 from load.customer.models import CustomerMeter
 from load.openei.models import ReferenceMeter
 from reference.reference_model.models import (
@@ -358,20 +358,6 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         return dataframe_to_html(self.report)
 
     @property
-    def charge_schedule(self):
-        """
-        Charge BatterySchedule.
-        """
-        return self.der_strategy.charge_schedule
-
-    @property
-    def discharge_schedule(self):
-        """
-        Discharge BatterySchedule.
-        """
-        return self.der_strategy.discharge_schedule
-
-    @property
     def bill_calculations(self):
         """
         Return StoredBillCalculations related to self.
@@ -479,17 +465,33 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
             ReferenceMeter.objects.filter(id__in=self.meters.values_list("id"))
         )
 
+    @property
+    def der_simulation_class(self):
+        """
+        Returns the DERSimulation class to use with the study's DER
+        """
+        der_type = self.der_configuration.der_type
+        if der_type == "Battery":
+            return StoredBatterySimulation
+        elif der_type == "EVSE":
+            return EVSESimulation
+        else:
+            raise RuntimeError(
+                "DERConfiguration has unrecognized der_type: %s".format(
+                    der_type
+                )
+            )
+
     def run_single_meter_simulation_and_cost(self, meter):
         """
         Run a single Meter's DERSimulation and cost calculations.
         """
-        der_simulation_set = StoredBatterySimulation.generate(
+        der_simulation_set = self.der_simulation_class.generate(
             der=self.der_configuration.der,
+            der_strategy=self.der_strategy.der_strategy,
             start=self.start,
             end_limit=self.end_limit,
             meter_set={meter},
-            charge_schedule=self.charge_schedule.frame288,
-            discharge_schedule=self.discharge_schedule.frame288,
             multiprocess=False,
         )
 

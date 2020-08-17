@@ -1,6 +1,6 @@
 from datetime import date
 
-from der.simulation.models import BatteryStrategy
+from der.simulation.models import BatteryStrategy, EVSEStrategy
 
 
 GRID_CHARGE = "Battery is allowed to charge from the grid."
@@ -239,3 +239,57 @@ def generate_ra_reduction_battery_strategy(
     battery_strategy.save()
 
     return battery_strategy
+
+
+def generate_commuter_evse_strategy(
+    charge_off_nem: bool,
+    drive_in_hour: int,
+    drive_home_hour: int,
+    distance: float,
+    name: str,
+):
+    """
+    Generate a BatteryStrategy with the intention of reducting a CCA's system
+    peak using a system profile maximum in a 288 format. Overwrites name and
+    """
+    description = (
+        "Commuters drive {distance} miles to work at {drive_in_time}, and "
+        "drive {distance} miles home at {drive_out_time}. Their vehicles are "
+        "charged while at work.".format(
+            distance=distance,
+            drive_in_time=format_hour(drive_in_hour),
+            drive_out_time=format_hour(drive_home_hour),
+        )
+    )
+
+    evse_strategy = EVSEStrategy.generate(
+        charge_during_day=True,
+        charge_off_nem=charge_off_nem,
+        description=description,
+        distance=distance,
+        drive_home_hour=drive_home_hour,
+        drive_in_hour=drive_in_hour,
+        name=name,
+    )
+
+    return evse_strategy
+
+
+def format_hour(hour: int) -> str:
+    """
+    Formats an hour provided as an integer between 0 and 23 into a string
+    representation.
+
+      Ex:
+        0  --> 12 a.m.
+        5  -->  5 a.m.
+        12 --> 12 p.m.
+        18 -->  6 p.m.
+        23 --> 11 p.m.
+
+    :param hour: int
+    """
+    if hour < 12:
+        return "{hour} a.m.".format(hour=hour if hour != 0 else 12)
+    else:
+        return "{hour} p.m.".format(hour=hour if hour == 12 else hour - 12)

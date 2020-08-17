@@ -16,7 +16,7 @@ from cost.ghg.models import GHGRate
 from cost.study.models import SingleScenarioStudy, MultipleScenarioStudy
 from cost.utility_rate.models import RatePlan
 from der.simulation.models import BatteryConfiguration, BatteryStrategy
-from der.simulation.scripts.generate_battery_strategy import (
+from der.simulation.scripts.generate_der_strategy import (
     generate_bill_reduction_battery_strategy,
 )
 from load.customer.models import OriginFile

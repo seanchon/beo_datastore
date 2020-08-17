@@ -14,7 +14,7 @@ from cost.study.models import MultipleScenarioStudy, SingleScenarioStudy
 from cost.tasks import run_study
 from cost.utility_rate.models import RatePlan
 from der.simulation.models import BatteryConfiguration
-from der.simulation.scripts.generate_battery_strategy import (
+from der.simulation.scripts.generate_der_strategy import (
     generate_ra_reduction_battery_strategy,
 )
 from load.customer.models import CustomerPopulation, OriginFile

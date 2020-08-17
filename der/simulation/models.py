@@ -2,12 +2,16 @@ from datetime import timedelta
 import os
 
 from django.core.validators import MinValueValidator, MaxValueValidator
-from django.db import models, transaction
+from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.battery_schedule import optimize_battery_schedule
+from beo_datastore.libs.der.schedule_utils import (
+    create_diurnal_schedule,
+    create_fixed_schedule,
+    optimize_battery_schedule,
+)
 from beo_datastore.libs.der.battery import (
     Battery,
     BatteryIntervalFrame,
@@ -20,7 +24,6 @@ from beo_datastore.libs.der.evse import (
     EVSESimulationBuilder,
     EVSEStrategy as pyEVSEStrategy,
 )
-from beo_datastore.libs.intervalframe import ValidationFrame288
 from beo_datastore.libs.intervalframe_file import DataFrameFile, Frame288File
 from beo_datastore.libs.models import (
     ValidationModel,
@@ -81,9 +84,9 @@ class DERSchedule(Frame288FileMixin, ValidationModel):
         """
         objects = cls.objects.filter(hash=frame288.__hash__())
         if objects:
-            return (objects.first(), False)
+            return objects.first(), False
         else:
-            return (cls.create_from_frame288(frame288), True)
+            return cls.create_from_frame288(frame288), True
 
     def clean(self, *args, **kwargs):
         """
@@ -182,37 +185,33 @@ class BatteryStrategy(DERStrategy):
             is above, attempts to discharge
         :return: BatteryStrategy
         """
-        charge_schedule_frame_288 = optimize_battery_schedule(
-            frame288=frame288,
-            level=charge_aggresiveness,
-            charge=True,
-            minimize=minimize,
-            threshold=charge_threshold,
+        charge_schedule, _ = DERSchedule.get_or_create_from_frame288(
+            optimize_battery_schedule(
+                frame288=frame288,
+                level=charge_aggresiveness,
+                charge=True,
+                minimize=minimize,
+                threshold=charge_threshold,
+            )
         )
-        charge_schedule, _ = DERSchedule.get_or_create(
-            hash=charge_schedule_frame_288.__hash__(),
-            dataframe=charge_schedule_frame_288.dataframe,
-        )
-        discharge_schedule_frame_288 = optimize_battery_schedule(
-            frame288=frame288,
-            level=discharge_aggresiveness,
-            charge=False,
-            minimize=minimize,
-            threshold=discharge_threshold,
-        )
-        discharge_schedule, _ = DERSchedule.get_or_create(
-            hash=discharge_schedule_frame_288.__hash__(),
-            dataframe=discharge_schedule_frame_288.dataframe,
+
+        discharge_schedule, _ = DERSchedule.get_or_create_from_frame288(
+            optimize_battery_schedule(
+                frame288=frame288,
+                level=discharge_aggresiveness,
+                charge=False,
+                minimize=minimize,
+                threshold=discharge_threshold,
+            )
         )
 
         object, _ = cls.objects.get_or_create(
             charge_schedule=charge_schedule,
+            description=description,
             discharge_schedule=discharge_schedule,
+            name=name,
             objective=objective,
         )
-        object.name = name
-        object.description = description
-        object.save()
 
         return object
 
@@ -346,6 +345,64 @@ class EVSEStrategy(DERStrategy):
             modified_line_color="red",
             to_html=True,
         )
+
+    @classmethod
+    def generate(
+        cls,
+        charge_during_day: bool,
+        charge_off_nem: bool,
+        description: str,
+        drive_in_hour: int,
+        drive_home_hour: int,
+        distance: float,
+        name: str,
+        objective=None,
+    ):
+        """
+        Creates an `EVSEStrategy` given a name, description, the drive times and
+        distance, and optionally an objective.
+
+        :param charge_during_day: `True` if the EV should charge after the
+          drive-in time and before the drive-home time
+        :param charge_off_nem: `True` if EVs should only charge off NEM exports
+        :param description: strategy description
+        :param drive_in_hour: hour at which drivers commute to work
+        :param drive_home_hour: hour at which drivers commute home
+        :param distance: the number of miles the drivers commute one-way
+        :param name: name of the strategy
+        :param objective: the DERStrategy objective
+        """
+        charge_limit = 0 if charge_off_nem else float("inf")
+        no_charge = float("-inf")
+
+        charge_schedule, _ = DERSchedule.get_or_create_from_frame288(
+            create_diurnal_schedule(
+                start_hour=drive_in_hour + 1,
+                end_limit_hour=drive_home_hour,
+                power_limit_1=charge_limit if charge_during_day else no_charge,
+                power_limit_2=no_charge if charge_during_day else charge_limit,
+            )
+        )
+
+        drive_schedule, _ = DERSchedule.get_or_create_from_frame288(
+            create_fixed_schedule(
+                [0] * drive_in_hour
+                + [distance]
+                + [0] * (drive_home_hour - drive_in_hour - 1)
+                + [distance]
+                + [0] * (23 - drive_home_hour)
+            )
+        )
+
+        obj, _ = cls.objects.get_or_create(
+            charge_schedule=charge_schedule,
+            description=description,
+            drive_schedule=drive_schedule,
+            name=name,
+            objective=objective,
+        )
+
+        return obj
 
 
 class EVSEConfiguration(DERConfiguration):
@@ -505,68 +562,6 @@ class StoredBatterySimulation(DERSimulation):
         )
 
     @classmethod
-    def get_or_create_from_objects(
-        cls, meter, simulation, start=None, end_limit=None
-    ):
-        """
-        Get existing or create new StoredBatterySimulation from a Meter and
-        Simulation. Creates necessary BatteryConfiguration and charge and
-        discharge DERSchedule objects.
-
-        :param meter: Meter
-        :param simulation: DERProduct
-        :param start: datetime
-        :param end_limit: datetime
-        :return: (
-            StoredBatterySimulation,
-            StoredBatterySimulation created (True/False)
-        )
-        """
-        if start is None:
-            start = simulation.der_intervalframe.start_datetime
-        if end_limit is None:
-            end_limit = simulation.der_intervalframe.end_limit_datetime
-
-        with transaction.atomic():
-            configuration, _ = BatteryConfiguration.objects.get_or_create(
-                rating=simulation.der.rating,
-                discharge_duration_hours=(
-                    simulation.der.discharge_duration_hours
-                ),
-                efficiency=simulation.der.efficiency,
-            )
-            charge_schedule, _ = DERSchedule.get_or_create(
-                hash=simulation.der_strategy.charge_schedule.__hash__(),
-                dataframe=simulation.der_strategy.charge_schedule.dataframe,
-            )
-            discharge_schedule, _ = DERSchedule.get_or_create(
-                hash=simulation.der_strategy.discharge_schedule.__hash__(),
-                dataframe=simulation.der_strategy.discharge_schedule.dataframe,
-            )
-            der_strategy, _ = BatteryStrategy.objects.get_or_create(
-                charge_schedule=charge_schedule,
-                discharge_schedule=discharge_schedule,
-            )
-            pre_total_frame288 = (
-                simulation.pre_der_intervalframe.total_frame288
-            )
-            pre_DER_total = pre_total_frame288.dataframe.sum().sum()
-            post_total_frame288 = (
-                simulation.post_der_intervalframe.total_frame288
-            )
-            post_DER_total = post_total_frame288.dataframe.sum().sum()
-            return cls.get_or_create(
-                start=start,
-                end_limit=end_limit,
-                meter=meter,
-                der_configuration=configuration,
-                der_strategy=der_strategy,
-                pre_DER_total=pre_DER_total,
-                post_DER_total=post_DER_total,
-                dataframe=simulation.der_intervalframe.dataframe,
-            )
-
-    @classmethod
     def get_configuration(cls, der: Battery) -> BatteryConfiguration:
         configuration, _ = BatteryConfiguration.objects.get_or_create(
             rating=der.rating,
@@ -576,18 +571,12 @@ class StoredBatterySimulation(DERSimulation):
         return configuration
 
     @classmethod
-    def get_strategy(
-        cls,
-        charge_schedule: ValidationFrame288,
-        discharge_schedule: ValidationFrame288,
-    ) -> BatteryStrategy:
-        charge_schedule, _ = DERSchedule.get_or_create(
-            hash=charge_schedule.__hash__(),
-            dataframe=charge_schedule.dataframe,
+    def get_strategy(cls, der_strategy: pyBatteryStrategy) -> BatteryStrategy:
+        charge_schedule, _ = DERSchedule.get_or_create_from_frame288(
+            der_strategy.charge_schedule
         )
-        discharge_schedule, _ = DERSchedule.get_or_create(
-            hash=discharge_schedule.__hash__(),
-            dataframe=discharge_schedule.dataframe,
+        discharge_schedule, _ = DERSchedule.get_or_create_from_frame288(
+            der_strategy.discharge_schedule
         )
         der_strategy, _ = BatteryStrategy.objects.get_or_create(
             charge_schedule=charge_schedule,
@@ -623,6 +612,9 @@ class EVSESimulation(DERSimulation):
 
     der_type = "EVSE"
 
+    class Meta(DERSimulation.Meta):
+        verbose_name_plural = "EVSE simulations"
+
     @classmethod
     def get_configuration(cls, der: EVSE) -> EVSEConfiguration:
         configuration, _ = EVSEConfiguration.objects.get_or_create(
@@ -637,20 +629,15 @@ class EVSESimulation(DERSimulation):
         return configuration
 
     @classmethod
-    def get_strategy(
-        cls,
-        charge_schedule: ValidationFrame288,
-        drive_schedule: ValidationFrame288,
-    ) -> EVSEStrategy:
-        charge_schedule, _ = DERSchedule.get_or_create(
-            hash=charge_schedule.__hash__(),
-            dataframe=charge_schedule.dataframe,
+    def get_strategy(cls, der_strategy: pyEVSEStrategy) -> EVSEStrategy:
+        charge_schedule, _ = DERSchedule.get_or_create_from_frame288(
+            frame288=der_strategy.charge_schedule
         )
-        drive_schedule, _ = DERSchedule.get_or_create(
-            hash=drive_schedule.__hash__(), dataframe=drive_schedule.dataframe,
+        drive_schedule, _ = DERSchedule.get_or_create_from_frame288(
+            frame288=der_strategy.drive_schedule
         )
         der_strategy, _ = EVSEStrategy.objects.get_or_create(
-            charge_schedule=charge_schedule, discharge_schedule=drive_schedule,
+            charge_schedule=charge_schedule, drive_schedule=drive_schedule,
         )
         return der_strategy
 

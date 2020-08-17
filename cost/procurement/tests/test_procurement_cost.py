@@ -4,7 +4,7 @@ import pandas as pd
 
 from django.test import TestCase
 
-from beo_datastore.libs.battery_schedule import create_fixed_schedule
+from beo_datastore.libs.der.schedule_utils import create_diurnal_schedule
 from beo_datastore.libs.controller import AggregateProcurementCostCalculation
 from beo_datastore.libs.der.battery import (
     Battery,
@@ -93,13 +93,13 @@ class TestProcurementCost(TestCase):
             rating=0, discharge_duration=timedelta(0, 3600), efficiency=1.0
         )
         der_strategy = BatteryStrategy(
-            charge_schedule=create_fixed_schedule(
+            charge_schedule=create_diurnal_schedule(
                 start_hour=0,
                 end_limit_hour=0,
                 power_limit_1=0,
                 power_limit_2=0,
             ),
-            discharge_schedule=create_fixed_schedule(
+            discharge_schedule=create_diurnal_schedule(
                 start_hour=0,
                 end_limit_hour=0,
                 power_limit_1=0,
