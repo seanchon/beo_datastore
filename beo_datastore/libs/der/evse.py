@@ -1,5 +1,4 @@
 import attr
-from attr.validators import instance_of
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from math import floor
@@ -8,7 +7,7 @@ import pandas as pd
 from beo_datastore.libs.der.builder import (
     DataFrameQueue,
     DER,
-    DERSimulationBuilder,
+    DERSimulationSequenceBuilder,
     DERStrategy,
 )
 from beo_datastore.libs.intervalframe import (
@@ -38,13 +37,13 @@ class EVSE(DER):
         - number of electric vehicle chargers
     """
 
-    ev_mpkwh = attr.ib(validator=instance_of(float))
-    ev_mpg_eq = attr.ib(validator=instance_of(float))
-    ev_capacity = attr.ib(validator=instance_of(float))
-    ev_efficiency = attr.ib(validator=instance_of(float))
-    evse_rating = attr.ib(validator=instance_of(float))
-    ev_count = attr.ib(validator=instance_of(int))
-    evse_count = attr.ib(validator=instance_of(int))
+    ev_mpkwh = attr.ib(type=float)
+    ev_mpg_eq = attr.ib(type=float)
+    ev_capacity = attr.ib(type=float)
+    ev_efficiency = attr.ib(type=float)
+    evse_rating = attr.ib(type=float)
+    ev_count = attr.ib(type=int)
+    evse_count = attr.ib(type=int)
 
     @ev_mpkwh.validator
     def _validate_ev_mpkwh(self, attribute, value):
@@ -134,8 +133,8 @@ class EVSEStrategy(DERStrategy):
     and the drive_schedule specifies month-hour miles to drive.
     """
 
-    charge_schedule = attr.ib(validator=instance_of(ValidationFrame288))
-    drive_schedule = attr.ib(validator=instance_of(ValidationFrame288))
+    charge_schedule = attr.ib(type=ValidationFrame288)
+    drive_schedule = attr.ib(type=ValidationFrame288)
 
     @charge_schedule.validator
     def _validate_charge_schedule(self, attribute, value):
@@ -260,14 +259,14 @@ class EVSEIntervalFrame(DataFrameQueue):
 
 
 @attr.s(frozen=True)
-class EVSESimulationBuilder(DERSimulationBuilder):
+class EVSESimulationBuilder(DERSimulationSequenceBuilder):
     """
     Generates DERProducts a.k.a. EVSE Simulations.
     """
 
-    der = attr.ib(validator=instance_of(EVSE))
-    der_strategy = attr.ib(validator=instance_of(EVSEStrategy))
-    begin_charged = attr.ib(validator=instance_of(bool), default=False)
+    der = attr.ib(type=EVSE)
+    der_strategy = attr.ib(type=EVSEStrategy)
+    begin_charged = attr.ib(type=bool, default=False)
 
     def get_der_intervalframe(self) -> DataFrameQueue:
         return EVSEIntervalFrame()
@@ -413,7 +412,9 @@ class EVSESimulationBuilder(DERSimulationBuilder):
             }
         )
 
-    def get_pre_der_intervalframe(self, intervalframe: PowerIntervalFrame) -> MixedFuelIntervalFrame:
+    def get_pre_der_intervalframe(
+        self, intervalframe: PowerIntervalFrame
+    ) -> MixedFuelIntervalFrame:
         return MixedFuelIntervalFrame.create_pre_der_intervalframe(
             power_intervalframe=intervalframe,
             evse=self.der,

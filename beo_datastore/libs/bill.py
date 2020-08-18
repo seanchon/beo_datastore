@@ -1,5 +1,4 @@
 import attr
-from attr.validators import instance_of
 from functools import reduce
 import pandas as pd
 import re
@@ -24,7 +23,7 @@ class OpenEIRateData(object):
     JSON data: https://openei.org/apps/USURDB/download/usurdb.json.gz
     """
 
-    rate_data = attr.ib(validator=instance_of(dict), repr=False)
+    rate_data = attr.ib(type=dict, repr=False)
 
     @property
     def fixed_rate_keys(self):
@@ -325,8 +324,8 @@ class ValidationBill(ValidationDataFrame):
         ]
     )
 
-    intervalframe = attr.ib(validator=instance_of(PowerIntervalFrame))
-    openei_rate_data = attr.ib(validator=instance_of(OpenEIRateData))
+    intervalframe = attr.ib(type=PowerIntervalFrame)
+    openei_rate_data = attr.ib(type=OpenEIRateData)
 
     @intervalframe.validator
     def validate_intervalframe(self, attribute, value):

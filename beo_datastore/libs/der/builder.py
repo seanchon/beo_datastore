@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 import attr
-from attr.validators import instance_of
 from cached_property import cached_property
 from collections import OrderedDict
 from datetime import datetime, timedelta
@@ -117,11 +116,11 @@ class DERProduct(ABC):
     to a building's load profile.
     """
 
-    der = attr.ib(validator=instance_of(DER))
-    der_strategy = attr.ib(validator=instance_of(DERStrategy))
-    pre_der_intervalframe = attr.ib(validator=instance_of(PowerIntervalFrame))
-    der_intervalframe = attr.ib(validator=instance_of(PowerIntervalFrame))
-    post_der_intervalframe = attr.ib(validator=instance_of(PowerIntervalFrame))
+    der = attr.ib(type=DER)
+    der_strategy = attr.ib(type=DERStrategy)
+    pre_der_intervalframe = attr.ib(type=PowerIntervalFrame)
+    der_intervalframe = attr.ib(type=PowerIntervalFrame)
+    post_der_intervalframe = attr.ib(type=PowerIntervalFrame)
 
     def compare_peak_loads(self) -> pd.DataFrame:
         """
@@ -180,7 +179,7 @@ class AggregateDERProduct(ABC):
     :param der_products: dict containing {id: DERProduct} key, value pairs.
     """
 
-    der_products = attr.ib(validator=instance_of(dict))
+    der_products = attr.ib(type=dict)
 
     @der_products.validator
     def validate_der_products(self, attribute, value):
@@ -244,12 +243,31 @@ class AggregateDERProduct(ABC):
 @attr.s(frozen=True)
 class DERSimulationBuilder(ABC):
     """
-    The DERSimulationBuilder interface specifies methods for creating the
-    operations of a DERProduct (a.k.a. DER simulation).
+    The DERSimulationBuilder class specifies the base attributes and methods
+    for creating a DERProduct (a.k.a. DER simulation).
     """
 
-    der = attr.ib(validator=instance_of(DER))
-    der_strategy = attr.ib(validator=instance_of(DERStrategy))
+    der = attr.ib(type=DER)
+    der_strategy = attr.ib(type=DERStrategy)
+
+    @abstractmethod
+    def run_simulation(self, intervalframe: PowerIntervalFrame) -> DERProduct:
+        """
+        Runs a DER simulation given a pre-DER intervalframe based on self.der
+        and self.der_strategy and returns a DERProduct. For DER simulations
+        that are performed on an interval-by-interval basis, see
+        DERSimulationSequenceBuilder.
+        """
+        pass
+
+
+@attr.s(frozen=True)
+class DERSimulationSequenceBuilder(DERSimulationBuilder):
+    """
+    The DERSimulationSequenceBuilder class extends the DERSimulationBuilder
+    scaffolding to generate a DERProduct from calcuations performed on an
+    interval-by-interval basis.
+    """
 
     @abstractmethod
     def get_der_intervalframe(self) -> DataFrameQueue:
@@ -372,7 +390,7 @@ class DERSimulationDirector:
     in a particular sequence.
     """
 
-    builder = attr.ib(validator=instance_of(DERSimulationBuilder))
+    builder = attr.ib(type=DERSimulationBuilder)
 
     def run_single_simulation(
         self,

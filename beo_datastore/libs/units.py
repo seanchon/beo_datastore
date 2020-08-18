@@ -1,5 +1,4 @@
 import attr
-from attr.validators import instance_of
 
 from enum import Enum
 
@@ -72,8 +71,8 @@ class RateUnitEnum(object):
     denominator (DataUnitEnum).
     """
 
-    numerator = attr.ib(validator=instance_of(DataUnitEnum))
-    denominator = attr.ib(validator=instance_of(DataUnitEnum))
+    numerator = attr.ib(type=DataUnitEnum)
+    denominator = attr.ib(type=DataUnitEnum)
 
     def __mul__(self, other):
         """
