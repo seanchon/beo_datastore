@@ -3,13 +3,12 @@ from allauth.account.utils import send_email_confirmation
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 
-from rest_framework import serializers, status
-from rest_framework.generics import GenericAPIView
+from rest_framework import serializers, status, views
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 
-class ResendVerificationEmailView(GenericAPIView):
+class ResendVerificationEmailView(views.APIView):
     """
     Basic view that takes a POST request with an email parameter and re-sends an
     email to verify a user's account.
