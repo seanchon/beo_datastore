@@ -1,5 +1,8 @@
+import attr
 from datetime import timedelta
+from jsonfield import JSONField
 import os
+from typing import Tuple
 
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
@@ -24,11 +27,12 @@ from beo_datastore.libs.der.evse import (
     EVSESimulationBuilder,
     EVSEStrategy as pyEVSEStrategy,
 )
-from beo_datastore.libs.intervalframe_file import DataFrameFile, Frame288File
-from beo_datastore.libs.models import (
-    ValidationModel,
-    Frame288FileMixin,
+from beo_datastore.libs.der.solar import (
+    SolarPV,
+    SolarPVStrategy as pySolarPVStrategy,
 )
+from beo_datastore.libs.intervalframe_file import DataFrameFile, Frame288File
+from beo_datastore.libs.models import ValidationModel, Frame288FileMixin
 from beo_datastore.settings import MEDIA_ROOT
 from beo_datastore.libs.plot_intervalframe import (
     plot_frame288,
@@ -411,13 +415,13 @@ class EVSEConfiguration(DERConfiguration):
     """
 
     ev_mpkwh = models.FloatField(
-        blank=False, null=False, validators=[MinValueValidator(limit_value=0)],
+        blank=False, null=False, validators=[MinValueValidator(limit_value=0)]
     )
     ev_mpg_eq = models.FloatField(
-        blank=False, null=False, validators=[MinValueValidator(limit_value=0)],
+        blank=False, null=False, validators=[MinValueValidator(limit_value=0)]
     )
     ev_capacity = models.FloatField(
-        blank=False, null=False, validators=[MinValueValidator(limit_value=0)],
+        blank=False, null=False, validators=[MinValueValidator(limit_value=0)]
     )
     ev_efficiency = models.FloatField(
         blank=False,
@@ -428,7 +432,7 @@ class EVSEConfiguration(DERConfiguration):
         ],
     )
     evse_rating = models.FloatField(
-        blank=False, null=False, validators=[MinValueValidator(limit_value=0)],
+        blank=False, null=False, validators=[MinValueValidator(limit_value=0)]
     )
     ev_count = models.IntegerField(
         blank=False, null=False, validators=[MinValueValidator(limit_value=0)]
@@ -637,7 +641,7 @@ class EVSESimulation(DERSimulation):
             frame288=der_strategy.drive_schedule
         )
         der_strategy, _ = EVSEStrategy.objects.get_or_create(
-            charge_schedule=charge_schedule, drive_schedule=drive_schedule,
+            charge_schedule=charge_schedule, drive_schedule=drive_schedule
         )
         return der_strategy
 
@@ -647,4 +651,71 @@ class EVSESimulation(DERSimulation):
     ) -> EVSESimulationBuilder:
         return EVSESimulationBuilder(
             der=der, der_strategy=der_strategy.der_strategy
+        )
+
+
+class SolarPVConfiguration(DERConfiguration):
+    """
+    Container for storing SolarPV configurations.
+    """
+
+    parameters = JSONField(unique=True)
+    stored_response = JSONField()
+
+    der_type = "SolarPV"
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name_plural = "Solar PV configurations"
+
+    @property
+    def der(self) -> SolarPV:
+        """
+        Return SolarPV equivalent of self.
+        """
+        return SolarPV(stored_response=self.stored_response, **self.parameters)
+
+    @classmethod
+    def get_or_create_from_object(
+        cls, solar_pv: SolarPV
+    ) -> Tuple[DERConfiguration, bool]:
+        """
+        Get or create SolarPVConfiguration object from SolarPV object.
+        """
+        parameters = solar_pv.request_params
+        parameters.pop("api_key")  # do not store API key
+        response = solar_pv.pvwatts_response
+
+        return cls.objects.get_or_create(
+            parameters=parameters, stored_response=response
+        )
+
+
+class SolarPVStrategy(DERStrategy):
+    """
+    Container for storing SolarPVStrategy objects.
+    """
+
+    parameters = JSONField(unique=True)
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name_plural = "Solar PV strategies"
+
+    @property
+    def der_strategy(self) -> pySolarPVStrategy:
+        """
+        Return pySolarPVStrategy equivalent of self.
+        """
+        return pySolarPVStrategy(**self.parameters)
+
+    @classmethod
+    def get_or_create_from_object(
+        cls, solar_pv_strategy: pySolarPVStrategy
+    ) -> Tuple[DERStrategy, bool]:
+        """
+        Get or create SolarPVStrategy object from pySolarPVStrategy object.
+        """
+        return cls.objects.get_or_create(
+            parameters=attr.asdict(solar_pv_strategy)
         )

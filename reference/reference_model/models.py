@@ -304,7 +304,7 @@ class DERConfiguration(PolymorphicValidationModel):
         ordering = ["-created_at"]
 
     @property
-    def der_type(self):
+    def der_type(self) -> str:
         """
         A DERConfiguration.der_type must match a DERStrategy.der_type when
         creating a DERSimulation.
@@ -314,12 +314,12 @@ class DERConfiguration(PolymorphicValidationModel):
         )
 
     @property
-    def configuration(self):
+    def der(self) -> DER:
         """
-        Return dictionary containing configuration values.
+        Return Python DER model equivalent of self.
         """
         raise NotImplementedError(
-            "configuration must be set in {}".format(self.__class__)
+            "der must be set in {}".format(self.__class__)
         )
 
 
@@ -349,7 +349,7 @@ class DERStrategy(PolymorphicValidationModel):
         ordering = ["-created_at"]
 
     @property
-    def der_type(self):
+    def der_type(self) -> str:
         """
         A DERConfiguration.der_type must match a DERStrategy.der_type when
         creating a DERSimulation.

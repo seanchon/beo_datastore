@@ -30,16 +30,16 @@ class SolarPV(DER):
 
     # PVWatts API parameters
     address = attr.ib(type=str)
-    api_key = attr.ib(type=str)
     array_type = attr.ib(type=int)
     azimuth = attr.ib(type=float)
     tilt = attr.ib(type=float)
+    api_key = attr.ib(type=str, default="")
     losses = attr.ib(type=float, default=14.08)
     module_type = attr.ib(type=int, default=0)
     system_capacity = attr.ib(type=float, default=1)
     timeframe = attr.ib(type=str, default="hourly")
     # non-parameter: pass stored response to avoid API call
-    stored_response = attr.ib(type=dict, default={})
+    stored_response = attr.ib(type=dict, default={}, repr=False)
 
     @array_type.validator
     def _validate_array_type(self, attribute, value):
