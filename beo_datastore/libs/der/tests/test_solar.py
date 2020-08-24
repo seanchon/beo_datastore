@@ -1,19 +1,16 @@
+from datetime import timedelta
 import itertools
-import json
-from os.path import abspath, dirname, join
 import pandas as pd
 
 from unittest import mock, TestCase
 
 from beo_datastore.libs.intervalframe import PowerIntervalFrame
 from beo_datastore.libs.der.solar import (
-    PVWATTS_URL,
     SolarPV,
     SolarPVSimulationBuilder,
     SolarPVStrategy,
 )
-
-PVWATTS_FILE = join(dirname(abspath(__file__)), "files", "pvwatts.json")
+from beo_datastore.libs.test_mock import mocked_pvwatts_requests_get
 
 # SolarPV Configuration
 ARRAY_TYPE = 0
@@ -25,28 +22,8 @@ TILT = 20
 SERVICEABLE_LOAD_RATIO = 0.85
 
 
-def mocked_requests_get(*args, **kwargs):
-    """
-    Return contents of PVWATTS_FILE on requests to PVWATTS_URL.
-    """
-
-    class MockResponse:
-        def __init__(self, file_path, status_code):
-            with open(file_path) as f:
-                self.json_data = json.load(f)
-            self.status_code = status_code
-
-        def json(self):
-            return self.json_data
-
-    if args[0] == PVWATTS_URL:
-        return MockResponse(PVWATTS_FILE, 200)
-
-    return MockResponse(None, 404)
-
-
 class TestSolarPV(TestCase):
-    @mock.patch("requests.get", side_effect=mocked_requests_get)
+    @mock.patch("requests.get", side_effect=mocked_pvwatts_requests_get)
     def setUp(self, mock_get):
         """
         Test SolarPV transformation under:
@@ -71,6 +48,9 @@ class TestSolarPV(TestCase):
             )
             .set_index(0)
             .rename(columns={1: "kw"})
+        )
+        self.intervalframe_1 = self.intervalframe_1.resample_intervalframe(
+            target_period=timedelta(minutes=15)
         )
         self.intervalframe_2 = PowerIntervalFrame(
             dataframe=pd.DataFrame(
@@ -139,3 +119,16 @@ class TestSolarPV(TestCase):
 
         production_ratio = production_2 / production_1
         self.assertAlmostEqual(production_ratio, 2)
+
+    def test_solar_interval_period(self):
+        """
+        Solar interval period should match input period.
+        """
+        self.assertEqual(
+            self.intervalframe_1.period,
+            self.der_product_1.post_der_intervalframe.period,
+        )
+        self.assertEqual(
+            self.intervalframe_2.period,
+            self.der_product_2.post_der_intervalframe.period,
+        )

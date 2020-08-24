@@ -1,6 +1,5 @@
 from functools import reduce
 
-from django_auto_repr import AutoRepr
 from polymorphic.models import PolymorphicModel
 
 from django.apps import apps
@@ -52,7 +51,49 @@ def get_model_from_any_app(model_name, parent_class=None):
     return None
 
 
-class ValidationModel(AutoRepr, models.Model):
+class AutoReprMixin(object):
+    """
+    A model mixin that generates a useful __repr__
+    """
+
+    # fields to exclude from __repr__
+    repr_exclude_fields = []
+
+    def _repr_format_field(self, field):
+        """
+        Get a "bar='bar_value'" str.
+        field is a Django Field object.
+        """
+        if isinstance(field, models.ForeignKey):
+            field_name = field.name + "_id"
+        else:
+            field_name = field.name
+
+        field_value = getattr(self, field_name)
+
+        default = field.default
+        if field_value == default:
+            return ""
+        elif default is models.NOT_PROVIDED:
+            if isinstance(field, models.CharField) and field_value == "":
+                return ""
+            if field_value is None:
+                return ""
+
+        return "{}={!r}".format(field_name, field_value)
+
+    def __repr__(self):
+        fields = [
+            x
+            for x in self.__class__._meta.fields
+            if x.name not in self.repr_exclude_fields
+        ]
+        parts = filter(None, map(self._repr_format_field, fields))
+        attrs = ", ".join(parts)
+        return "{}({})".format(self.__class__.__name__, attrs)
+
+
+class ValidationModel(AutoReprMixin, models.Model):
     """
     A custom implementation of Django's default Model, which runs data
     validations prior to saving. Models which inherit from ValidationModel
@@ -79,7 +120,7 @@ class ValidationModel(AutoRepr, models.Model):
                 self.__dict__.pop(key, None)
 
 
-class PolymorphicValidationModel(AutoRepr, PolymorphicModel):
+class PolymorphicValidationModel(AutoReprMixin, PolymorphicModel):
     """
     A custom implementation of PolymorphicModel, which runs data
     validations prior to saving. Models which inherit from

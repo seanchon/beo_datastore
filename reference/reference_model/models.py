@@ -10,7 +10,7 @@ from django.utils.functional import cached_property
 
 from beo_datastore.libs.der.builder import (
     AggregateDERProduct,
-    DER,
+    DER as pyDER,
     DERProduct,
     DERSimulationBuilder,
     DERSimulationDirector,
@@ -314,7 +314,7 @@ class DERConfiguration(PolymorphicValidationModel):
         )
 
     @property
-    def der(self) -> DER:
+    def der(self) -> pyDER:
         """
         Return Python DER model equivalent of self.
         """
@@ -473,6 +473,28 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         """
         return self.post_der_intervalframe
 
+    @property
+    def pre_vs_post_average_288_html_plot(self):
+        """
+        Return Django-formatted HTML pre vs. post average 288 plt.
+        """
+        return plot_frame288_monthly_comparison(
+            original_frame288=self.pre_der_intervalframe.average_frame288,
+            modified_frame288=self.post_der_intervalframe.average_frame288,
+            to_html=True,
+        )
+
+    @property
+    def pre_vs_post_maximum_288_html_plot(self):
+        """
+        Return Django-formatted HTML pre vs. post maximum 288 plt.
+        """
+        return plot_frame288_monthly_comparison(
+            original_frame288=self.pre_der_intervalframe.maximum_frame288,
+            modified_frame288=self.post_der_intervalframe.maximum_frame288,
+            to_html=True,
+        )
+
     @staticmethod
     def get_report(der_simulations):
         """
@@ -554,8 +576,8 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         :param start: datetime
         :param end_limit: datetime
         :return: (
-            StoredBatterySimulation,
-            StoredBatterySimulation created (True/False)
+            DERSimulation,
+            DERSimulation created (True/False)
         )
         """
         if start is None:
@@ -589,7 +611,7 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
             )
 
     @classmethod
-    def get_configuration(cls, der: DER) -> DERConfiguration:
+    def get_configuration(cls, der: pyDER) -> DERConfiguration:
         """
         Gets a `DERConfiguration` for use in a simulation, given the DER python
         model that the configuration wraps
@@ -610,7 +632,7 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
 
     @classmethod
     def get_simulation_builder(
-        cls, der: DER, der_strategy: DERStrategy
+        cls, der: pyDER, der_strategy: pyDERStrategy
     ) -> DERSimulationBuilder:
         """
         Gets the `DERSimulationBuilder` for use in a simulation.
@@ -622,7 +644,7 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
     @classmethod
     def generate(
         cls,
-        der: DER,
+        der: pyDER,
         der_strategy: pyDERStrategy,
         start,
         end_limit,
@@ -633,7 +655,7 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         Get or create many DERSimulations at once. Pre-existing simulations are
         retrieved and non-existing simulations are created.
 
-        :param der: DER
+        :param der: pyDER
         :param der_strategy: pyDERStrategy
         :param start: datetime
         :param end_limit: datetime
@@ -657,7 +679,7 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
             # generate new simulations for remaining meters
             new_meters = set(meter_set) - {x.meter for x in stored_simulations}
             builder = cls.get_simulation_builder(
-                der=der, der_strategy=strategy
+                der=der, der_strategy=der_strategy
             )
             director = DERSimulationDirector(builder=builder)
             new_simulation = director.run_many_simulations(
