@@ -668,6 +668,10 @@ class SolarPVConfiguration(DERConfiguration):
         ordering = ["id"]
         verbose_name_plural = "Solar PV configurations"
 
+    def clean(self, *args, **kwargs):
+        self.parameters.pop("api_key")  # do not store API key
+        super().clean(*args, **kwargs)
+
     @property
     def der(self) -> SolarPV:
         """
