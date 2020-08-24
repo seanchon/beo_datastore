@@ -1,5 +1,4 @@
 import attr
-from attr.validators import instance_of
 from cached_property import cached_property
 from datetime import timedelta
 import pandas as pd
@@ -62,11 +61,11 @@ class AggregateBillCalculation(DERCostCalculation):
     # TODO: Break RatePlan dependency. A lib should not import from a Django
     # model and each simulation may be under a different RatePlan.
 
-    agg_simulation = attr.ib(validator=instance_of(AggregateDERProduct))
+    agg_simulation = attr.ib(type=AggregateDERProduct)
     rate_plan = attr.ib()
-    date_ranges = attr.ib(validator=instance_of(list))
-    pre_bills = attr.ib(validator=instance_of(dict))
-    post_bills = attr.ib(validator=instance_of(dict))
+    date_ranges = attr.ib(type=list)
+    pre_bills = attr.ib(type=dict)
+    post_bills = attr.ib(type=dict)
 
     def __add__(self, other):
         """
@@ -193,8 +192,8 @@ class AggregateGHGCalculation(DERCostCalculation):
     after load profiles.
     """
 
-    agg_simulation = attr.ib(validator=instance_of(AggregateDERProduct))
-    ghg_frame288 = attr.ib(validator=instance_of(ValidationFrame288))
+    agg_simulation = attr.ib(type=AggregateDERProduct)
+    ghg_frame288 = attr.ib(type=ValidationFrame288)
 
     def __add__(self, other):
         """
@@ -277,10 +276,8 @@ class AggregateResourceAdequacyCalculation(DERCostCalculation):
     after load profiles.
     """
 
-    agg_simulation = attr.ib(validator=instance_of(AggregateDERProduct))
-    system_profile_intervalframe = attr.ib(
-        validator=instance_of(PowerIntervalFrame)
-    )
+    agg_simulation = attr.ib(type=AggregateDERProduct)
+    system_profile_intervalframe = attr.ib(type=PowerIntervalFrame)
 
     @cached_property
     def system_profile_year(self):
@@ -380,10 +377,8 @@ class AggregateProcurementCostCalculation(DERCostCalculation):
     interval (ex. 5-minute, 15-minute, 60-minute basis).
     """
 
-    agg_simulation = attr.ib(validator=instance_of(AggregateDERProduct))
-    procurement_rate_intervalframe = attr.ib(
-        validator=instance_of(ProcurementRateIntervalFrame)
-    )
+    agg_simulation = attr.ib(type=AggregateDERProduct)
+    procurement_rate_intervalframe = attr.ib(type=ProcurementRateIntervalFrame)
 
     @cached_property
     def pre_DER_total(self):

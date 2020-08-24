@@ -1,5 +1,4 @@
 import attr
-from attr.validators import instance_of
 from cached_property import cached_property
 from collections import OrderedDict
 from datetime import datetime, timedelta
@@ -9,7 +8,7 @@ import pandas as pd
 from beo_datastore.libs.der.builder import (
     DataFrameQueue,
     DER,
-    DERSimulationBuilder,
+    DERSimulationSequenceBuilder,
     DERStrategy,
 )
 from beo_datastore.libs.intervalframe import ValidationFrame288
@@ -29,9 +28,9 @@ class Battery(DER):
         - at rating (kw) for discharge duration
     """
 
-    rating = attr.ib(validator=instance_of(int))
-    discharge_duration = attr.ib(validator=instance_of(timedelta))
-    efficiency = attr.ib(validator=instance_of(float))
+    rating = attr.ib(type=int)
+    discharge_duration = attr.ib(type=timedelta)
+    efficiency = attr.ib(type=float)
 
     @rating.validator
     def _validate_rating(self, attribute, value):
@@ -162,8 +161,8 @@ class BatteryStrategy(DERStrategy):
     allow discharging.
     """
 
-    charge_schedule = attr.ib(validator=instance_of(ValidationFrame288))
-    discharge_schedule = attr.ib(validator=instance_of(ValidationFrame288))
+    charge_schedule = attr.ib(type=ValidationFrame288)
+    discharge_schedule = attr.ib(type=ValidationFrame288)
 
     def get_charge_threshold(self, month: int, hour: int) -> float:
         """
@@ -259,13 +258,13 @@ class BatteryIntervalFrame(DataFrameQueue):
 
 
 @attr.s(frozen=True)
-class BatterySimulationBuilder(DERSimulationBuilder):
+class BatterySimulationBuilder(DERSimulationSequenceBuilder):
     """
     Generates DERProducts a.k.a Battery Simulations.
     """
 
-    der = attr.ib(validator=instance_of(Battery))
-    der_strategy = attr.ib(validator=instance_of(BatteryStrategy))
+    der = attr.ib(type=Battery)
+    der_strategy = attr.ib(type=BatteryStrategy)
 
     def get_der_intervalframe(self) -> DataFrameQueue:
         return BatteryIntervalFrame()
