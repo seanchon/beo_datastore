@@ -1,11 +1,12 @@
 import coreapi
-import pandas as pd
-from rest_framework import serializers, status
-from rest_framework.schemas import AutoSchema
-from rest_framework.response import Response
-
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
+from functools import reduce
+import pandas as pd
+from rest_framework import serializers, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.schemas import AutoSchema
 
 from beo_datastore.libs.api.serializers import require_request_data
 from beo_datastore.libs.api.viewsets import (
@@ -13,6 +14,7 @@ from beo_datastore.libs.api.viewsets import (
     ListRetrieveUpdateDestroyViewSet,
     ListRetrieveViewSet,
 )
+from beo_datastore.libs.dataframe import download_dataframe
 from beo_datastore.libs.models import get_exact_many_to_many
 
 from cost.ghg.models import GHGRate
@@ -281,6 +283,56 @@ class StudyViewSet(ListRetrieveUpdateDestroyViewSet):
             )
 
         return Study.objects.filter(id__in=ids)
+
+    @action(methods=("get",), detail=False)
+    def download(self, request, *args, **kwargs):
+        """
+        Generates a CSV file from a set of scenarios. The file contents can be
+        configured to return customer-level data or scenario-level data via the
+        `level` query parameter
+        """
+        # validate `ids`
+        ids_param = self._param("ids")
+        if not ids_param:
+            raise serializers.ValidationError(
+                "`ids` query parameter is required"
+            )
+        ids = ids_param.split(",")
+
+        # validate `level`
+        level = self._param("level")
+        if level == "summary":
+            export_key = "exportable_report_summary"
+            download_kwargs = {"filename": "scenario_data"}
+        elif level == "customer":
+            export_key = "exportable_report"
+            download_kwargs = {
+                "filename": "customer_data",
+                "index": False,
+                "exclude": ["SingleScenarioStudy"],
+            }
+        else:
+            raise serializers.ValidationError(
+                "`level` query parameter is missing or unrecognized"
+            )
+
+        # filter for scenarios with the given IDs, with the caveat that the user
+        # must be an owner (or they're not authorized to see them)
+        scenarios = SingleScenarioStudy.objects.filter(
+            id__in=ids, meter_group__owners=request.user
+        )
+
+        # iterate through the scenarios and build their contributions to the
+        # CSV file
+        dataframe = reduce(
+            lambda df, scenario: df.append(
+                getattr(scenario, export_key), sort=False
+            ),
+            scenarios,
+            pd.DataFrame(),
+        )
+
+        return download_dataframe(dataframe, **download_kwargs)
 
 
 class GHGRateViewSet(ListRetrieveViewSet):

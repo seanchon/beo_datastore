@@ -248,6 +248,17 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         return report
 
     @property
+    def exportable_report(self):
+        """
+        Organizes the report summary for exporting
+        """
+        df = self.report
+        df["Scenario Name"] = self.name
+        first_cols = ["Scenario Name", "SA ID"]
+        columns = first_cols + [c for c in df.columns if c not in first_cols]
+        return df[columns]
+
+    @property
     def report_summary(self):
         """
         Report summary containing RA and non-RA totals for each column of
@@ -259,6 +270,17 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         report_summary = pd.DataFrame(self._report_summary)
         report_summary.index.names = ["ID"]  # rename index to "ID"
         return report_summary
+
+    @property
+    def exportable_report_summary(self):
+        """
+        Organizes the report summary for exporting
+        """
+        df = self.report_summary.transpose()
+        df["Scenario Name"] = self.name
+        first_cols = ["Scenario Name"]
+        columns = first_cols + [c for c in df.columns if c not in first_cols]
+        return df[columns]
 
     def generate_reports(self):
         """

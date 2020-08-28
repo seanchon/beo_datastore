@@ -5,7 +5,21 @@ from rest_framework import viewsets
 from beo_datastore.libs.api.pagination import DefaultResultsSetPagination
 
 
-class CreateViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
+class BaseViewSet(viewsets.GenericViewSet):
+    """
+    Provides helper methods to view sets
+    """
+
+    def _param(self, query_param: str) -> str:
+        """
+        Shortcut for accessing the request object's query parameters
+
+        :param query_param: name of the query parameter to fetch
+        """
+        return self.request.query_params.get(query_param)
+
+
+class CreateViewSet(mixins.CreateModelMixin, BaseViewSet):
     """
     A viewset that only allows POST.
     """
@@ -17,7 +31,7 @@ class ListRetrieveViewSet(
     WithDynamicViewSetMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
-    viewsets.GenericViewSet,
+    BaseViewSet,
 ):
     """
     A dynamic_rest viewset that only allows GET.
@@ -32,7 +46,7 @@ class ListRetrieveUpdateDestroyViewSet(
     mixins.RetrieveModelMixin,
     mixins.UpdateModelMixin,
     mixins.DestroyModelMixin,
-    viewsets.GenericViewSet,
+    BaseViewSet,
 ):
     """
     A dynamic_rest viewset that only allows GET, PATCH, and DELETE.
@@ -69,7 +83,7 @@ class ListRetrieveDestroyViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     mixins.DestroyModelMixin,
-    viewsets.GenericViewSet,
+    BaseViewSet,
 ):
     """
     A dynamic_rest viewset that only allows GET and DELETE.

@@ -1,10 +1,14 @@
 from datetime import timedelta
+from django.http import FileResponse
 import io
 import numpy as np
+import os
 import pandas as pd
 import requests
 import s3fs
 from scipy import stats
+from tempfile import mkstemp
+from typing import List
 
 
 def add_interval_dataframe(dataframe_1, dataframe_2):
@@ -325,3 +329,41 @@ def read_file_with_cache_invalidation(path: str, read_fn, **kwargs):
         # otherwise invalidate the path in the cache and try again
         s3fs.S3FileSystem(anon=False).invalidate_cache(path)
         return read_fn(path, **kwargs)
+
+
+def download_dataframe(
+    dataframe: pd.DataFrame,
+    filename: str,
+    index: bool = True,
+    exclude: List[str] = None,
+) -> FileResponse:
+    """
+    Returns a FileResponse object containing a CSV of the contents of the
+    provided dataframe.
+
+    :param dataframe: The dataframe to download
+    :param filename: The name of the file (should omit the `.csv` suffix)
+    :param index: Whether to keep or drop the index
+    :param exclude: List of columns to exclude from the CSV
+    """
+    if exclude is None:
+        exclude = []
+
+    columns = [c for c in dataframe.columns if c not in exclude]
+    dataframe = dataframe[columns]
+
+    _, tmp_filename = mkstemp(suffix=".csv")
+    dataframe.to_csv(tmp_filename, index=index)
+
+    # read the file contents and delete the file
+    file = open(tmp_filename, "r")
+    data = file.read()
+    file.close()
+    os.remove(tmp_filename)
+
+    # make the response
+    response = FileResponse(data, filename=filename, content_type="text/csv")
+    response["Content-Disposition"] = f'attachment; filename="{filename}.csv"'
+    response["Content-Length"] = len(data)
+    response["Content-Type"] = "text/csv"
+    return response

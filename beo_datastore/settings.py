@@ -275,6 +275,10 @@ EMAIL_HOST_PASSWORD = os.environ.get("SMTP_PASSWORD", None)
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = "support@navigader.com"
 
+if os.environ.get("EMAIL_FILE_DIR"):
+    EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
+    EMAIL_FILE_PATH = os.path.join(BASE_DIR, os.environ.get("EMAIL_FILE_DIR"))
+
 # django.utils.log.AdminEmailHandler configuration
 SERVER_EMAIL = "support@navigader.com"  # source email
 ADMINS = [("NavigaDER", "support@navigader.com")]  # destination emails
