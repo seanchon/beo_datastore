@@ -166,7 +166,7 @@ class SolarPV(DER):
 
     def get_system_capacity(self, intervalframe: PowerIntervalFrame) -> float:
         """
-        Get system capacity by diving intervalframe yield by solar
+        Get system capacity by dividing intervalframe yield by solar
         intervalframe yield over same timeframe.
         """
         intervalframe_yield = (

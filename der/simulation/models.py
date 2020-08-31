@@ -674,7 +674,7 @@ class SolarPVConfiguration(DERConfiguration):
     @property
     def intervalframe_html_plot(self):
         """
-        Return Django-formatted HTML intervalframe plt.
+        Return Django-formatted HTML intervalframe plot.
         """
         return plot_intervalframe(
             intervalframe=self.solar_intervalframe, y_label="kw", to_html=True
@@ -753,7 +753,7 @@ class SolarPVSimulation(DERSimulation):
     @property
     def system_capacity(self) -> float:
         """
-        System capcity relative to reference solar intervalframe.
+        System capacity relative to reference solar intervalframe.
         """
         return self.der_configuration.der.get_system_capacity(
             self.intervalframe
