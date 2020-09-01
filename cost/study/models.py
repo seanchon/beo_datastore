@@ -24,7 +24,11 @@ from cost.procurement.models import (
     StoredResourceAdequacyCalculation,
 )
 from cost.utility_rate.models import RatePlan, StoredBillCalculation
-from der.simulation.models import EVSESimulation, StoredBatterySimulation
+from der.simulation.models import (
+    EVSESimulation,
+    SolarPVSimulation,
+    StoredBatterySimulation,
+)
 from load.customer.models import CustomerMeter
 from load.openei.models import ReferenceMeter
 from reference.reference_model.models import (
@@ -497,9 +501,11 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
             return StoredBatterySimulation
         elif der_type == "EVSE":
             return EVSESimulation
+        elif der_type == "SolarPV":
+            return SolarPVSimulation
         else:
             raise RuntimeError(
-                "DERConfiguration has unrecognized der_type: %s".format(
+                "DERConfiguration has unrecognized der_type: {}".format(
                     der_type
                 )
             )

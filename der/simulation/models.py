@@ -16,23 +16,30 @@ from beo_datastore.libs.der.schedule_utils import (
     optimize_battery_schedule,
 )
 from beo_datastore.libs.der.battery import (
-    Battery,
+    Battery as pyBattery,
     BatteryIntervalFrame,
     BatterySimulationBuilder,
     BatteryStrategy as pyBatteryStrategy,
 )
 from beo_datastore.libs.der.evse import (
-    EVSE,
+    EVSE as pyEVSE,
     EVSEIntervalFrame,
     EVSESimulationBuilder,
     EVSEStrategy as pyEVSEStrategy,
 )
 from beo_datastore.libs.der.solar import (
-    SolarPV,
+    SolarPV as pySolarPV,
+    SolarPVSimulationBuilder,
     SolarPVStrategy as pySolarPVStrategy,
 )
-from beo_datastore.libs.intervalframe_file import DataFrameFile, Frame288File
+from beo_datastore.libs.intervalframe_file import (
+    DataFrameFile,
+    Frame288File,
+    PowerIntervalFrame,
+    PowerIntervalFrameFile,
+)
 from beo_datastore.libs.models import ValidationModel, Frame288FileMixin
+from beo_datastore.libs.plot_intervalframe import plot_intervalframe
 from beo_datastore.settings import MEDIA_ROOT
 from beo_datastore.libs.plot_intervalframe import (
     plot_frame288,
@@ -257,9 +264,9 @@ class BatteryConfiguration(DERConfiguration):
     @property
     def der(self):
         """
-        Return Battery equivalent of self.
+        Return pyBattery equivalent of self.
         """
-        return Battery(
+        return pyBattery(
             rating=self.rating,
             discharge_duration=timedelta(hours=self.discharge_duration_hours),
             efficiency=self.efficiency,
@@ -268,9 +275,9 @@ class BatteryConfiguration(DERConfiguration):
     @classmethod
     def create_from_battery(cls, battery):
         """
-        Create BatteryConfiguration from Battery.
+        Create BatteryConfiguration from pyBattery.
 
-        :param battery: Battery
+        :param battery: pyBattery
         :return: BatteryConfiguration
         """
         return cls.objects.create(
@@ -280,11 +287,11 @@ class BatteryConfiguration(DERConfiguration):
         )
 
     @classmethod
-    def get_or_create_from_battery(cls, battery):
+    def get_or_create_from_object(cls, battery):
         """
-        Get or create BatteryConfiguration from Battery.
+        Get or create BatteryConfiguration from pyBattery.
 
-        :param battery: Battery
+        :param battery: pyBattery
         :return: BatteryConfiguration
         """
         objects = cls.objects.filter(
@@ -459,9 +466,9 @@ class EVSEConfiguration(DERConfiguration):
     @property
     def der(self):
         """
-        Return EVSE equivalent of self.
+        Return pyEVSE equivalent of self.
         """
-        return EVSE(
+        return pyEVSE(
             ev_mpkwh=self.ev_mpkwh,
             ev_mpg_eq=self.ev_mpg_eq,
             ev_capacity=self.ev_capacity,
@@ -530,28 +537,6 @@ class StoredBatterySimulation(DERSimulation):
         return charge_frame288 / capacity_frame288
 
     @property
-    def pre_vs_post_average_288_html_plot(self):
-        """
-        Return Django-formatted HTML pre vs. post average 288 plt.
-        """
-        return plot_frame288_monthly_comparison(
-            original_frame288=self.pre_der_intervalframe.average_frame288,
-            modified_frame288=self.post_der_intervalframe.average_frame288,
-            to_html=True,
-        )
-
-    @property
-    def pre_vs_post_maximum_288_html_plot(self):
-        """
-        Return Django-formatted HTML pre vs. post maximum 288 plt.
-        """
-        return plot_frame288_monthly_comparison(
-            original_frame288=self.pre_der_intervalframe.maximum_frame288,
-            modified_frame288=self.post_der_intervalframe.maximum_frame288,
-            to_html=True,
-        )
-
-    @property
     def average_battery_operations_html_plot(self):
         return plot_frame288(
             frame288=self.intervalframe.average_frame288,
@@ -566,7 +551,7 @@ class StoredBatterySimulation(DERSimulation):
         )
 
     @classmethod
-    def get_configuration(cls, der: Battery) -> BatteryConfiguration:
+    def get_configuration(cls, der: pyBattery) -> BatteryConfiguration:
         configuration, _ = BatteryConfiguration.objects.get_or_create(
             rating=der.rating,
             discharge_duration_hours=der.discharge_duration_hours,
@@ -590,25 +575,23 @@ class StoredBatterySimulation(DERSimulation):
 
     @classmethod
     def get_simulation_builder(
-        cls, der: Battery, der_strategy: BatteryStrategy
+        cls, der: pyBattery, der_strategy: pyBatteryStrategy
     ) -> BatterySimulationBuilder:
-        return BatterySimulationBuilder(
-            der=der, der_strategy=der_strategy.der_strategy
-        )
+        return BatterySimulationBuilder(der=der, der_strategy=der_strategy)
 
 
 class EVSESimulationFrame(EVSEIntervalFrame, DataFrameFile):
     """
-    Model for handling EVSESimulation EVSEIntervalFrame.
+    Model for handling EVSESimulation EVSEIntervalFrames.
     """
 
     # directory for parquet file storage
-    file_directory = os.path.join(MEDIA_ROOT, "battery_simulations")
+    file_directory = os.path.join(MEDIA_ROOT, "der_simulations")
 
 
 class EVSESimulation(DERSimulation):
     """
-    Container for storing EVSE simulations
+    Container for storing EVSE simulations.
     """
 
     # Required by IntervalFrameFileMixin.
@@ -620,7 +603,7 @@ class EVSESimulation(DERSimulation):
         verbose_name_plural = "EVSE simulations"
 
     @classmethod
-    def get_configuration(cls, der: EVSE) -> EVSEConfiguration:
+    def get_configuration(cls, der: pyEVSE) -> EVSEConfiguration:
         configuration, _ = EVSEConfiguration.objects.get_or_create(
             ev_mpkwh=der.ev_mpkwh,
             ev_mpg_eq=der.ev_mpg_eq,
@@ -647,11 +630,9 @@ class EVSESimulation(DERSimulation):
 
     @classmethod
     def get_simulation_builder(
-        cls, der: EVSE, der_strategy: EVSEStrategy
+        cls, der: pyEVSE, der_strategy: pyEVSEStrategy
     ) -> EVSESimulationBuilder:
-        return EVSESimulationBuilder(
-            der=der, der_strategy=der_strategy.der_strategy
-        )
+        return EVSESimulationBuilder(der=der, der_strategy=der_strategy)
 
 
 class SolarPVConfiguration(DERConfiguration):
@@ -663,31 +644,51 @@ class SolarPVConfiguration(DERConfiguration):
     stored_response = JSONField()
 
     der_type = "SolarPV"
+    # remove stored_response from model __repr__
+    repr_exclude_fields = ["stored_response"]
 
     class Meta:
         ordering = ["id"]
         verbose_name_plural = "Solar PV configurations"
 
     def clean(self, *args, **kwargs):
-        self.parameters.pop("api_key")  # do not store API key
+        self.parameters.pop("api_key", None)  # do not store API key
         super().clean(*args, **kwargs)
 
     @property
-    def der(self) -> SolarPV:
+    def der(self) -> pySolarPV:
         """
-        Return SolarPV equivalent of self.
+        Return pySolarPV equivalent of self.
         """
-        return SolarPV(stored_response=self.stored_response, **self.parameters)
+        return pySolarPV(
+            stored_response=self.stored_response, **self.parameters
+        )
+
+    @cached_property
+    def solar_intervalframe(self) -> PowerIntervalFrame:
+        """
+        Return PowerIntervalFrame from the year 2000.
+        """
+        return self.der.get_annual_solar_intervalframe(2000)
+
+    @property
+    def intervalframe_html_plot(self):
+        """
+        Return Django-formatted HTML intervalframe plot.
+        """
+        return plot_intervalframe(
+            intervalframe=self.solar_intervalframe, y_label="kw", to_html=True
+        )
 
     @classmethod
     def get_or_create_from_object(
-        cls, solar_pv: SolarPV
+        cls, solar_pv: pySolarPV
     ) -> Tuple[DERConfiguration, bool]:
         """
-        Get or create SolarPVConfiguration object from SolarPV object.
+        Get or create SolarPVConfiguration object from pySolarPV object.
         """
         parameters = solar_pv.request_params
-        parameters.pop("api_key")  # do not store API key
+        parameters.pop("api_key", None)  # do not store API key
         response = solar_pv.pvwatts_response
 
         return cls.objects.get_or_create(
@@ -701,6 +702,8 @@ class SolarPVStrategy(DERStrategy):
     """
 
     parameters = JSONField(unique=True)
+
+    der_type = "SolarPV"
 
     class Meta:
         ordering = ["id"]
@@ -723,3 +726,57 @@ class SolarPVStrategy(DERStrategy):
         return cls.objects.get_or_create(
             parameters=attr.asdict(solar_pv_strategy)
         )
+
+
+class SolarPVSimulationFrame(PowerIntervalFrameFile):
+    """
+    Model for handling SolarPV PowerIntervalFrameFiles.
+    """
+
+    # directory for parquet file storage
+    file_directory = os.path.join(MEDIA_ROOT, "der_simulations")
+
+
+class SolarPVSimulation(DERSimulation):
+    """
+    Container for storing SolarPV simulations.
+    """
+
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = SolarPVSimulationFrame
+
+    der_type = "SolarPV"
+
+    class Meta(DERSimulation.Meta):
+        verbose_name_plural = "Solar PV simulations"
+
+    @property
+    def system_capacity(self) -> float:
+        """
+        System capacity relative to reference solar intervalframe.
+        """
+        return self.der_configuration.der.get_system_capacity(
+            self.intervalframe
+        )
+
+    @classmethod
+    def get_configuration(cls, der: pySolarPV) -> SolarPVConfiguration:
+        configuration, _ = SolarPVConfiguration.get_or_create_from_object(
+            solar_pv=der
+        )
+
+        return configuration
+
+    @classmethod
+    def get_strategy(cls, der_strategy: pySolarPVStrategy) -> SolarPVStrategy:
+        der_strategy, _ = SolarPVStrategy.get_or_create_from_object(
+            solar_pv_strategy=der_strategy
+        )
+
+        return der_strategy
+
+    @classmethod
+    def get_simulation_builder(
+        cls, der: pySolarPV, der_strategy: pySolarPVStrategy
+    ) -> SolarPVSimulationBuilder:
+        return SolarPVSimulationBuilder(der=der, der_strategy=der_strategy)

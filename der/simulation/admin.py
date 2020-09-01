@@ -10,6 +10,9 @@ from der.simulation.models import (
     EVSEConfiguration,
     EVSESimulation,
     EVSEStrategy,
+    SolarPVConfiguration,
+    SolarPVSimulation,
+    SolarPVStrategy,
     StoredBatterySimulation,
 )
 
@@ -41,22 +44,6 @@ class BatteryConfiguration(admin.ModelAdmin):
     search_fields = ["rating", "discharge_duration_hours", "efficiency"]
 
 
-@admin.register(EVSEStrategy)
-class EVSEStrategyAdmin(admin.ModelAdmin):
-    ordering = ["name"]
-    readonly_fields = [
-        "charge_drive_html_plot",
-        "charge_schedule_html_table",
-        "drive_schedule_html_table",
-    ]
-    search_fields = [
-        "id",
-        "name",
-        "charge_schedule__id",
-        "drive_schedule__id",
-    ]
-
-
 @admin.register(EVSEConfiguration)
 class EVSEConfigurationAdmin(admin.ModelAdmin):
     search_fields = [
@@ -68,6 +55,39 @@ class EVSEConfigurationAdmin(admin.ModelAdmin):
         "ev_count",
         "evse_count",
     ]
+
+
+@admin.register(EVSEStrategy)
+class EVSEStrategyAdmin(admin.ModelAdmin):
+    ordering = ["name"]
+    readonly_fields = [
+        "charge_drive_html_plot",
+        "charge_schedule_html_table",
+        "drive_schedule_html_table",
+    ]
+    search_fields = ["id", "name", "charge_schedule__id", "drive_schedule__id"]
+
+
+@admin.register(SolarPVConfiguration)
+class SolarPVConfigurationAdmin(admin.ModelAdmin):
+    readonly_fields = ["parameters", "intervalframe_html_plot"]
+    search_fields = ["parameters"]
+
+
+@admin.register(SolarPVStrategy)
+class SolarPVStrategyAdmin(admin.ModelAdmin):
+    readonly_fields = ["parameters"]
+    search_fields = ["parameters"]
+
+
+@admin.register(SolarPVSimulation)
+class SolarPVSimulationAdmin(admin.ModelAdmin):
+    readonly_fields = [
+        "system_capacity",
+        "pre_vs_post_average_288_html_plot",
+        "pre_vs_post_maximum_288_html_plot",
+    ]
+    search_fields = ["id", "meter__sa_id"]
 
 
 @admin.register(StoredBatterySimulation)
@@ -83,4 +103,8 @@ class StoredBatterySimulation(admin.ModelAdmin):
 
 @admin.register(EVSESimulation)
 class EVSESimulation(admin.ModelAdmin):
+    readonly_fields = [
+        "pre_vs_post_average_288_html_plot",
+        "pre_vs_post_maximum_288_html_plot",
+    ]
     search_fields = ["id", "meter__sa_id"]

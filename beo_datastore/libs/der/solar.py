@@ -1,10 +1,11 @@
 import attr
 from cached_property import cached_property
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import reduce
 import pandas as pd
 import requests
 
+from beo_datastore.libs.dataframe import resample_dataframe
 from beo_datastore.libs.der.builder import (
     DER,
     DERProduct,
@@ -111,17 +112,9 @@ class SolarPV(DER):
         else:
             return requests.get(PVWATTS_URL, params=self.request_params).json()
 
-    @cached_property
-    def solar_yield(self) -> float:
-        """
-        Return total annual yield per 1 kW of system capacity. Yield is in kwh.
-        """
-        solar_intervalframe = self.get_annual_solar_intervalframe(year=2000)
-        annual_yield = solar_intervalframe.total_frame288.dataframe.sum().sum()
-
-        return annual_yield / self.system_capacity
-
-    def get_annual_solar_intervalframe(self, year: int) -> PowerIntervalFrame:
+    def get_annual_solar_intervalframe(
+        self, year: int, target_period: timedelta = timedelta(hours=1)
+    ) -> PowerIntervalFrame:
         """
         Get solar production intervals provided by PVWatts with timestamps from
         provided year.
@@ -136,11 +129,20 @@ class SolarPV(DER):
         # convert W to kW and reverse polarity of readings
         dataframe = dataframe / -1000
         dataframe = dataframe.rename(columns={1: "kw"})
+        # rename index
+        dataframe.index.rename("index", inplace=True)
 
-        return PowerIntervalFrame(dataframe=dataframe)
+        return PowerIntervalFrame(
+            dataframe=resample_dataframe(
+                dataframe=dataframe, target_period=target_period
+            )
+        )
 
     def get_solar_intervalframe(
-        self, start: datetime, end_limit: datetime
+        self,
+        start: datetime,
+        end_limit: datetime,
+        target_period: timedelta = timedelta(hours=1),
     ) -> PowerIntervalFrame:
         """
         Get solar production intervals provided by PVWatts with timestamps from
@@ -150,7 +152,9 @@ class SolarPV(DER):
         dataframe = reduce(
             lambda x, y: x.append(y),
             [
-                self.get_annual_solar_intervalframe(year).dataframe
+                self.get_annual_solar_intervalframe(
+                    year=year, target_period=target_period
+                ).dataframe
                 for year in range(start.year, end_limit.year + 1)
             ],
             pd.DataFrame(),
@@ -159,6 +163,26 @@ class SolarPV(DER):
         return PowerIntervalFrame(dataframe=dataframe).filter_by_datetime(
             start=start, end_limit=end_limit
         )
+
+    def get_system_capacity(self, intervalframe: PowerIntervalFrame) -> float:
+        """
+        Get system capacity by dividing intervalframe yield by solar
+        intervalframe yield over same timeframe.
+        """
+        intervalframe_yield = (
+            intervalframe.total_frame288.dataframe.sum().sum()
+        )
+        solar_yield = (
+            self.get_solar_intervalframe(
+                start=intervalframe.start_datetime,
+                end_limit=intervalframe.end_limit_datetime,
+            )
+            .total_frame288.dataframe.sum()
+            .sum()
+        )
+
+        normalized_solar_yield = solar_yield / self.system_capacity
+        return intervalframe_yield / normalized_solar_yield
 
 
 @attr.s(frozen=True)
@@ -240,6 +264,7 @@ class SolarPVSimulationBuilder(DERSimulationBuilder):
         solar_intervalframe = self.der.get_solar_intervalframe(
             start=intervalframe.start_datetime,
             end_limit=intervalframe.end_limit_datetime,
+            target_period=intervalframe.period,
         )
         solar_intervalframe = self.der_strategy.resize_solar_intervalframe(
             intervalframe=intervalframe,
