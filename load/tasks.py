@@ -135,9 +135,9 @@ def aggregate_meter_group_intervalframes(meter_group_id, in_db=True):
 
     if in_db and isinstance(meter_group, OriginFile) and meter_group.db_exists:
         meter_group_df = meter_group.db_get_meter_group_dataframe()
-        meter_group.intervalframe.dataframe = reformat_item_17(
-            meter_group_df[meter_group_df["DIR"] == "D"]
-        ) + reformat_item_17(meter_group_df[meter_group_df["DIR"] == "R"])
+        d_df = reformat_item_17(meter_group_df[meter_group_df["DIR"] == "D"])
+        r_df = reformat_item_17(meter_group_df[meter_group_df["DIR"] == "R"])
+        meter_group.intervalframe.dataframe = d_df.add(r_df, fill_value=0)
     else:
         meter_group.intervalframe = reduce(
             lambda x, y: x + y,
