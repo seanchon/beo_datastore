@@ -115,6 +115,9 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
     # Required by IntervalFrameFileMixin.
     frame_file_class = StudyIntervalFrame
 
+    # Exclude fields from __repr__
+    repr_exclude_fields = ["_report", "_report_summary"]
+
     class Meta:
         ordering = ["id"]
 

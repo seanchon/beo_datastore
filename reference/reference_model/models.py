@@ -428,6 +428,13 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
             "frame_file_class must be set in {}".format(self.__class__)
         )
 
+    @property
+    def linked_rate_plans(self):
+        """
+        linked_rate_plans associated with upstream CustomerMeter.
+        """
+        return self.meter.linked_rate_plans
+
     @cached_property
     def net_impact(self):
         return self.post_DER_total - self.pre_DER_total
