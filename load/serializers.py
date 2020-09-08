@@ -109,6 +109,8 @@ class DERSimulationSerialzier(DynamicModelSerializer):
             "start",
             "end_limit",
             "meter",
+            "sa_id",
+            "rate_plan_name",
             "der_configuration",
             "der_strategy",
         )
