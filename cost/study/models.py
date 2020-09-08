@@ -29,8 +29,9 @@ from der.simulation.models import (
     SolarPVSimulation,
     StoredBatterySimulation,
 )
-from load.customer.models import CustomerMeter
+from load.customer.models import CustomerMeter, OriginFile
 from load.openei.models import ReferenceMeter
+from load.tasks import aggregate_meter_group_intervalframes
 from reference.reference_model.models import (
     DERConfiguration,
     DERStrategy,
@@ -604,6 +605,26 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         # TODO: delete if no longer used
         self.meters.clear()
         self.meters.add(*self.meter_group.meters.all())
+
+    def make_origin_file(self):
+        """
+        Makes an origin file from the post-DER simulation data, to be used for
+        making compound simulations with multiple DERs
+        """
+        meter_group = self.meter_group
+        origin_file, _ = OriginFile.get_or_create(
+            name=self.name,
+            load_serving_entity=meter_group.load_serving_entity,
+            file=meter_group.file,
+        )
+
+        origin_file.expected_meter_count = meter_group.meters.count()
+        origin_file.meters.add(*self.der_simulations)
+        origin_file.owners.add(*meter_group.owners.all())
+        origin_file.save()
+
+        aggregate_meter_group_intervalframes.delay(origin_file.id)
+        return origin_file
 
 
 @receiver(m2m_changed, sender=SingleScenarioStudy.meters.through)
