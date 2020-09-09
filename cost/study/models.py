@@ -10,6 +10,8 @@ from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
 from django.utils.functional import cached_property
 
+from beo_datastore.libs.der.builder import AggregateDERProduct, DERProduct
+from beo_datastore.libs.controller import AggregateResourceAdequacyCalculation
 from beo_datastore.libs.intervalframe import PowerIntervalFrame
 from beo_datastore.libs.intervalframe_file import PowerIntervalFrameFile
 from beo_datastore.libs.models import IntervalFrameFileMixin
@@ -342,7 +344,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
 
         return summary.loc[indices]
 
-    @property
+    @cached_property
     def ra_report_summary(self):
         """
         pandas DataFrame with RA totals for each column of report.
@@ -353,26 +355,34 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         if not system_profile:
             return pd.DataFrame()
 
-        pre_DER_RA = (
-            system_profile.intervalframe.maximum_frame288.dataframe.max().sum()
+        # create a single DERProduct of all meters combined
+        der_product = DERProduct(
+            der=self.der_configuration.der,
+            der_strategy=self.der_strategy.der_strategy,
+            pre_der_intervalframe=self.pre_der_intervalframe,
+            der_intervalframe=self.der_intervalframe,
+            post_der_intervalframe=self.post_der_intervalframe,
         )
-        inverse_pre_der_intervalframe = PowerIntervalFrame(
-            dataframe=self.meter_group.meter_intervalframe.dataframe * -1
+        agg_der_product = AggregateDERProduct(
+            der_products={self.id: der_product}
         )
-        post_DER_RA = (
-            (
-                system_profile.intervalframe
-                + self.meter_intervalframe
-                + inverse_pre_der_intervalframe
-            )
-            .maximum_frame288.dataframe.max()
-            .sum()
+
+        # compute RA on all meters combined
+        ra_calculation = AggregateResourceAdequacyCalculation(
+            agg_simulation=agg_der_product,
+            system_profile_intervalframe=system_profile.intervalframe,
         )
+
         dataframe = pd.DataFrame(
             {
-                "RAPreDER": [pre_DER_RA],
-                "RAPostDER": [post_DER_RA],
-                "RADelta": [(post_DER_RA - pre_DER_RA)],
+                "RAPreDER": [ra_calculation.pre_DER_total],
+                "RAPostDER": [ra_calculation.post_DER_total],
+                "RADelta": [
+                    (
+                        ra_calculation.post_DER_total
+                        - ra_calculation.pre_DER_total
+                    )
+                ],
             }
         ).transpose()
 
@@ -780,7 +790,7 @@ class MultipleScenarioStudy(IntervalFrameFileMixin, Study):
             PowerIntervalFrame(),
         )
 
-    @property
+    @cached_property
     def der_intervalframe(self):
         """
         PowerIntervalFrame representing aggregate readings of all DER
