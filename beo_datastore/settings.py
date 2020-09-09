@@ -91,6 +91,7 @@ MIDDLEWARE = [
 ]
 
 CORS_ORIGIN_ALLOW_ALL = False
+CORS_EXPOSE_HEADERS = ["Content-Disposition", "Content-Length"]
 
 try:
     CORS_ORIGIN_WHITELIST = os.environ.get("CORS_ORIGIN_WHITELIST").split(" ")
