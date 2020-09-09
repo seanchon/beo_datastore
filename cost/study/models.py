@@ -30,7 +30,6 @@ from der.simulation.models import (
     StoredBatterySimulation,
 )
 from load.customer.models import CustomerMeter, OriginFile
-from load.openei.models import ReferenceMeter
 from load.tasks import aggregate_meter_group_intervalframes
 from reference.reference_model.models import (
     DERConfiguration,
@@ -311,8 +310,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
             .join(self.ghg_report, how="outer")
             .join(self.resource_adequacy_report, how="outer")
             .join(self.procurement_report, how="outer")
-            .join(self.customer_meter_report, how="outer")
-            .join(self.reference_meter_report, how="outer")
+            .join(self.meter_report, how="outer")
         )
         report["SingleScenarioStudy"] = str(self.id)
         report.index = report.index.astype(str)
@@ -477,22 +475,13 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         )
 
     @property
-    def customer_meter_report(self):
+    def meter_report(self):
         """
         Return pandas DataFrame with Meter SA IDs and RatePlans.
         """
-        return CustomerMeter.get_report(
-            CustomerMeter.objects.filter(id__in=self.meters.values_list("id"))
-        )
-
-    @property
-    def reference_meter_report(self):
-        """
-        Return pandas DataFrame with ReferenceMeter location and building
-        type.
-        """
-        return ReferenceMeter.get_report(
-            ReferenceMeter.objects.filter(id__in=self.meters.values_list("id"))
+        return Meter.get_report(
+            Meter.objects.filter(id__in=self.meters.values_list("id")),
+            column_map={"sa_id": "SA ID", "rate_plan_name": "MeterRatePlan"},
         )
 
     @property

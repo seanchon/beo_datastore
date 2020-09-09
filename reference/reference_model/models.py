@@ -287,6 +287,48 @@ class Meter(PolymorphicValidationModel, MeterDataMixin):
             "meter_intervalframe must be set in {}".format(self.__class__)
         )
 
+    @staticmethod
+    def get_report(meters, column_map):
+        """
+        Return pandas DataFrame in the format:
+
+        |   ID  |   NAME_1   |   NAME_2  |
+
+        Where column_map is a dictionary mapping Django field/property to a
+        column name. (The ID column is automatically set.)
+
+        example:
+            {
+                "field_1": "NAME_1",
+                "property_2": "NAME_2"
+            }
+
+        :param meters: QuerySet or set of Meters
+        :column_map: dictionary of Django field/property and column names
+        :return: pandas DataFrame
+        """
+        # add id column
+        column_map["id"] = "id"
+
+        # extract fields and column_names
+        fields = list(column_map.keys())
+        column_names = {
+            pos: name for pos, name in enumerate(column_map.values())
+        }
+
+        dataframe = pd.DataFrame(
+            # meters.values_list("id", "sa_id", "rate_plan_name")
+            [
+                [getattr(meter, field, None) for field in fields]
+                for meter in meters
+            ]
+        )
+
+        if not dataframe.empty:
+            return dataframe.rename(columns=column_names).set_index("id")
+        else:
+            return pd.DataFrame()
+
 
 # DER BASE MODELS
 
@@ -429,11 +471,25 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         )
 
     @property
+    def rate_plan_name(self):
+        """
+        rate_plan_name associated with upstream CustomerMeter.
+        """
+        return self.meter.rate_plan_name
+
+    @property
     def linked_rate_plans(self):
         """
         linked_rate_plans associated with upstream CustomerMeter.
         """
         return self.meter.linked_rate_plans
+
+    @property
+    def sa_id(self):
+        """
+        sa_id associated with upstream CustomerMeter.
+        """
+        return self.meter.sa_id
 
     @cached_property
     def net_impact(self):
