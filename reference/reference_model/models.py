@@ -747,7 +747,7 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
             director = DERSimulationDirector(builder=builder)
             new_simulation = director.run_many_simulations(
                 intervalframe_dict={
-                    meter: meter.intervalframe for meter in new_meters
+                    meter: meter.meter_intervalframe for meter in new_meters
                 },
                 start=start,
                 end_limit=end_limit,
