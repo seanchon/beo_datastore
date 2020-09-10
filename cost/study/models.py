@@ -12,6 +12,7 @@ from django.utils.functional import cached_property
 
 from beo_datastore.libs.der.builder import AggregateDERProduct, DERProduct
 from beo_datastore.libs.controller import AggregateResourceAdequacyCalculation
+from beo_datastore.libs.dataframe import add_interval_dataframe
 from beo_datastore.libs.intervalframe import PowerIntervalFrame
 from beo_datastore.libs.intervalframe_file import PowerIntervalFrameFile
 from beo_datastore.libs.models import IntervalFrameFileMixin
@@ -153,35 +154,24 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
     @property
     def pre_der_intervalframe(self):
         """
-        Dynamically calculated PowerIntervalFrame representing aggregate
-        readings of all attached Meters before running DER simulations.
-
-        NOTE: Use self.meter_group.meter_intervalframe to get the
-        pre_der_intervalframe equivalent on the entire MeterGroup.
+        PowerIntervalFrame representing the associated MeterGroup's
+        meter_intervalframe.
         """
-        return reduce(
-            lambda x, y: x + y,
-            [x.meter_intervalframe for x in self.meters.all()],
-            PowerIntervalFrame(),
-        )
+        return self.meter_group.meter_intervalframe
 
     @property
     def der_intervalframe(self):
         """
-        Dynamically calculated PowerIntervalFrame representing aggregate
-        readings of all DER operations.
-
-        NOTE: Use the difference of self.meter_intervalframe and
-        self.meter_group.meter_intervalframe to get the der_intervalframe
-        equivalent on the entire MeterGroup.
+        PowerIntervalFrame representing all associated DERSimulation
+        PowerIntervalFrames combined.
         """
-        if self.der_simulations.count() > 0:
-            return reduce(
-                lambda x, y: x + y,
-                [x.der_intervalframe for x in self.der_simulations.all()],
+        inverse_pre_der_dataframe = self.pre_der_intervalframe.dataframe * -1
+
+        return PowerIntervalFrame(
+            dataframe=add_interval_dataframe(
+                self.meter_intervalframe.dataframe, inverse_pre_der_dataframe
             )
-        else:
-            return PowerIntervalFrame()
+        )
 
     @property
     def post_der_intervalframe(self):
@@ -189,7 +179,7 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         PowerIntervalFrame representing aggregate readings of all meters
         after running DER simulations.
         """
-        return self.pre_der_intervalframe + self.der_intervalframe
+        return self.intervalframe
 
     @property
     def meter_groups(self):
@@ -249,9 +239,6 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         Report containing meter SA IDs, DERConfiguration details, RatePlan
         details, and all cost impacts.
         """
-        if pd.DataFrame(self._report).empty:
-            self.generate_reports()
-
         report = pd.DataFrame(self._report)
         report.index.names = ["ID"]  # rename index to "ID"
         return report
@@ -273,9 +260,6 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         Report summary containing RA and non-RA totals for each column of
         self.report.
         """
-        if pd.DataFrame(self._report_summary).empty:
-            self.generate_reports()
-
         report_summary = pd.DataFrame(self._report_summary)
         report_summary.index.names = ["ID"]  # rename index to "ID"
         return report_summary
@@ -564,6 +548,19 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         for meter in self.meters.all():
             self.run_single_meter_simulation_and_cost(meter=meter)
 
+    def get_aggregate_der_intervalframe(self):
+        """
+        Return dynamically calculated PowerIntervalFrame representing aggregate
+        readings of DERSimulations within a SingleScenarioStudys.
+        """
+        if self.der_simulations.count() > 0:
+            return reduce(
+                lambda x, y: x + y,
+                [x.der_intervalframe for x in self.der_simulations.all()],
+            )
+        else:
+            return PowerIntervalFrame()
+
     def aggregate_meter_intervalframe(self, force=False):
         """
         Only aggretate meter_intervalframe if:
@@ -576,9 +573,8 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
             (self.der_simulations.count() == self.meters.count())
             and self.meter_intervalframe.dataframe.empty
         ) or force:
-            self.intervalframe.dataframe = (
-                self.post_der_intervalframe.dataframe
-            )
+            der_intervalframe = self.get_aggregate_der_intervalframe()
+            self.intervalframe = self.pre_der_intervalframe + der_intervalframe
             self.save()
 
     def filter_by_query(self, query):
