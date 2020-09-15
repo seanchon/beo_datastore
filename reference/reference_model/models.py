@@ -330,7 +330,6 @@ class Meter(PolymorphicValidationModel, MeterDataMixin):
         }
 
         dataframe = pd.DataFrame(
-            # meters.values_list("id", "sa_id", "rate_plan_name")
             [
                 [getattr(meter, field, None) for field in fields]
                 for meter in meters

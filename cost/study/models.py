@@ -339,21 +339,9 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         if not system_profile:
             return pd.DataFrame()
 
-        # create a single DERProduct of all meters combined
-        der_product = DERProduct(
-            der=self.der_configuration.der,
-            der_strategy=self.der_strategy.der_strategy,
-            pre_der_intervalframe=self.pre_der_intervalframe,
-            der_intervalframe=self.der_intervalframe,
-            post_der_intervalframe=self.post_der_intervalframe,
-        )
-        agg_der_product = AggregateDERProduct(
-            der_products={self.id: der_product}
-        )
-
         # compute RA on all meters combined
         ra_calculation = AggregateResourceAdequacyCalculation(
-            agg_simulation=agg_der_product,
+            agg_simulation=self.agg_simulation,
             system_profile_intervalframe=system_profile.intervalframe,
         )
 
@@ -361,16 +349,35 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
             {
                 "RAPreDER": [ra_calculation.pre_DER_total],
                 "RAPostDER": [ra_calculation.post_DER_total],
-                "RADelta": [
-                    (
-                        ra_calculation.post_DER_total
-                        - ra_calculation.pre_DER_total
-                    )
-                ],
+                "RADelta": [ra_calculation.net_impact],
             }
         ).transpose()
 
         return dataframe
+
+    @cached_property
+    def agg_simulation(self):
+        """
+        Return AggregateDERProduct equivalent of self.
+
+        AggregateDERProduct with the same parameters can be added to
+        one another and can be used for aggregate "cost calculations" found in
+        beo_datastore/libs/controller.py.
+        """
+        return AggregateDERProduct(der_products={self.id: self.der_product})
+
+    @cached_property
+    def der_product(self):
+        """
+        Return DERProduct equivalent of self.
+        """
+        return DERProduct(
+            der=self.der_configuration.der,
+            der_strategy=self.der_strategy.der_strategy,
+            pre_der_intervalframe=self.pre_der_intervalframe,
+            der_intervalframe=self.der_intervalframe,
+            post_der_intervalframe=self.post_der_intervalframe,
+        )
 
     @property
     def report_html_table(self):
@@ -553,13 +560,11 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         Return dynamically calculated PowerIntervalFrame representing aggregate
         readings of DERSimulations within a SingleScenarioStudys.
         """
-        if self.der_simulations.count() > 0:
-            return reduce(
-                lambda x, y: x + y,
-                [x.der_intervalframe for x in self.der_simulations.all()],
-            )
-        else:
-            return PowerIntervalFrame()
+        return reduce(
+            lambda x, y: x + y,
+            [x.der_intervalframe for x in self.der_simulations.all()],
+            PowerIntervalFrame(),
+        )
 
     def aggregate_meter_intervalframe(self, force=False):
         """
@@ -607,7 +612,10 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
     def make_origin_file(self):
         """
         Makes an origin file from the post-DER simulation data, to be used for
-        making compound simulations with multiple DERs
+        making compound simulations with multiple DERs.
+
+        NOTE: This is a temporary method for use until a scenario can be the
+        starting point for the creation of a new scenario.
         """
         meter_group = self.meter_group
         origin_file, _ = OriginFile.get_or_create(
