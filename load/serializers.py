@@ -41,6 +41,7 @@ class MeterGroupSerializer(GetMeterDataMixin, DynamicModelSerializer):
     meters = serializers.SerializerMethodField()
     metadata = serializers.SerializerMethodField()
     owners = serializers.StringRelatedField(many=True)
+    date_range = serializers.SerializerMethodField()
 
     class Meta:
         model = MeterGroup
@@ -48,12 +49,15 @@ class MeterGroupSerializer(GetMeterDataMixin, DynamicModelSerializer):
             "id",
             "name",
             "created_at",
+            "date_range",
             "object_type",
             "meter_count",
             "owners",
             "meters",
             "data",
             "metadata",
+            "max_monthly_demand",
+            "total_kwh",
         )
         deferred_fields = ("meters",)
 
@@ -78,6 +82,12 @@ class MeterGroupSerializer(GetMeterDataMixin, DynamicModelSerializer):
             ).data
         else:
             return {}
+
+    def get_date_range(self, obj):
+        """
+        Returns the meter group's date range
+        """
+        return obj.intervalframe.date_range
 
 
 class CustomerMeterSerializer(DynamicModelSerializer):
@@ -111,7 +121,15 @@ class MeterSerializer(GetMeterDataMixin, DynamicModelSerializer):
 
     class Meta:
         model = Meter
-        fields = ("id", "object_type", "meter_groups", "data", "metadata")
+        fields = (
+            "id",
+            "object_type",
+            "meter_groups",
+            "data",
+            "metadata",
+            "max_monthly_demand",
+            "total_kwh",
+        )
 
     def get_metadata(self, obj):
         """

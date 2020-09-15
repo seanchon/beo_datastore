@@ -262,6 +262,31 @@ class ValidationIntervalFrame(ValidationDataFrame):
         """
         return self.end_datetime + self.period
 
+    @property
+    def date_range(self):
+        """
+        Returns a tuple of the intervalframe's start and end times
+        """
+        return [self.start_datetime, self.end_datetime]
+
+    @property
+    def years(self):
+        """
+        Returns a list of the years that the intervalframe spans
+        """
+        start_year = self.start_datetime.year
+        end_year = self.end_datetime.year
+        no_start_year = np.isnan(start_year)
+        no_end_year = np.isnan(end_year)
+
+        if no_start_year and no_end_year:
+            return []
+        if no_start_year:
+            return [end_year]
+        if no_end_year:
+            return [start_year]
+        return list(range(start_year, end_year + 1))
+
     @cached_property
     def period(self):
         """
@@ -597,11 +622,25 @@ class PowerIntervalFrame(ValidationIntervalFrame):
         return self.compute_frame288(aggfunc=np.max)
 
     @cached_property
+    def maximum(self):
+        """
+        Returns the maximum of all values in the `maximum_frame288`
+        """
+        return self.maximum_frame288.dataframe.max().max()
+
+    @cached_property
     def total_frame288(self):
         """
         ValidationFrame288 of hourly totals in kWh.
         """
         return self.compute_frame288(aggfunc=sum, convert_to_kwh=True)
+
+    @cached_property
+    def total(self):
+        """
+        Returns the sum of all values in the `total_frame288`
+        """
+        return self.total_frame288.dataframe.sum().sum()
 
     @cached_property
     def count_frame288(self):

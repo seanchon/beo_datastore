@@ -169,9 +169,6 @@ class SolarPV(DER):
         Get system capacity by dividing intervalframe yield by solar
         intervalframe yield over same timeframe.
         """
-        intervalframe_yield = (
-            intervalframe.total_frame288.dataframe.sum().sum()
-        )
         solar_yield = (
             self.get_solar_intervalframe(
                 start=intervalframe.start_datetime,
@@ -182,7 +179,7 @@ class SolarPV(DER):
         )
 
         normalized_solar_yield = solar_yield / self.system_capacity
-        return intervalframe_yield / normalized_solar_yield
+        return intervalframe.total / normalized_solar_yield
 
 
 @attr.s(frozen=True)
@@ -213,12 +210,11 @@ class SolarPVStrategy(DERStrategy):
         Calculate annual load of a intervalframe.
         """
         # calculate average daily load
-        total_kwh = intervalframe.total_frame288.dataframe.sum().sum()
         days = (
             intervalframe.end_limit_datetime - intervalframe.start_datetime
         ).days
 
-        return (total_kwh / days) * 365
+        return (intervalframe.total / days) * 365
 
     def get_target_system_size_ratio(
         self, annual_load: float, solar_yield: float

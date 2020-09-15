@@ -512,6 +512,7 @@ class CustomerMeter(Meter):
                 import_hash=import_hash,
                 export_hash=export_hash,
             )
+
             meter.meter_groups.add(origin_file)
             for (export, dataframe) in [
                 (False, forward_df),
@@ -519,7 +520,8 @@ class CustomerMeter(Meter):
             ]:
                 meter.get_or_create_channel(export, dataframe)
 
-            return (meter, created)
+            meter.build_aggregate_metrics()
+            return meter, created
 
     def get_or_create_channel(self, export, dataframe, data_unit_name="kw"):
         """

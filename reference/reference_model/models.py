@@ -1,5 +1,4 @@
 from enum import Enum
-from functools import reduce
 import pandas as pd
 import uuid
 
@@ -190,6 +189,21 @@ class MeterDataMixin(object):
         """
         return self.meter_intervalframe.count_frame288.dataframe
 
+    def build_aggregate_metrics(self):
+        """
+        Computes aggregate metrics on the model only if they have not already
+        been computed. The model is expected to have `total_kwh` and
+        `max_monthly_demand` fields. Note that this does not save the model.
+        """
+        intervalframe = self.meter_intervalframe
+        if self.total_kwh is None:
+            self.total_kwh = intervalframe.total
+
+        if self.max_monthly_demand is None:
+            self.max_monthly_demand = intervalframe.maximum
+
+        self.save()
+
 
 class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
     """
@@ -199,9 +213,11 @@ class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=128, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    max_monthly_demand = models.FloatField(blank=True, null=True)
     owners = models.ManyToManyField(
         to=User, related_name="meter_groups", blank=True
     )
+    total_kwh = models.FloatField(blank=True, null=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -250,19 +266,12 @@ class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
             for meter in self.meters.all()
         )
 
-    @cached_property
+    @property
     def years(self):
         """
         Set of all years found in contained Meters' readings.
         """
-        return reduce(
-            lambda x, y: x.union(y),
-            [
-                set(meter.intervalframe.dataframe.index.year)
-                for meter in self.meters.all()
-            ],
-            set(),
-        )
+        return self.intervalframe.years
 
 
 class Meter(PolymorphicValidationModel, MeterDataMixin):
@@ -273,9 +282,11 @@ class Meter(PolymorphicValidationModel, MeterDataMixin):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    max_monthly_demand = models.FloatField(blank=True, null=True)
     meter_groups = models.ManyToManyField(
         to=MeterGroup, related_name="meters", blank=True
     )
+    total_kwh = models.FloatField(blank=True, null=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -588,27 +599,14 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
             end_limit = der_product.der_intervalframe.end_limit_datetime
 
         with transaction.atomic():
-            configuration = cls.get_configuration(der_product.der)
-            der_strategy = cls.get_strategy(der_product.der_strategy)
-
-            pre_total_frame288 = (
-                der_product.pre_der_intervalframe.total_frame288
-            )
-
-            pre_der_total = pre_total_frame288.dataframe.sum().sum()
-            post_total_frame288 = (
-                der_product.post_der_intervalframe.total_frame288
-            )
-            post_der_total = post_total_frame288.dataframe.sum().sum()
-
             return cls.get_or_create(
                 start=start,
                 end_limit=end_limit,
                 meter=meter,
-                der_configuration=configuration,
-                der_strategy=der_strategy,
-                pre_DER_total=pre_der_total,
-                post_DER_total=post_der_total,
+                der_configuration=cls.get_configuration(der_product.der),
+                der_strategy=cls.get_strategy(der_product.der_strategy),
+                pre_DER_total=der_product.pre_der_intervalframe.total,
+                post_DER_total=der_product.post_der_intervalframe.total,
                 dataframe=der_product.der_intervalframe.dataframe,
             )
 

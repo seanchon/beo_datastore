@@ -90,15 +90,9 @@ class TestSolarPV(TestCase):
         Total energy generated should be 85% of total load. Total energy
         remaining should be 15% of total load.
         """
-        total_production = (
-            self.der_product_1.der_intervalframe.total_frame288.dataframe.sum().sum()
-        )
-        total_pre_der_load = (
-            self.der_product_1.pre_der_intervalframe.total_frame288.dataframe.sum().sum()
-        )
-        total_post_der_load = (
-            self.der_product_1.post_der_intervalframe.total_frame288.dataframe.sum().sum()
-        )
+        total_production = self.der_product_1.der_intervalframe.total
+        total_pre_der_load = self.der_product_1.pre_der_intervalframe.total
+        total_post_der_load = self.der_product_1.post_der_intervalframe.total
 
         offset_ratio = abs(total_production) / total_pre_der_load
         self.assertAlmostEqual(offset_ratio, 0.85)
@@ -110,12 +104,8 @@ class TestSolarPV(TestCase):
         """
         Total energy generation should double for a meter with twice the usage.
         """
-        production_1 = (
-            self.der_product_1.der_intervalframe.total_frame288.dataframe.sum().sum()
-        )
-        production_2 = (
-            self.der_product_2.der_intervalframe.total_frame288.dataframe.sum().sum()
-        )
+        production_1 = self.der_product_1.der_intervalframe.total
+        production_2 = self.der_product_2.der_intervalframe.total
 
         production_ratio = production_2 / production_1
         self.assertAlmostEqual(production_ratio, 2)

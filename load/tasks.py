@@ -144,6 +144,7 @@ def aggregate_meter_group_intervalframes(meter_group_id, in_db=True):
             [x.intervalframe for x in meter_group.meters.all()],
             PowerIntervalFrame(),
         )
+    meter_group.build_aggregate_metrics()
     meter_group.save()
 
 

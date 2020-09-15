@@ -251,10 +251,7 @@ class BatteryIntervalFrame(DataFrameQueue):
         Energy lost to charge/discharge cycles in kWh.
         """
         self.reset_cached_properties()
-        return (
-            self.total_frame288.dataframe.sum().sum()
-            - self.dataframe.iloc[-1].charge
-        )
+        return self.total - self.dataframe.iloc[-1].charge
 
 
 @attr.s(frozen=True)

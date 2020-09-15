@@ -41,7 +41,7 @@ class TestBill(TestCase):
         :param expected_count: float
         :param allowable_error_rate: float
         """
-        kwh_count = bill.intervalframe.total_frame288.dataframe.sum().sum()
+        kwh_count = bill.intervalframe.total
         self.assertLessEqual(
             get_error_rate(expected_count, kwh_count),
             allowable_error_rate,
