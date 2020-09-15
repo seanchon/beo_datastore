@@ -7,8 +7,7 @@ import re
 import us
 import uuid
 
-from django.core.exceptions import ObjectDoesNotExist
-from django.db import connection, models, transaction
+from django.db import models, transaction
 from django.db.models import Count
 from django.utils.functional import cached_property
 
@@ -72,6 +71,40 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
     def meter_intervalframe(self):
         return self.intervalframe
 
+    @cached_property
+    def linked_rate_plan_names(self):
+        """
+        All rate_plan_name Meter fields linked to OriginFile.
+        """
+        return set(
+            self.meters.values_list("customermeter__rate_plan_name", flat=True)
+        )
+
+    @cached_property
+    def linked_rate_plan_names_by_frequency(self):
+        """
+        All rate_plan_name Meter fields linked to OriginFile with frequency
+        count.
+        """
+        return (
+            self.meters.values("customermeter__rate_plan_name")
+            .order_by()
+            .annotate(Count("customermeter__rate_plan_name"))
+        )
+
+    @cached_property
+    def primary_linked_rate_plan_name(self):
+        """
+        Highest-frequency rate_plan_name Meter field linked to OriginFile.
+        """
+        if self.linked_rate_plan_names_by_frequency:
+            return max(
+                self.linked_rate_plan_names_by_frequency,
+                key=lambda x: x["customermeter__rate_plan_name__count"],
+            )["customermeter__rate_plan_name"]
+        else:
+            return ""
+
     @property
     def file_path(self):
         try:
@@ -94,47 +127,6 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         character constraints.
         """
         return ['"{}"'.format(x) for x in self.file_header.split(",")]
-
-    @property
-    def linked_rate_plans(self):
-        """
-        Return QuerySet of possible RatePlans linked to OriginFile.
-        """
-        return reduce(
-            lambda x, y: x | y,
-            [x.linked_rate_plans for x in self.meters.all()],
-        )
-
-    @property
-    def primary_linked_rate_plan(self):
-        """
-        Return linked RatePlan with the highest Meter count.
-        """
-        if self.linked_rate_plans.count() == 0:
-            raise ObjectDoesNotExist
-        elif self.linked_rate_plans.count() == 1:
-            return self.linked_rate_plans.first()
-        else:
-            # return RatePlan appearing most in self.meters's linked_rate_plans
-            query_result = (
-                self.meters.values("customermeter__rate_plan_name")
-                .order_by()
-                .annotate(Count("customermeter__rate_plan_name"))
-            )
-            maxval = max(
-                query_result,
-                key=lambda x: x["customermeter__rate_plan_name__count"],
-            )
-            # TODO: fix arbitary selection of first linked_rate_plans
-            return (
-                self.meters.filter(
-                    customermeter__rate_plan_name=maxval[
-                        "customermeter__rate_plan_name"
-                    ]
-                )
-                .first()
-                .linked_rate_plans.first()
-            )
 
     @property
     def db_exists(self):
@@ -461,49 +453,6 @@ class CustomerMeter(Meter):
         return us.states.lookup(self.state).capital_tz
 
     @property
-    def rate_plan_alias(self):
-        """
-        Heuristics for linking a rate_plan_name to a RatePlan.
-        """
-        alias = self.rate_plan_name
-
-        # remove H2 or H from beginning
-        if alias.startswith("H2"):
-            alias = alias[2:]
-        elif alias.startswith("H"):
-            alias = alias[1:]
-        # remove X, N, or S from ending
-        if alias.endswith("X"):
-            alias = alias[:-1]
-        if alias.endswith("N"):
-            alias = alias[:-1]
-        if alias.endswith("S"):
-            alias = alias[:-1]
-        if alias == "EVA":
-            alias = "EV"
-        # convert ETOU to TOU
-        alias = alias.replace("ETOU", "E-TOU")
-
-        return alias
-
-    @cached_property
-    def linked_rate_plans(self):
-        """
-        Return QuerySet of possible RatePlans linked to CustomerMeter.
-        """
-        if connection.vendor == "sqlite":
-            regex = r"\b{}\b".format(self.rate_plan_alias)
-        elif connection.vendor == "postgresql":
-            regex = r"\y{}\y".format(self.rate_plan_alias)
-        else:
-            regex = r""
-
-        return self.load_serving_entity.rate_plans.filter(
-            models.Q(name__contains=self.rate_plan_name)
-            | models.Q(name__iregex=regex)
-        ).distinct()
-
-    @property
     def intervalframe(self):
         """
         Return the sum of the import and export channel intervalframes.
@@ -757,11 +706,11 @@ class CustomerPopulation(ValidationModel):
         return self.meters.count()
 
     @property
-    def primary_linked_rate_plan(self):
+    def primary_linked_rate_plan_name(self):
         """
-        Primary RatePlan associated with related MeterGroup.
+        primary_linked_rate_plan_name associated with related MeterGroup.
         """
-        return self.meter_group.primary_linked_rate_plan
+        return self.meter_group.primary_linked_rate_plan_name
 
     def generate(self, owner=None):
         """
@@ -889,8 +838,8 @@ class CustomerCluster(IntervalFrameFileMixin, MeterGroup):
         return self.intervalframe
 
     @property
-    def primary_linked_rate_plan(self):
-        return self.customer_population.primary_linked_rate_plan
+    def primary_linked_rate_plan_name(self):
+        return self.customer_population.primary_linked_rate_plan_name
 
     @property
     def number_of_clusters(self):

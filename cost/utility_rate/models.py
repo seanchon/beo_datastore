@@ -3,7 +3,7 @@ from jsonfield import JSONField
 from multiprocessing import Pool
 import pandas as pd
 
-from django.db import models, transaction
+from django.db import connection, models, transaction
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.bill import OpenEIRateData, ValidationBill
@@ -144,6 +144,56 @@ class RatePlan(ValidationModel):
                 )
 
         return ValidationFrame288.convert_matrix_to_frame288(frame288_matrix)
+
+    @staticmethod
+    def get_rate_plan_alias(rate_plan_name):
+        """
+        Get the rate plan used in RatePlan naming from the rate_plan_name used
+        in the Item 17 RS (rate schedule) column.
+        """
+        if not rate_plan_name:
+            return ""
+
+        alias = rate_plan_name
+
+        # remove H2 or H from beginning
+        if alias.startswith("H2"):
+            alias = alias[2:]
+        elif alias.startswith("H"):
+            alias = alias[1:]
+        # remove X, N, or S from ending
+        if alias.endswith("X"):
+            alias = alias[:-1]
+        if alias.endswith("N"):
+            alias = alias[:-1]
+        if alias.endswith("S"):
+            alias = alias[:-1]
+        if alias == "EVA":
+            alias = "EV"
+        # convert ETOU to TOU
+        alias = alias.replace("ETOU", "E-TOU")
+
+        return alias
+
+    @classmethod
+    def get_linked_rate_plans(cls, load_serving_entity, rate_plan_name):
+        """
+        Get RatePlan objects that belong to load_serving_entity associated with
+        rate_plan_name.
+        """
+        rate_plan_alias = cls.get_rate_plan_alias(rate_plan_name)
+
+        if connection.vendor == "sqlite":
+            regex = r"\b{}\b".format(rate_plan_alias)
+        elif connection.vendor == "postgresql":
+            regex = r"\y{}\y".format(rate_plan_alias)
+        else:
+            regex = r""
+
+        return load_serving_entity.rate_plans.filter(
+            models.Q(name__contains=rate_plan_name)
+            | models.Q(name__iregex=regex)
+        ).distinct()
 
 
 class RateCollection(ValidationModel):

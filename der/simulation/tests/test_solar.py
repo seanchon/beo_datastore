@@ -99,9 +99,7 @@ class TestSolarPV(APITestCase):
 
         # associate user with meter_group LSE
         meter_group = MeterGroup.objects.first()
-        user.profile.load_serving_entity = (
-            meter_group.primary_linked_rate_plan.load_serving_entity
-        )
+        user.profile.load_serving_entity = meter_group.load_serving_entity
         user.profile.save()
 
         configuration, _ = SolarPVConfiguration.get_or_create_from_object(
