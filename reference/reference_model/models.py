@@ -220,12 +220,14 @@ class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
         )
 
     @property
-    def primary_linked_rate_plan(self):
+    def primary_linked_rate_plan_name(self):
         """
         Primary RatePlan associated with MeterGroup.
         """
         raise NotImplementedError(
-            "primary_linked_rate_plan must be set in {}".format(self.__class__)
+            "primary_linked_rate_plan_name must be set in {}".format(
+                self.__class__
+            )
         )
 
     @cached_property

@@ -16,7 +16,7 @@
     "fields": {
       "file": "test.csv",
       "md5sum": "0",
-      "load_serving_entity": 1,
+      "load_serving_entity": 2,
       "owners": []
     }
   },
@@ -61,7 +61,7 @@
   "pk": "00000000-0000-0000-0000-000000000001",
   "fields": {
     "sa_id": 0,
-    "rate_plan_name": "TEST",
+    "rate_plan_name": "EV, Residential Rates for Electric Vehicle Owners",
     "load_serving_entity": 2,
     "import_hash": 4818304188062480495,
     "export_hash": -7415945354745384700

@@ -1,8 +1,9 @@
 import coreapi
-from django.core.exceptions import ObjectDoesNotExist
-from django.db import transaction
 from functools import reduce
 import pandas as pd
+
+from django.db import transaction
+
 from rest_framework import serializers, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -111,9 +112,11 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
                             id=request.data["rate_plan_id"]
                         )
                     else:
-                        try:
-                            rate_plan = meter_group.primary_linked_rate_plan
-                        except ObjectDoesNotExist:
+                        rate_plan = RatePlan.get_linked_rate_plans(
+                            meter_group.load_serving_entity,
+                            meter_group.primary_linked_rate_plan_name,
+                        ).first()
+                        if not rate_plan:
                             raise serializers.ValidationError(
                                 "Could not determine RatePlan for MeterGroup "
                                 "(name: {}, id: {}).".format(
