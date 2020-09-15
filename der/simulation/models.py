@@ -232,7 +232,7 @@ class BatteryConfiguration(DERConfiguration):
     Container for storing Battery configurations.
     """
 
-    rating = models.IntegerField(blank=False, null=False)
+    rating = models.FloatField(blank=False, null=False)
     discharge_duration_hours = models.IntegerField(blank=False, null=False)
     efficiency = models.FloatField(
         blank=False,

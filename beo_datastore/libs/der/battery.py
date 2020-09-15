@@ -28,7 +28,7 @@ class Battery(DER):
         - at rating (kw) for discharge duration
     """
 
-    rating = attr.ib(type=int)
+    rating = attr.ib(type=float)
     discharge_duration = attr.ib(type=timedelta)
     efficiency = attr.ib(type=float)
 
