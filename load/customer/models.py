@@ -1,7 +1,6 @@
 from datetime import datetime
 from functools import reduce
 import os
-import pandas as pd
 import pandas.io.sql as sqlio
 import re
 import us
@@ -545,27 +544,6 @@ class CustomerMeter(Meter):
                 meter=self,
                 dataframe=PowerIntervalFrame.default_dataframe,
             )
-
-    @staticmethod
-    def get_report(customer_meters):
-        """
-        Return pandas DataFrame in the format:
-
-        |   ID  |   SA ID   |   MeterRatePlan  |
-
-        :param customer_meters: QuerySet or set of CustomerMeters
-        :return: pandas DataFrame
-        """
-        dataframe = pd.DataFrame(
-            customer_meters.values_list("id", "sa_id", "rate_plan_name")
-        )
-
-        if not dataframe.empty:
-            return dataframe.rename(
-                columns={0: "ID", 1: "SA ID", 2: "MeterRatePlan"}
-            ).set_index("ID")
-        else:
-            return pd.DataFrame()
 
 
 class ChannelIntervalFrame(PowerIntervalFrameFile):

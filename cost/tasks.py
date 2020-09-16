@@ -48,12 +48,13 @@ def run_simulation_and_cost(single_scenario_study_id, meter_id):
     if (
         study.der_simulation_count == study.expected_der_simulation_count
     ) and study.meter_intervalframe.dataframe.empty:
-        # all DERSimulation objects created, cache meter_intervalframe
-        aggregate_study_intervalframes.delay(study.id)
+        # all DERSimulation objects created
+        # cache meter_intervalframe and generate_reports()
+        generate_intervalframe_and_reports.delay(study.id)
 
 
 @app.task(soft_time_limit=1800)
-def aggregate_study_intervalframes(study_id, force=False):
+def generate_intervalframe_and_reports(study_id, force=False):
     """
     Store post_der_intervalframe as meter_intervalframe
 
@@ -62,6 +63,7 @@ def aggregate_study_intervalframes(study_id, force=False):
     """
     study = Study.objects.get(id=study_id)
     study.aggregate_meter_intervalframe(force=force)
+    study.generate_reports()
 
 
 @app.task(soft_time_limit=1800)
