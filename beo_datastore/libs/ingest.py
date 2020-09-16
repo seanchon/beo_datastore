@@ -6,7 +6,8 @@ SA_ID,DIR,DATE,RS,0:15,0:30,0:45,1:00,1:15,1:30,1:45,2:00,2:15,2:30,2:45,3:00,3:
 SA_ID,DIR,DATE,RS,1:00,2:00,3:00,4:00,5:00,6:00,7:00,8:00,9:00,10:00,11:00,12:00,13:00,14:00,15:00,16:00,17:00,18:00,19:00,20:00,21:00,22:00,23:00,0:00
 """
 
-from datetime import timedelta
+import csv
+from datetime import datetime, timedelta
 import pandas as pd
 import re
 
@@ -14,6 +15,15 @@ from beo_datastore.libs.dataframe import get_dataframe_period
 
 
 # BEO source file located at https://tvrp.app.box.com/file/420277168014
+
+
+def csv_split(line, delimiter=",", quotechar='"'):
+    """
+    Perform a split on a CSV row and ignore delimiter inside of quotechar.
+    """
+    return list(csv.reader([line], delimiter=delimiter, quotechar=quotechar))[
+        0
+    ]
 
 
 def get_sa_id_column(dataframe):
@@ -50,11 +60,58 @@ def reformat_timestamp_columns(dataframe):
     )
 
 
-def get_timestamp_columns(dataframe):
+def is_time_str(time_string: str) -> bool:
+    """
+    Return True if time_string in H:MM or HH:MM format.
+    """
+    return re.search(r"^\d{1,2}\:\d{2}$", time_string)
+
+
+def get_timestamp_columns(columns: list) -> list:
     """
     Return column names containing timestamps.
     """
-    return [x for x in dataframe.columns if re.search(r"\d", x)]
+    return [x for x in columns if is_time_str(x)]
+
+
+def create_naive_datetime(time_string: str) -> datetime:
+    """
+    Convert time string (ex. "08:00") to a naive_datetime on December 31, 1999.
+    Convert occurances of "24" to "00".
+    """
+    hour, minute = time_string.split(":")
+    if hour == "24":
+        time_string = "00:" + minute
+
+    return datetime.strptime("12/31/1999 " + time_string, "%m/%d/%Y %H:%M")
+
+
+def get_timedelta_from_time_strings(time_strings: list) -> timedelta:
+    """
+    Examine a list of time strings (ex. "08:00") and determine the most-common
+    timedelta between them.
+    """
+    datetimes = [create_naive_datetime(x) for x in time_strings]
+    datetimes.sort()
+
+    # get diffs between n+1 and n element
+    diffs = [j - i for i, j in zip(datetimes, datetimes[1:] + datetimes[:1])]
+
+    # return most frequent diff
+    return max(set(diffs), key=diffs.count)
+
+
+def shift_time_string(time_string: str, amount: timedelta) -> str:
+    """
+    Shift string representation of time (ex. "08:00") by amount of time.
+
+    ex.
+        "08:00" shifted by timedelta(minutes=-15) yields "07:45"
+    """
+    naive_datetime = create_naive_datetime(time_string)
+    shifted_datetime = naive_datetime + amount
+
+    return shifted_datetime.strftime("%H:%M")
 
 
 def get_rate_plan_name(dataframe, sa_column, said):
@@ -99,7 +156,7 @@ def reformat_item_17(dataframe):
     """
     dataframe = reformat_timestamp_columns(dataframe)
 
-    timestamp_columns = get_timestamp_columns(dataframe)
+    timestamp_columns = get_timestamp_columns(dataframe.columns)
     timestamp_columns = [timestamp_columns[-1]] + timestamp_columns[:-1]
     columns = ["DATE"] + timestamp_columns
 

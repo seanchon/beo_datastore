@@ -11,6 +11,13 @@ from django.db.models import Count
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.clustering import KMeansLoadClustering
+from beo_datastore.libs.ingest import (
+    csv_split,
+    get_timedelta_from_time_strings,
+    get_timestamp_columns,
+    is_time_str,
+    shift_time_string,
+)
 from beo_datastore.libs.intervalframe import PowerIntervalFrame
 from beo_datastore.libs.intervalframe_file import (
     Frame288File,
@@ -30,7 +37,12 @@ from beo_datastore.libs.postgresql import PostgreSQL, format_bulk_insert
 from beo_datastore.libs.utils import bytes_to_str, file_md5sum
 from beo_datastore.settings import DATABASES, MEDIA_ROOT
 
-from reference.reference_model.models import DataUnit, Meter, MeterGroup
+from reference.reference_model.models import (
+    DataUnit,
+    DERSimulation,
+    Meter,
+    MeterGroup,
+)
 from reference.auth_user.models import LoadServingEntity
 
 
@@ -71,12 +83,48 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         return self.intervalframe
 
     @cached_property
+    def base_customer_meters(self):
+        """
+        Base upstream CustomerMeters. This is useful when an OriginFile
+        contains DERSimulations since the rate_plan_name is a field on the
+        upstream CustomerMeter.
+        """
+        customer_meter_ids = set(
+            self.meters.instance_of(CustomerMeter).values_list("id", flat=True)
+        )
+        der_simulation_ids = set(
+            self.meters.instance_of(DERSimulation).values_list("id", flat=True)
+        )
+
+        while der_simulation_ids:
+            meter_ids = set(
+                DERSimulation.objects.filter(
+                    id__in=der_simulation_ids
+                ).values_list("meter__id", flat=True)
+            )
+            upstream_meters = Meter.objects.filter(id__in=meter_ids)
+            customer_meter_ids = customer_meter_ids.union(
+                set(
+                    upstream_meters.instance_of(CustomerMeter).values_list(
+                        "id", flat=True
+                    )
+                )
+            )
+            der_simulation_ids = set(
+                upstream_meters.instance_of(DERSimulation).values_list(
+                    "id", flat=True
+                )
+            )
+
+        return CustomerMeter.objects.filter(id__in=customer_meter_ids)
+
+    @cached_property
     def linked_rate_plan_names(self):
         """
         All rate_plan_name Meter fields linked to OriginFile.
         """
         return set(
-            self.meters.values_list("customermeter__rate_plan_name", flat=True)
+            self.base_customer_meters.values_list("rate_plan_name", flat=True)
         )
 
     @cached_property
@@ -86,9 +134,9 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         count.
         """
         return (
-            self.meters.values("customermeter__rate_plan_name")
+            self.base_customer_meters.values("rate_plan_name")
             .order_by()
-            .annotate(Count("customermeter__rate_plan_name"))
+            .annotate(Count("rate_plan_name"))
         )
 
     @cached_property
@@ -99,8 +147,8 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         if self.linked_rate_plan_names_by_frequency:
             return max(
                 self.linked_rate_plan_names_by_frequency,
-                key=lambda x: x["customermeter__rate_plan_name__count"],
-            )["customermeter__rate_plan_name"]
+                key=lambda x: x["rate_plan_name__count"],
+            )["rate_plan_name"]
         else:
             return ""
 
@@ -119,13 +167,73 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         with self.file.open(mode="r") as f:
             return bytes_to_str(f.readline()).strip()
 
-    @property
+    @cached_property
     def csv_columns(self):
         """
-        CSV columns from self.file. Double-quoted to handle PostgreSQL special
-        character constraints.
+        CSV columns from self.file.
         """
-        return ['"{}"'.format(x) for x in self.file_header.split(",")]
+        return self.file_header.split(",")
+
+    @cached_property
+    def csv_sa_id_column(self):
+        """
+        CSV column containing meter IDs.
+        """
+        id_columns = [x for x in self.csv_columns if "SA" in x]
+        if len(id_columns) != 1:
+            raise LookupError("Unique meter ID column not found.")
+        else:
+            return id_columns[0]
+
+    @property
+    def db_sa_id_column(self):
+        """
+        DB column containing meter IDs. Double-quoted for PostgreSQL.
+        """
+        return '"SA"'
+
+    @cached_property
+    def csv_date_column(self):
+        """
+        CSV column containing date.
+        """
+        date_columns = [x for x in self.csv_columns if "date" in x.lower()]
+        if len(date_columns) != 1:
+            raise LookupError("Unique DATE column not found.")
+        else:
+            return date_columns[0]
+
+    @property
+    def db_date_column(self):
+        """
+        DB column containing date. Double-quoted for PostgreSQL.
+        """
+        return '"DATE"'
+
+    @cached_property
+    def db_columns(self):
+        """
+        self.csv_columns using standardized column names. Double-quoted to
+        handle PostgreSQL special character constraints.
+        """
+        db_columns = self.csv_columns
+
+        for i, value in enumerate(db_columns):
+            if value == self.csv_sa_id_column:
+                db_columns[i] = self.db_sa_id_column
+            elif value == self.csv_date_column:
+                db_columns[i] = self.db_date_column
+
+        # shift intervals to beginning
+        period = get_timedelta_from_time_strings(
+            time_strings=get_timestamp_columns(columns=db_columns)
+        )
+        db_columns = [
+            shift_time_string(x, period * -1) if is_time_str(x) else x
+            for x in db_columns
+        ]
+
+        return ['"{}"'.format(x.replace('"', "")) for x in db_columns]
 
     @property
     def db_exists(self):
@@ -152,17 +260,6 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         Table used within database (self.db_name).
         """
         return "intervals"
-
-    @property
-    def db_sa_id_column(self):
-        """
-        Return column containing SA ID.
-        """
-        sa_columns = [x for x in self.csv_columns if "SA" in x]
-        if len(sa_columns) != 1:
-            raise LookupError("Unique SA ID column not found.")
-        else:
-            return sa_columns[0]
 
     @classmethod
     def get_or_create(cls, file, name, load_serving_entity, owner=None):
@@ -289,7 +386,7 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         with self.db_connect() as postgres:
             # create corresponding columns
             columns = ",".join(
-                ["{}".format(x) + " VARCHAR (16)" for x in self.csv_columns]
+                ["{}".format(x) + " VARCHAR (128)" for x in self.db_columns]
             )
             command = "CREATE TABLE {}({})".format(self.db_table, columns)
             postgres.execute(command=command)
@@ -305,13 +402,15 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
             i = 0
             chunk = []
             for line in f_in.readlines()[1:]:  # skip header
-                chunk.append(bytes_to_str(line).strip())
+                if isinstance(line, bytes):  # AWS S3 files
+                    line = line.decode()
+                chunk.append(csv_split(line))
                 i += 1
                 if i == chunk_size:
                     # bulk upload
                     command = "INSERT INTO {} ({}) VALUES {};".format(
                         self.db_table,
-                        ",".join(self.csv_columns),
+                        ",".join(self.db_columns),
                         format_bulk_insert(chunk),
                     )
                     postgres.execute(command=command)
@@ -321,7 +420,7 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
             if chunk:
                 command = "INSERT INTO {} ({}) VALUES {};".format(
                     self.db_table,
-                    ",".join(self.csv_columns),
+                    ",".join(self.db_columns),
                     format_bulk_insert(chunk),
                 )
                 postgres.execute(command=command)
@@ -332,8 +431,11 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         performance.
         """
         with self.db_connect() as postgres:
-            for column in self.csv_columns:
-                if "SA" in column or "DATE" in column:
+            for column in self.db_columns:
+                if (
+                    self.db_sa_id_column in column
+                    or self.db_date_column in column
+                ):
                     command = "CREATE INDEX idx_{} ON {}({});".format(
                         column.replace('"', ""), self.db_table, column
                     )
@@ -375,11 +477,11 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
             sa_ids_str = "('')"
 
         with self.db_connect() as postgres:
-            command = (
-                "SELECT * FROM {} WHERE {} IN {} "
-                'ORDER BY "DATE";'.format(
-                    self.db_table, self.db_sa_id_column, sa_ids_str
-                )
+            command = "SELECT * FROM {} WHERE {} IN {} " "ORDER BY {};".format(
+                self.db_table,
+                self.db_sa_id_column,
+                sa_ids_str,
+                self.db_date_column,
             )
             return sqlio.read_sql_query(sql=command, con=postgres.connection)
 
@@ -396,14 +498,16 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
                 [
                     "sum (cast(coalesce(substring({} FROM '^[0-9\.]+$'),'0.0') as float)) "
                     "{}".format(x, x)
-                    for x in self.csv_columns
+                    for x in self.db_columns
                     if re.search(r"\d", x)
                 ]
             )
             command = (
-                'SELECT "DATE", "UOM", "DIR", {} FROM intervals '
-                'GROUP BY "DATE", "UOM", "DIR" '
-                'ORDER BY "DATE";'.format(time_cols)
+                'SELECT {date_col}, "UOM", "DIR", {time_cols} FROM intervals '
+                'GROUP BY {date_col}, "UOM", "DIR" '
+                "ORDER BY {date_col};".format(
+                    date_col=self.db_date_column, time_cols=time_cols
+                )
             )
             return sqlio.read_sql_query(sql=command, con=postgres.connection)
 
@@ -432,7 +536,14 @@ class CustomerMeter(Meter):
 
     class Meta:
         ordering = ["id"]
-        unique_together = ("load_serving_entity", "import_hash", "export_hash")
+        unique_together = (
+            "sa_id",
+            "rate_plan_name",
+            "multiple_rate_plans",
+            "load_serving_entity",
+            "import_hash",
+            "export_hash",
+        )
 
     def __str__(self):
         return "{} ({}: {})".format(
