@@ -105,3 +105,4 @@ media_root_test/*/
 
 # IDE configurations
 .idea
+.vscode
