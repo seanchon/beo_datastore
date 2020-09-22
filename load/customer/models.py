@@ -2,7 +2,6 @@ from datetime import datetime
 from functools import reduce
 import os
 import pandas.io.sql as sqlio
-import re
 import us
 import uuid
 
@@ -477,7 +476,7 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
             sa_ids_str = "('')"
 
         with self.db_connect() as postgres:
-            command = "SELECT * FROM {} WHERE {} IN {} " "ORDER BY {};".format(
+            command = "SELECT * FROM {} WHERE {} IN {} ORDER BY {};".format(
                 self.db_table,
                 self.db_sa_id_column,
                 sa_ids_str,
@@ -499,7 +498,7 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
                     "sum (cast(coalesce(substring({} FROM '^[0-9\.]+$'),'0.0') as float)) "
                     "{}".format(x, x)
                     for x in self.db_columns
-                    if re.search(r"\d", x)
+                    if is_time_str(x)
                 ]
             )
             command = (

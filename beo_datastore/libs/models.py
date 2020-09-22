@@ -64,7 +64,7 @@ def nested_getattr(object, nested_attr, default=None, strict=False):
     :param object: object
     :param nested_attr: string of attrs separated by '.'
     :param default: default return value if strict is False
-    :param strict: boolean to raise Exception if True or return None if False
+    :param strict: boolean to raise Exception if True or return default if False
     :return: nested attribute
     """
     try:

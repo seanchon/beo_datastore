@@ -62,9 +62,9 @@ def reformat_timestamp_columns(dataframe):
 
 def is_time_str(time_string: str) -> bool:
     """
-    Return True if time_string in H:MM or HH:MM format.
+    Return True if time_string in H:MM or HH:MM format. Ignore double quotes.
     """
-    return re.search(r"^\d{1,2}\:\d{2}$", time_string)
+    return re.search(r"^\"?\d{1,2}\:\d{2}\"?$", time_string)
 
 
 def get_timestamp_columns(columns: list) -> list:
@@ -91,11 +91,14 @@ def get_timedelta_from_time_strings(time_strings: list) -> timedelta:
     Examine a list of time strings (ex. "08:00") and determine the most-common
     timedelta between them.
     """
+    if len(time_strings) < 2:
+        return timedelta(0)
+
     datetimes = [create_naive_datetime(x) for x in time_strings]
     datetimes.sort()
 
     # get diffs between n+1 and n element
-    diffs = [j - i for i, j in zip(datetimes, datetimes[1:] + datetimes[:1])]
+    diffs = [j - i for i, j in zip(datetimes[:-1], datetimes[1:])]
 
     # return most frequent diff
     return max(set(diffs), key=diffs.count)
