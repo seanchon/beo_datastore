@@ -41,6 +41,8 @@ class TestEndpointsLoad(APITestCase, BasicAuthenticationTestMixin):
         )
         for o in OriginFile.objects.all():
             o.owners.add(self.user)
+            o.expected_meter_count = o.meters.count()
+            o.save()
 
         # test following endpoints using BasicAuthenticationTestMixin
         self.endpoints = [

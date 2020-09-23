@@ -16,6 +16,7 @@ from beo_datastore.libs.ingest import (
     get_timestamp_columns,
     is_time_str,
     shift_time_string,
+    reformat_item_17,
 )
 from beo_datastore.libs.intervalframe import PowerIntervalFrame
 from beo_datastore.libs.intervalframe_file import (
@@ -76,6 +77,16 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
 
     class Meta:
         ordering = ["id"]
+
+    @property
+    def has_completed(self):
+        """
+        True if all meters have been ingested and self.meter_intervalframe has
+        been aggregated.
+        """
+        return (
+            self.expected_meter_count == self.meters.count()
+        ) and not self.meter_intervalframe.dataframe.empty
 
     @property
     def meter_intervalframe(self):
@@ -260,6 +271,21 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         """
         return "intervals"
 
+    def aggregate_meter_intervalframe(self) -> bool:
+        """
+        Only aggretate meter_intervalframe if all self.meters have been
+        ingested.
+        """
+        self.acquire_lock()
+        if self.meters.count() == self.expected_meter_count:
+            self.intervalframe = reduce(
+                lambda x, y: x + y,
+                (x.meter_intervalframe for x in self.meters.all()),
+                PowerIntervalFrame(),
+            )
+            self.save()
+        self.release_lock()
+
     @classmethod
     def get_or_create(cls, file, name, load_serving_entity, owner=None):
         """
@@ -397,6 +423,7 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
 
         :param chunk_size: number of lines to write to db at once
         """
+        self.acquire_lock()
         with self.db_connect() as postgres, self.file.open(mode="r") as f_in:
             i = 0
             chunk = []
@@ -423,6 +450,7 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
                     format_bulk_insert(chunk),
                 )
                 postgres.execute(command=command)
+        self.release_lock()
 
     def db_create_indexes(self):
         """
@@ -440,12 +468,26 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
                     )
                     postgres.execute(command=command)
 
+    def db_aggregate_meter_intervalframes(self):
+        """
+        Create and store an aggregate PowerIntervalFrame representing all
+        constituent Meters.
+        """
+        self.acquire_lock()
+        meter_group_df = self.db_get_meter_group_dataframe()
+        d_df = reformat_item_17(meter_group_df[meter_group_df["DIR"] == "D"])
+        r_df = reformat_item_17(meter_group_df[meter_group_df["DIR"] == "R"])
+        self.intervalframe.dataframe = d_df.add(r_df, fill_value=0)
+        self.save()
+        self.release_lock()
+
     def db_drop(self):
         """
         Drop database associated with OriginFile.file.
         """
-        command = "DROP DATABASE {};".format(self.db_name)
-        self.db_execute_global(command=command)
+        if self.db_exists:
+            command = "DROP DATABASE {};".format(self.db_name)
+            self.db_execute_global(command=command)
 
     def db_get_sa_ids(self):
         """

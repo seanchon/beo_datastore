@@ -5,6 +5,7 @@ from polymorphic.models import PolymorphicModel
 from django.apps import apps
 from django.db import models, transaction
 from django.utils.functional import cached_property
+from django.utils.timezone import now
 
 from beo_datastore.libs.views import dataframe_to_html
 
@@ -122,6 +123,64 @@ class AutoReprMixin(object):
         parts = filter(None, map(self._repr_format_field, fields))
         attrs = ", ".join(parts)
         return "{}({})".format(self.__class__.__name__, attrs)
+
+
+class TaskStatusModelMixin(models.Model):
+    """
+    A model containing Django fields and methods for locking and completing
+    tasks on a model.
+    """
+
+    locked = models.BooleanField(default=False)
+    locked_unlocked_at = models.DateTimeField(blank=True, null=True)
+    completed = models.BooleanField(default=False)
+    completed_incompleted_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def is_locked(cls, instance_id) -> bool:
+        """
+        Query database to see if instance is locked.
+        """
+        instance = cls.objects.get(id=instance_id)
+        return instance.locked
+
+    @classmethod
+    def is_completed(cls, instance_id) -> bool:
+        """
+        Query database to see if instance is completed.
+        """
+        instance = cls.objects.get(id=instance_id)
+        return instance.completed
+
+    def acquire_lock(self) -> None:
+        if self.__class__.is_locked(self.id):
+            raise RuntimeError(
+                "Cannot aquire lock: {} {}".format(self.__class__, self.id)
+            )
+        self.locked = True
+        self.locked_unlocked_at = now()
+        self.save()
+
+    def release_lock(self) -> None:
+        if self.locked:
+            self.locked = False
+            self.locked_unlocked_at = now()
+            self.save()
+
+    def mark_complete(self) -> None:
+        if not self.completed:
+            self.completed = True
+            self.completed_incompleted_at = now()
+            self.save()
+
+    def mark_incomplete(self) -> None:
+        if not self.completed:
+            self.completed = False
+            self.completed_incompleted_at = now()
+            self.save()
 
 
 class ValidationModel(AutoReprMixin, models.Model):

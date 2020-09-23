@@ -35,25 +35,31 @@ def run_simulation_and_cost(scenario_id, meter_id):
         meter=Meter.objects.get(id=meter_id)
     )
 
-    if (
-        scenario.der_simulation_count == scenario.expected_der_simulation_count
-    ) and scenario.meter_intervalframe.dataframe.empty:
-        # all DERSimulation objects created
-        # cache meter_intervalframe and generate_reports()
+    if scenario.simulations_completed and scenario.cost_calculations_completed:
         generate_intervalframe_and_reports.delay(scenario.id)
 
 
-@app.task(soft_time_limit=1800)
-def generate_intervalframe_and_reports(scenario_id, force=False):
+@app.task(soft_time_limit=1800, max_retries=3)
+def generate_intervalframe_and_reports(study_id, overwrite=False):
     """
     Store post_der_intervalframe as meter_intervalframe
 
     :param scenario_id: Scenario id
     :param force: force recomputation
     """
-    scenario = Scenario.objects.get(id=scenario_id)
-    scenario.aggregate_meter_intervalframe(force=force)
+    locked = Scenario.is_locked(study_id)
+    completed = Scenario.is_completed(study_id)
+
+    if locked or (completed and not overwrite):
+        # do nothing if job is running or completed
+        return
+
+    scenario = Scenario.objects.get(id=study_id)
+    scenario.aggregate_meter_intervalframe()
     scenario.generate_reports()
+
+    if scenario.has_completed:
+        scenario.mark_complete()
 
 
 @app.task(soft_time_limit=1800)
