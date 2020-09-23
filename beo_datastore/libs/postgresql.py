@@ -79,19 +79,23 @@ def format_bulk_insert(chunk):
             ('HG120', 'The Dinner Game', '1985-02-10', 'Comedy');
 
     chunk = [
-        "B6717,Tampopo,1985-02-10,Comedy",
-        "HG120,The Dinner Game,1985-02-10,Comedy"
+        ["B6717", "Tampopo", "1985-02-10", "Comedy"],
+        ["HG120", "The Dinner Game", "1985-02-10", "Comedy"]
     ]
 
     Returns:
         "('B6717', 'Tampopo', '1985-02-10', 'Comedy')," +
         "('HG120', 'The Dinner Game', '1985-02-10', 'Comedy')"
 
+    NOTE: Single quote marks are removed.
+
     :param chunk: array of strings (comma separated)
     """
     return ",".join(
         [
-            "(" + ",".join(["'{}'".format(x) for x in line.split(",")]) + ")"
+            "("
+            + ",".join(["'{}'".format(x.replace("'", "")) for x in line])
+            + ")"
             for line in chunk
         ]
     )

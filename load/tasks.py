@@ -18,7 +18,7 @@ logger = get_task_logger(__name__)
 
 
 @app.task(soft_time_limit=1800, max_retries=3)
-def ingest_origin_file_meters(origin_file_id, chunk_size=100, overwrite=False):
+def ingest_origin_file_meters(origin_file_id, chunk_size=5, overwrite=False):
     """
     Performs all necessary ingest steps after an OriginFile has been created.
 
@@ -76,7 +76,7 @@ def ingest_origin_file(origin_file_id):
         origin_file.save()
 
 
-@app.task(max_retries=3)
+@app.task(soft_time_limit=1800, max_retries=3)
 def ingest_meters(origin_file_id, sa_ids, overwrite=False):
     """
     Ingest meter from OriginFile based on SA IDs.
@@ -141,7 +141,7 @@ def aggregate_meter_group_intervalframes(meter_group_id, in_db=True):
     else:
         meter_group.intervalframe = reduce(
             lambda x, y: x + y,
-            [x.meter_intervalframe for x in meter_group.meters.all()],
+            (x.meter_intervalframe for x in meter_group.meters.all()),
             PowerIntervalFrame(),
         )
     meter_group.build_aggregate_metrics()

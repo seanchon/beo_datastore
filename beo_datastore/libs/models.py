@@ -51,6 +51,37 @@ def get_model_from_any_app(model_name, parent_class=None):
     return None
 
 
+def nested_getattr(object, nested_attr, default=None, strict=False):
+    """
+    Return a nested getattr lookup on an object. When default is provided and
+    a nested attribute does not exist, return default value. If default is not
+    provided and nested attribute does not exist, an exception is raised.
+
+    Example:
+    Return object.attr1.attr2.attr3 where
+        nested_attr = 'attr1.attr2.attr3'.
+
+    :param object: object
+    :param nested_attr: string of attrs separated by '.'
+    :param default: default return value if strict is False
+    :param strict: boolean to raise Exception if True or return default if False
+    :return: nested attribute
+    """
+    try:
+        keys = nested_attr.split(".")
+        if len(keys) == 1:
+            return getattr(object, keys[0])
+        else:
+            return nested_getattr(
+                getattr(object, keys[0]), ".".join(keys[1:]), default, strict
+            )
+    except AttributeError as e:
+        if strict:
+            raise (e)
+        else:
+            return default
+
+
 class AutoReprMixin(object):
     """
     A model mixin that generates a useful __repr__

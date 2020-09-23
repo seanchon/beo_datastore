@@ -16,7 +16,7 @@ from beo_datastore.libs.api.viewsets import (
     ListRetrieveViewSet,
 )
 from beo_datastore.libs.dataframe import download_dataframe
-from beo_datastore.libs.models import get_exact_many_to_many
+from beo_datastore.libs.models import get_exact_many_to_many, nested_getattr
 
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate, SystemProfile
@@ -163,12 +163,31 @@ class MultipleScenarioStudyViewSet(CreateViewSet):
                     ).last()
                     if system_profile:
                         single.system_profiles.add(system_profile)
-                    single.caiso_rates.add(
-                        *CAISORate.objects.filter(
-                            caiso_report__report_name="PRC_LMP",
-                            caiso_report__year__in=meter_group.years,
-                        )
+
+                    # assign CAISO rates
+                    caiso_rates = CAISORate.objects.filter(
+                        caiso_report__report_name="PRC_LMP",
+                        caiso_report__year__in=meter_group.years,
                     )
+                    parent_utility = nested_getattr(
+                        meter_group, "load_serving_entity.parent_utility.name"
+                    )
+                    if parent_utility == "Pacific Gas & Electric Co":
+                        caiso_rates = [
+                            x
+                            for x in caiso_rates
+                            if x.caiso_report.query_params.get("node", None)
+                            == "TH_NP15_GEN-APND"
+                        ]
+                    elif parent_utility == "Southern California Edison Co":
+                        caiso_rates = [
+                            x
+                            for x in caiso_rates
+                            if x.caiso_report.query_params.get("node", None)
+                            == "TH_SP15_GEN-APND"
+                        ]
+                    single.caiso_rates.add(*caiso_rates)
+
                     single_scenario_study_ids.add(single.id)
 
         existing_multiple_scenario_studies = get_exact_many_to_many(
