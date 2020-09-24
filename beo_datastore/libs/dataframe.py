@@ -36,19 +36,7 @@ def add_interval_dataframe(dataframe_1, dataframe_2):
             method="ffill",
         )
 
-    existing_indices = dataframe_1.index.difference(dataframe_2.index)
-    overlapping_indices = dataframe_1.index.intersection(dataframe_2.index)
-    new_indices = dataframe_2.index.difference(dataframe_1.index)
-
-    return (
-        dataframe_1.loc[existing_indices]
-        .append(
-            dataframe_1.loc[overlapping_indices]
-            + dataframe_2.loc[overlapping_indices]
-        )
-        .append(dataframe_2.loc[new_indices])
-        .sort_index()
-    )
+    return dataframe_1.add(dataframe_2, fill_value=0)
 
 
 def convert_columns_type(dataframe, type_):
@@ -303,22 +291,22 @@ def read_parquet(path: str, **kwargs):
 
 def read_file_with_cache_invalidation(path: str, read_fn, **kwargs):
     """
-        Reads a file, potentially clearing the s3fs cache
+    Reads a file, potentially clearing the s3fs cache
 
-        If the path is to an s3 file, s3fs will check its cache for previous
-        requests to the same path and return the cached response if found. This is
-        an issue for buckets that have dynamically created assets: if a file is
-        added to a bucket directory after we have queried the directory, the cached
-        response will not contain the new file. In this instance, s3fs will raise a
-        FileNotFound error. We catch that error and clear the cache before trying
-        the request again. We also catch PermissionErrors because s3fs will try to
-        fetch bucket contents without credentials if a credentialed request fails
+    If the path is to an s3 file, s3fs will check its cache for previous
+    requests to the same path and return the cached response if found. This is
+    an issue for buckets that have dynamically created assets: if a file is
+    added to a bucket directory after we have queried the directory, the cached
+    response will not contain the new file. In this instance, s3fs will raise a
+    FileNotFound error. We catch that error and clear the cache before trying
+    the request again. We also catch PermissionErrors because s3fs will try to
+    fetch bucket contents without credentials if a credentialed request fails
 
-        :param path: path to the file to read
-        :param read_fn: method to read the file, either pandas.read_csv or
-          pandas.read_parquet
-        :return: DataFrame
-        """
+    :param path: path to the file to read
+    :param read_fn: method to read the file, either pandas.read_csv or
+      pandas.read_parquet
+    :return: DataFrame
+    """
     try:
         return read_fn(path, **kwargs)
     except (PermissionError, FileNotFoundError) as e:
