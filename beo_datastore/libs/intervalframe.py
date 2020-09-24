@@ -170,7 +170,9 @@ class ValidationIntervalFrame(ValidationDataFrame):
         """
         # change other to type self.__class__
         other = self.__class__(
-            dataframe=other.dataframe[list(self.default_dataframe.columns)]
+            dataframe=other.dataframe[
+                list(self.default_dataframe.columns)
+            ].copy()
         )
 
         if other.dataframe.empty:
@@ -178,11 +180,8 @@ class ValidationIntervalFrame(ValidationDataFrame):
         elif self.dataframe.empty:
             return other
 
-        # filter other dataframe so columns match
-        other_dataframe = other.dataframe[list(self.default_dataframe.columns)]
-
         return self.__class__(
-            dataframe=add_interval_dataframe(self.dataframe, other_dataframe)
+            dataframe=add_interval_dataframe(self.dataframe, other.dataframe)
         )
 
     def __sub__(self, other):
