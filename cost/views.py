@@ -21,7 +21,7 @@ from beo_datastore.libs.models import get_exact_many_to_many, nested_getattr
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate, SystemProfile
 from cost.study.models import SingleScenarioStudy, MultipleScenarioStudy
-from cost.utility_rate.models import RatePlan
+from cost.utility_rate.models import RatePlan, RateCollection
 from reference.reference_model.models import (
     DERConfiguration,
     DERStrategy,
@@ -34,6 +34,8 @@ from .serializers import (
     GHGRateSerializer,
     MultipleScenarioStudySerializer,
     StudySerializer,
+    RatePlanSerializer,
+    RateCollectionSerializer,
 )
 from .tasks import run_study
 
@@ -472,3 +474,21 @@ class CAISORateViewSet(ListRetrieveViewSet):
             ),
         ]
     )
+
+
+class RatePlanViewSet(ListRetrieveUpdateDestroyViewSet):
+    """
+    Utility Rate Plan Objects
+    """
+
+    model = RatePlan
+    serializer_class = RatePlanSerializer
+
+
+class RateCollectionViewSet(ListRetrieveUpdateDestroyViewSet):
+    """
+    Utility Rate Data for a particular effective date
+    """
+
+    model = RateCollection
+    serializer_class = RateCollectionSerializer

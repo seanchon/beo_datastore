@@ -5,6 +5,8 @@ from cost.views import (
     GHGRateViewSet,
     MultipleScenarioStudyViewSet,
     StudyViewSet,
+    RatePlanViewSet,
+    RateCollectionViewSet,
 )
 from der.views import (
     DERConfigurationViewSet,
@@ -25,6 +27,10 @@ v1_router.register(r"cost/ghg_rate", GHGRateViewSet, basename="GHGRate")
 v1_router.register(r"cost/study", StudyViewSet, basename="Study")
 v1_router.register(
     r"cost/multiple_scenario_study", MultipleScenarioStudyViewSet
+)
+v1_router.register(r"cost/rate_plan", RatePlanViewSet, basename="RatePlan")
+v1_router.register(
+    r"cost/rate_collection", RateCollectionViewSet, basename="RateCollection"
 )
 v1_router.register(r"der/configuration", DERConfigurationViewSet)
 v1_router.register(
