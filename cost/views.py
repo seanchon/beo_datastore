@@ -13,6 +13,7 @@ from beo_datastore.libs.api.serializers import require_request_data
 from beo_datastore.libs.api.viewsets import (
     CreateViewSet,
     ListRetrieveUpdateDestroyViewSet,
+    ListRetrieveDestroyViewSet,
     ListRetrieveViewSet,
 )
 from beo_datastore.libs.dataframe import download_dataframe
@@ -476,7 +477,7 @@ class CAISORateViewSet(ListRetrieveViewSet):
     )
 
 
-class RatePlanViewSet(ListRetrieveUpdateDestroyViewSet):
+class RatePlanViewSet(ListRetrieveDestroyViewSet):
     """
     Utility Rate Plan Objects
     """
@@ -485,7 +486,7 @@ class RatePlanViewSet(ListRetrieveUpdateDestroyViewSet):
     serializer_class = RatePlanSerializer
 
 
-class RateCollectionViewSet(ListRetrieveUpdateDestroyViewSet):
+class RateCollectionViewSet(ListRetrieveDestroyViewSet):
     """
     Utility Rate Data for a particular effective date
     """

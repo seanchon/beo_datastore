@@ -276,9 +276,8 @@ class TestEndpointsUtilityRatePlan(APITestCase, BasicAuthenticationTestMixin):
 
     def setUp(self):
         """
-        Initialize endpoints to test and loads parquet files.
+        Initialize endpoints
         """
-        load_intervalframe_files()
 
         # create fake API user
         faker = Factory.create()
@@ -289,10 +288,10 @@ class TestEndpointsUtilityRatePlan(APITestCase, BasicAuthenticationTestMixin):
         self.endpoints = [
             "/v1/cost/rate_plan/?include[]={}".format(related_field)
             for related_field in [
-                "rate_collections",
-                "load_serving_entity",
-                "sector",
-                "voltage_category",
+                "rate_collections.*",
+                "load_serving_entity.*",
+                "sector.*",
+                "voltage_category.*",
             ]
         ]
 
@@ -309,9 +308,8 @@ class TestEndpointsUtilityRateCollection(
 
     def setUp(self):
         """
-        Initialize endpoints to test and loads parquet files.
+        Initialize user and endpoint
         """
-        load_intervalframe_files()
 
         # create fake API user
         faker = Factory.create()
@@ -319,12 +317,4 @@ class TestEndpointsUtilityRateCollection(
             username=faker.user_name(), email=faker.email(), is_superuser=False
         )
 
-        self.endpoints = [
-            "/v1/cost/rate_collection/?include[]={}".format(related_field)
-            for related_field in [
-                "rate_data",
-                "openei_url",
-                "utility_url",
-                "effective_date",
-            ]
-        ]
+        self.endpoints = ["/v1/cost/rate_collection/"]
