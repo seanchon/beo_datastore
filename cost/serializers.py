@@ -2,7 +2,10 @@ import json
 from datetime import timedelta
 import dateutil.parser
 
-from dynamic_rest.serializers import DynamicModelSerializer
+from dynamic_rest.serializers import (
+    DynamicModelSerializer,
+    DynamicRelationField,
+)
 from rest_framework import serializers
 
 from beo_datastore.libs.api.serializers import (
@@ -12,13 +15,15 @@ from beo_datastore.libs.api.serializers import (
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate
 from cost.study.models import SingleScenarioStudy, MultipleScenarioStudy
+from cost.utility_rate.models import RatePlan, RateCollection
+from reference.auth_user.models import LoadServingEntity
 from der.serializers import (
     DERConfigurationSerializer,
     DERSimulationSerializer,
     DERStrategySerializer,
 )
 from load.serializers import MeterGroupSerializer, MeterSerializer
-from reference.reference_model.models import Study
+from reference.reference_model.models import Study, Sector, VoltageCategory
 
 
 class GetStudyDataMixin(AbstractGetDataMixin):
@@ -230,3 +235,61 @@ class CAISORateSerializer(GetCAISORateDataMixin, DynamicModelSerializer):
 
     def get_year(self, obj):
         return obj.caiso_report.year
+
+
+class RateCollectionSerializer(DynamicModelSerializer):
+    rate_data = serializers.JSONField()
+
+    class Meta:
+        model = RateCollection
+        fields = (
+            "id",
+            "rate_data",
+            "effective_date",
+            "openei_url",
+            "utility_url",
+        )
+
+
+class LoadServingEntitySerializer(DynamicModelSerializer):
+    class Meta:
+        model = LoadServingEntity
+        fields = ("id", "name", "short_name", "state")
+
+
+class SectorSerializer(DynamicModelSerializer):
+    class Meta:
+        model = Sector
+        fields = ("id", "name", "load_serving_entity")
+
+    load_serving_entity = DynamicRelationField(LoadServingEntitySerializer)
+
+
+class VoltageCategorySerializer(DynamicModelSerializer):
+    class Meta:
+        model = VoltageCategory
+        fields = ("id", "name", "load_serving_entity")
+
+    load_serving_entity = DynamicRelationField(LoadServingEntitySerializer)
+
+
+class RatePlanSerializer(DynamicModelSerializer):
+    class Meta:
+        model = RatePlan
+        fields = (
+            "id",
+            "rate_collections",
+            "description",
+            "demand_min",
+            "demand_max",
+            "load_serving_entity",
+            "sector",
+            "voltage_category",
+        )
+
+    load_serving_entity = DynamicRelationField(LoadServingEntitySerializer)
+    sector = DynamicRelationField(SectorSerializer)
+    voltage_category = DynamicRelationField(VoltageCategorySerializer)
+    rate_collections = DynamicRelationField(
+        RateCollectionSerializer, many=True
+    )

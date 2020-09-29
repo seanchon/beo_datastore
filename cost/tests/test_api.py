@@ -264,3 +264,57 @@ class TestEndpointsCAISORate(APITestCase, BasicAuthenticationTestMixin):
             )
             for data_type, period in itertools.product(data_types, periods)
         ]
+
+
+class TestEndpointsUtilityRatePlan(APITestCase, BasicAuthenticationTestMixin):
+    """
+    Ensures endpoints are only accessible to logged-in users and are rendered
+    without errors.
+    """
+
+    fixtures = ["reference_model", "utility_rate"]
+
+    def setUp(self):
+        """
+        Initialize endpoints
+        """
+
+        # create fake API user
+        faker = Factory.create()
+        self.user = User.objects.create(
+            username=faker.user_name(), email=faker.email(), is_superuser=False
+        )
+
+        self.endpoints = [
+            "/v1/cost/rate_plan/?include[]={}".format(related_field)
+            for related_field in [
+                "rate_collections.*",
+                "load_serving_entity.*",
+                "sector.*",
+                "voltage_category.*",
+            ]
+        ]
+
+
+class TestEndpointsUtilityRateCollection(
+    APITestCase, BasicAuthenticationTestMixin
+):
+    """
+    Ensures endpoints are only accessible to logged-in users and are rendered
+    without errors.
+    """
+
+    fixtures = ["reference_model", "utility_rate"]
+
+    def setUp(self):
+        """
+        Initialize user and endpoint
+        """
+
+        # create fake API user
+        faker = Factory.create()
+        self.user = User.objects.create(
+            username=faker.user_name(), email=faker.email(), is_superuser=False
+        )
+
+        self.endpoints = ["/v1/cost/rate_collection/"]
