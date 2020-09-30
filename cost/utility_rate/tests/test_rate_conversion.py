@@ -10,7 +10,7 @@ from beo_datastore.libs.bill import (
 )
 
 
-TEST_FILE1 = "cost/utility_rate/scripts/data/openei_test_file.json"
+TEST_FILE1 = "cost/utility_rate/tests/data/openei_test_file.json"
 TEST_FILE2 = (
     "cost/utility_rate/scripts/data/mce_commercial_rates_20190701.json"
 )

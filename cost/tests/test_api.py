@@ -1,6 +1,7 @@
 from datetime import datetime
 from faker import Factory
 import itertools
+import json
 
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -317,4 +318,53 @@ class TestEndpointsUtilityRateCollection(
             username=faker.user_name(), email=faker.email(), is_superuser=False
         )
 
-        self.endpoints = ["/v1/cost/rate_collection/"]
+        self.endpoints = [
+            "/v1/cost/rate_collection/",
+            "/v1/cost/rate_collection/?include[]=rate_plan",
+        ]
+
+        self.csv_files = [
+            "cost/utility_rate/tests/data/{}.csv".format(name)
+            for name in [
+                "COMMERCIAL RATES",
+                "General Service Single Phase: Option A",
+                "Medium Commercial",
+                "Residential Rate",
+                "Small Commercial - SC Single-Phase",
+            ]
+        ]
+
+    def test_create_with_file(self):
+        """
+        Loop through sample CSV files and ensure they create a RateCollection
+        object
+        """
+        self.client.force_authenticate(user=self.user)
+        rate_plan = RatePlan.objects.first()
+        for filename in self.csv_files:
+            with open(filename) as fp:
+                resp = self.client.post(
+                    "/v1/cost/rate_collection/",
+                    {"rate_data_csv": fp, "rate_plan": rate_plan.id},
+                )
+                self.assertEqual(resp.status_code, 201)
+
+    def test_create_with_json(self):
+        """
+        Loop through the many different rate_data objects in the test file
+        and ensure that those post requests are successful as well.
+        """
+        self.client.force_authenticate(user=self.user)
+        rate_plan = RatePlan.objects.first()
+        with open("cost/utility_rate/tests/data/openei_test_file.json") as fp:
+            json_list = json.load(fp)
+            for rate_data in json_list:
+                body = {"rate_data": rate_data, "rate_plan": rate_plan.id}
+                if "effectiveDate" not in rate_data:
+                    body["effective_date"] = datetime(2020, 3, 1).date()
+                if not rate_data["sourceReference"].startswith("http"):
+                    body["utility_url"] = "http://www.example.com"
+                resp = self.client.post(
+                    "/v1/cost/rate_collection/", body, format="json"
+                )
+                self.assertEqual(resp.status_code, 201)

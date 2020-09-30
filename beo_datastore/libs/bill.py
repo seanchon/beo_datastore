@@ -110,6 +110,7 @@ def convert_rate_df_to_dict(df):
             i = 1
             while str(df.loc[idx + i, "field"]).isnumeric():
                 bucket = df.loc[idx + i, "0"]
+                bucket = "" if pd.isna(bucket) else bucket
                 period = int(df.loc[idx + i, "field"])
                 tier_dict = {
                     "rate": float(df.loc[idx + i, "1"]),

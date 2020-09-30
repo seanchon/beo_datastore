@@ -1,10 +1,13 @@
 import coreapi
 from functools import reduce
 import pandas as pd
+import json
+from datetime import datetime
 
 from django.db import transaction
+from django.http.request import QueryDict
 
-from rest_framework import serializers, status
+from rest_framework import serializers, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
@@ -18,6 +21,7 @@ from beo_datastore.libs.api.viewsets import (
 )
 from beo_datastore.libs.dataframe import download_dataframe
 from beo_datastore.libs.models import get_exact_many_to_many, nested_getattr
+from beo_datastore.libs.bill import convert_rate_df_to_dict
 
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate, SystemProfile
@@ -477,7 +481,7 @@ class CAISORateViewSet(ListRetrieveViewSet):
     )
 
 
-class RatePlanViewSet(ListRetrieveDestroyViewSet):
+class RatePlanViewSet(ListRetrieveDestroyViewSet, mixins.CreateModelMixin):
     """
     Utility Rate Plan Objects
     """
@@ -486,10 +490,45 @@ class RatePlanViewSet(ListRetrieveDestroyViewSet):
     serializer_class = RatePlanSerializer
 
 
-class RateCollectionViewSet(ListRetrieveDestroyViewSet):
+class RateCollectionViewSet(
+    ListRetrieveDestroyViewSet, mixins.CreateModelMixin
+):
     """
     Utility Rate Data for a particular effective date
     """
 
     model = RateCollection
     serializer_class = RateCollectionSerializer
+
+    def create(self, request, **kwargs):
+        """
+        Checks for 'rate_data_csv' in the request body and converts it to json
+        in order to use it as the 'rate_data' field. If possible, the
+        'effective_date' and 'utility_url' fields are filled with data
+        from the 'rate_data' dictionary itself.
+        """
+        rate_data_csv = request.data.pop("rate_data_csv", [None])[0]
+        if rate_data_csv is not None:
+            df = pd.read_csv(rate_data_csv.file)
+            out_dict = convert_rate_df_to_dict(df)
+            request.data["rate_data"] = out_dict
+        elif "rate_data" not in request.data:
+            raise serializers.ValidationError(
+                "'rate_data_csv' or 'rate_data' is required"
+            )
+        file_date = request.data["rate_data"].get("effectiveDate", None)
+        param_date = request.data.get("effective_date", None)
+        request.data["effective_date"] = (
+            datetime.fromtimestamp(int(file_date["$date"] / 1000)).date()
+            if param_date is None
+            else param_date
+        )
+        utility_url = request.data.get("utility_url", None)
+        request.data["utility_url"] = (
+            request.data["rate_data"].get("sourceReference", None)
+            if utility_url is None
+            else utility_url
+        )
+        if isinstance(request.data, QueryDict):
+            request.data["rate_data"] = json.dumps(request.data["rate_data"])
+        return super().create(request, **kwargs)
