@@ -239,6 +239,7 @@ class CAISORateSerializer(GetCAISORateDataMixin, DynamicModelSerializer):
 
 class RateCollectionSerializer(DynamicModelSerializer):
     rate_data = serializers.JSONField()
+    rate_plan = DynamicRelationField("RatePlanSerializer", deferred=True)
 
     class Meta:
         model = RateCollection
@@ -248,7 +249,9 @@ class RateCollectionSerializer(DynamicModelSerializer):
             "effective_date",
             "openei_url",
             "utility_url",
+            "rate_plan",
         )
+        deferred_fields = "rate_plan"
 
 
 class LoadServingEntitySerializer(DynamicModelSerializer):
@@ -258,26 +261,34 @@ class LoadServingEntitySerializer(DynamicModelSerializer):
 
 
 class SectorSerializer(DynamicModelSerializer):
+    load_serving_entity = DynamicRelationField(LoadServingEntitySerializer)
+
     class Meta:
         model = Sector
         fields = ("id", "name", "load_serving_entity")
 
-    load_serving_entity = DynamicRelationField(LoadServingEntitySerializer)
-
 
 class VoltageCategorySerializer(DynamicModelSerializer):
+    load_serving_entity = DynamicRelationField(LoadServingEntitySerializer)
+
     class Meta:
         model = VoltageCategory
         fields = ("id", "name", "load_serving_entity")
 
-    load_serving_entity = DynamicRelationField(LoadServingEntitySerializer)
-
 
 class RatePlanSerializer(DynamicModelSerializer):
+    load_serving_entity = DynamicRelationField(LoadServingEntitySerializer)
+    sector = DynamicRelationField(SectorSerializer)
+    voltage_category = DynamicRelationField(VoltageCategorySerializer)
+    rate_collections = DynamicRelationField(
+        RateCollectionSerializer, many=True
+    )
+
     class Meta:
         model = RatePlan
         fields = (
             "id",
+            "name",
             "rate_collections",
             "description",
             "demand_min",
@@ -286,10 +297,3 @@ class RatePlanSerializer(DynamicModelSerializer):
             "sector",
             "voltage_category",
         )
-
-    load_serving_entity = DynamicRelationField(LoadServingEntitySerializer)
-    sector = DynamicRelationField(SectorSerializer)
-    voltage_category = DynamicRelationField(VoltageCategorySerializer)
-    rate_collections = DynamicRelationField(
-        RateCollectionSerializer, many=True
-    )
