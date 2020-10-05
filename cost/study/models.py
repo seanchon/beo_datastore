@@ -1,11 +1,14 @@
+from collections import namedtuple
 from functools import reduce
 import json
 from jsonfield import JSONField
 import os
 import pandas as pd
+import re
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.functions import Coalesce
 from django.db.models.signals import m2m_changed
 from django.dispatch import receiver
 from django.utils.functional import cached_property
@@ -122,6 +125,46 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
 
     class Meta:
         ordering = ["id"]
+
+    @staticmethod
+    def standardize_delta_df(df: pd.DataFrame):
+        """
+        Takes a dataframe with "AbcPreDER", "AbcPostDER", and "AbcDelta" columns
+        and returns a the same dataframe with columns renamed to  "pre", "post"
+        and "delta". This is particularly useful for combining scenario
+        reporting fields
+
+        Ex.
+            SingleScenarioStudy.standardize_delta_df(pd.DataFrame(
+                [[0, 1, 2], [3, 4, 5]],
+                columns=["ExpensePreDER", "ExpensePostDER", "ExpenseDelta"]
+            ))
+
+            >>  index  |  pre  |  post  |  delta
+                    0  |    0  |     1  |      2
+                    1  |    3  |     4  |      5
+
+        :param df: dataframe to standardize
+        """
+        # get the "Abc" prefix
+        prefix = None
+        for column in df.columns:
+            match = re.match(r"(.*)PreDER", column)
+            if match:
+                prefix = match.group(1)
+                break
+
+        # dataframe doesn't have correct columns
+        if prefix is None:
+            return pd.DataFrame(columns=["pre", "post", "delta"])
+
+        return df.rename(
+            columns={
+                "{}PreDER".format(prefix): "pre",
+                "{}PostDER".format(prefix): "post",
+                "{}Delta".format(prefix): "delta",
+            }
+        )
 
     def clean(self, *args, **kwargs):
         if (
@@ -292,7 +335,9 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         All usage and cost reports stitched into a single report.
         """
         report = (
-            self.usage_report.join(self.bill_report, how="outer")
+            self.usage_report.join(self.revenue_report, how="outer")
+            .join(self.expense_report, how="outer")
+            .join(self.profit_report, how="outer")
             .join(self.ghg_report, how="outer")
             .join(self.resource_adequacy_report, how="outer")
             .join(self.procurement_report, how="outer")
@@ -308,25 +353,50 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         All usage and cost report summaries stitched into a single report
         summary.
         """
-        return self.non_ra_report_summary.append(self.ra_report_summary)
+        return (
+            self.linear_report_summary()
+            .append(self.ra_report_summary)
+            .append(self.expense_report_summary)
+            .append(self.profit_report_summary)
+        )
 
-    @property
-    def non_ra_report_summary(self):
+    def linear_report_summary(self, columns=None):
         """
-        pandas DataFrame with non-RA totals for each column of report.
+        pandas DataFrame with totals for all values of the report that can be
+        computed by linearly adding the corresponding values for each
+        individual DERSimulation
+
+        :param columns: the columns to include in the summary. If not provided,
+          defaults to all columns with the text "PreDER", "PostDER" or "Delta"
+          in their names
         """
-        summary = pd.DataFrame(self.report.sum())
-        indices = [
-            x
-            for x in summary.index
-            if "PreDER" in x or "PostDER" in x or "Delta" in x
+        report = self.report
+
+        # exclude nonlinear columns
+        nonlinear_columns = [
+            "ExpensePreDER",
+            "ExpensePostDER",
+            "ExpenseDelta",
+            "ProfitPreDER",
+            "ProfitPostDER",
+            "ProfitDelta",
+            "RAPreDER",
+            "RAPostDER",
+            "RADelta",
+            "RACostPreDER",
+            "RACostPostDER",
+            "RACostDelta",
         ]
-        # exclude RA columns
-        for index in ["RAPreDER", "RAPostDER", "RADelta"]:
-            if index in indices:
-                indices.remove(index)
 
-        return summary.loc[indices]
+        if columns is None:
+            columns = [
+                x
+                for x in report.columns
+                if ("PreDER" in x or "PostDER" in x or "Delta" in x)
+                and x not in nonlinear_columns
+            ]
+
+        return pd.DataFrame(self.report[columns].sum())
 
     @cached_property
     def ra_report_summary(self):
@@ -334,26 +404,73 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         pandas DataFrame with RA totals for each column of report.
         Filtering disabled.
         """
-        # TODO: Account for CCA's with multiple system profiles
-        system_profile = self.system_profiles.last()
-        if not system_profile:
+        ra_calculation = self.agg_ra_calculation
+        if ra_calculation is None:
             return pd.DataFrame()
 
-        # compute RA on all meters combined
-        ra_calculation = AggregateResourceAdequacyCalculation(
-            agg_simulation=self.agg_simulation,
-            system_profile_intervalframe=system_profile.intervalframe,
-        )
-
-        dataframe = pd.DataFrame(
+        return pd.DataFrame(
             {
                 "RAPreDER": [ra_calculation.pre_DER_total],
                 "RAPostDER": [ra_calculation.post_DER_total],
                 "RADelta": [ra_calculation.net_impact],
+                "RACostPreDER": [ra_calculation.pre_DER_total_cost],
+                "RACostPostDER": [ra_calculation.post_DER_total_cost],
+                "RACostDelta": [ra_calculation.net_impact_cost],
             }
         ).transpose()
 
-        return dataframe
+    @cached_property
+    def expense_report_summary(self):
+        """
+        Return pandas DataFrame with expenses totals
+        """
+        ra_calculation = self.agg_ra_calculation
+        if ra_calculation is None:
+            return pd.DataFrame()
+
+        procurement_aggregations = self.procurement_calculations.aggregate(
+            pre_der=Coalesce(models.Sum("pre_DER_total"), 0),
+            post_der=Coalesce(models.Sum("post_DER_total"), 0),
+        )
+
+        ra_cost_pre = ra_calculation.pre_DER_total_cost
+        ra_cost_post = ra_calculation.post_DER_total_cost
+        expenses_pre = ra_cost_pre + procurement_aggregations["pre_der"]
+        expenses_post = ra_cost_post + procurement_aggregations["post_der"]
+
+        return pd.DataFrame(
+            {
+                "ExpensePreDER": [expenses_pre],
+                "ExpensePostDER": [expenses_post],
+                "ExpenseDelta": [expenses_post - expenses_pre],
+            }
+        ).transpose()
+
+    @cached_property
+    def profit_report_summary(self):
+        """
+        Return pandas dataframe with profits, calculated as revenues - expenses
+        """
+        expenses = self.standardize_delta_df(
+            self.expense_report_summary.transpose()
+        )
+        revenues = self.standardize_delta_df(
+            self.linear_report_summary(
+                ["BillRevenuePreDER", "BillRevenuePostDER", "BillRevenueDelta"]
+            ).transpose()
+        )
+
+        return (
+            revenues.add(expenses.multiply(-1), fill_value=0)
+            .rename(
+                columns={
+                    "pre": "ProfitPreDER",
+                    "post": "ProfitPostDER",
+                    "delta": "ProfitDelta",
+                }
+            )
+            .transpose()
+        )
 
     @cached_property
     def agg_simulation(self):
@@ -365,6 +482,23 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         beo_datastore/libs/controller.py.
         """
         return AggregateDERProduct(der_products={self.id: self.der_product})
+
+    @cached_property
+    def agg_ra_calculation(self):
+        """
+        Return AggregateResourceAdequacyCalculation equivalent of self, or None
+        if no system profile is associated with the study
+        """
+        # TODO: Account for CCA's with multiple system profiles
+        system_profile = self.system_profiles.last()
+        if not system_profile:
+            return None
+
+        # compute RA on all meters combined
+        return AggregateResourceAdequacyCalculation(
+            agg_simulation=self.agg_simulation,
+            system_profile_intervalframe=system_profile.intervalframe,
+        )
 
     @cached_property
     def der_product(self):
@@ -440,12 +574,85 @@ class SingleScenarioStudy(IntervalFrameFileMixin, Study):
         """
         return DERSimulation.get_report(self.der_simulations)
 
-    @property
-    def bill_report(self):
+    @cached_property
+    def revenue_report(self):
         """
-        Return pandas DataFrame with meter SA IDs and bill deltas.
+        Return pandas DataFrame with meter SA IDs and bill deltas. This is
+        cached because it's reused in the `profits_report`
         """
         return StoredBillCalculation.get_report(self.bill_calculations)
+
+    @cached_property
+    def expense_report(self):
+        """
+        Return pandas DataFrame with meter SA IDs and expenses, defined as RA
+        expenses plus procurement cost expenses. This is cached because it's
+        reused in the `profits_report`
+        """
+        Expense = namedtuple("Expense", ["pre", "post", "delta"])
+        default_expense = Expense(0, 0, 0)
+
+        ra_expenses = {
+            x.der_simulation.meter.id: Expense(
+                x.pre_der_total_cost, x.post_der_total_cost, x.net_impact_cost
+            )
+            for x in self.resource_adequacy_calculations
+        }
+
+        procurement_expenses = {
+            x.der_simulation.meter.id: Expense(
+                x.pre_DER_total, x.post_DER_total, x.net_impact
+            )
+            for x in self.procurement_calculations
+        }
+
+        df_rows = []
+        for (meter_id,) in self.meters.values_list("id"):
+            ra_expense_missing = meter_id not in ra_expenses
+            procurement_expense_missing = meter_id not in procurement_expenses
+
+            # if we don't have either an RA calculation or a procurement
+            # calculation then we have no data at all for the meter, so continue
+            if ra_expense_missing and procurement_expense_missing:
+                continue
+
+            # otherwise retrieve the data for each expense category
+            ra_expense = ra_expenses.get(meter_id, default_expense)
+            procurement_expense = procurement_expenses.get(
+                meter_id, default_expense
+            )
+
+            df_rows.append(
+                [
+                    meter_id,
+                    procurement_expense.pre + ra_expense.pre,
+                    procurement_expense.post + ra_expense.post,
+                    procurement_expense.delta + ra_expense.delta,
+                ]
+            )
+
+        return pd.DataFrame(
+            df_rows,
+            columns=["ID", "ExpensePreDER", "ExpensePostDER", "ExpenseDelta"],
+        ).set_index("ID")
+
+    @property
+    def profit_report(self):
+        """
+        Return pandas DataFrame with meter SA IDs and profits, defined as
+        revenues minus expenses.
+        """
+        revenue_report = self.standardize_delta_df(self.revenue_report)
+        expense_report = self.standardize_delta_df(self.expense_report)
+        return revenue_report.add(
+            expense_report.multiply(-1), fill_value=0
+        ).rename(
+            columns={
+                "pre": "ProfitPreDER",
+                "post": "ProfitPostDER",
+                "delta": "ProfitDelta",
+            }
+        )
 
     @property
     def ghg_report(self):

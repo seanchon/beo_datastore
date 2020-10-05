@@ -32,6 +32,9 @@ from beo_datastore.libs.views import dataframe_to_html
 
 from reference.reference_model.models import DERSimulation, LoadServingEntity
 
+# File constants
+RA_DOLLARS_PER_KW = 6
+
 
 class SystemProfileIntervalFrame(PowerIntervalFrameFile):
     """
@@ -124,6 +127,27 @@ class StoredResourceAdequacyCalculation(ValidationModel):
         return self.post_DER_total - self.pre_DER_total
 
     @property
+    def pre_der_total_cost(self):
+        """
+        Return pre-DER total kW multiplied by $/kW RA equivalency
+        """
+        return self.pre_DER_total * RA_DOLLARS_PER_KW
+
+    @property
+    def post_der_total_cost(self):
+        """
+        Return post-DER total kW multiplied by $/kW RA equivalency
+        """
+        return self.post_DER_total * RA_DOLLARS_PER_KW
+
+    @property
+    def net_impact_cost(self):
+        """
+        Return post-DER total cost minus pre-DER total cost.
+        """
+        return self.post_der_total_cost - self.pre_der_total_cost
+
+    @property
     def comparision_html_table(self):
         """
         Return Django-formatted HTML pre vs. post comparision table.
@@ -208,8 +232,8 @@ class StoredResourceAdequacyCalculation(ValidationModel):
         )
 
         dataframes = []
-        title_prefix = ""
         for system_profile_id in system_profile_ids:
+            title_prefix = ""
             system_profile = SystemProfile.objects.get(id=system_profile_id)
             if len(system_profile_ids) > 1:
                 title_prefix = system_profile.short_name
@@ -222,6 +246,9 @@ class StoredResourceAdequacyCalculation(ValidationModel):
                             x.pre_DER_total,
                             x.post_DER_total,
                             x.net_impact,
+                            x.pre_der_total_cost,
+                            x.post_der_total_cost,
+                            x.net_impact_cost,
                         )
                         for x in resource_adequacy_calculations.filter(
                             system_profile=system_profile
@@ -239,6 +266,9 @@ class StoredResourceAdequacyCalculation(ValidationModel):
                             1: "{}RAPreDER".format(title_prefix),
                             2: "{}RAPostDER".format(title_prefix),
                             3: "{}RADelta".format(title_prefix),
+                            4: "{}RAPreDERCost".format(title_prefix),
+                            5: "{}RAPostDERCost".format(title_prefix),
+                            6: "{}RADeltaCost".format(title_prefix),
                         }
                     ).set_index("ID")
                 )

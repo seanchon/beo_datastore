@@ -13,6 +13,9 @@ from beo_datastore.libs.procurement import (
     ProcurementRateIntervalFrame,
 )
 
+# File constants
+RA_DOLLARS_PER_KW = 6
+
 
 class DERCostCalculation(object):
     """
@@ -292,18 +295,32 @@ class AggregateResourceAdequacyCalculation(DERCostCalculation):
     @cached_property
     def pre_DER_total(self):
         """
-        Return sum of all monthly system peaks pre-DER.
+        Return sum of all monthly system peaks pre-DER (kW).
         """
         system_peaks = self.pre_DER_system_intervalframe.maximum_frame288
         return system_peaks.dataframe.max().sum()
 
     @cached_property
+    def pre_DER_total_cost(self):
+        """
+        Return sum of all monthly system peaks pre-DER ($).
+        """
+        return self.pre_DER_total * RA_DOLLARS_PER_KW
+
+    @cached_property
     def post_DER_total(self):
         """
-        Return sum of all monthly system peaks post-DER.
+        Return sum of all monthly system peaks post-DER. (kW)
         """
         system_peaks = self.post_DER_system_intervalframe.maximum_frame288
         return system_peaks.dataframe.max().sum()
+
+    @cached_property
+    def post_DER_total_cost(self):
+        """
+        Return sum of all monthly system peaks post-DER ($).
+        """
+        return self.post_DER_total * RA_DOLLARS_PER_KW
 
     @cached_property
     def net_impact(self):
@@ -311,6 +328,13 @@ class AggregateResourceAdequacyCalculation(DERCostCalculation):
         Return total RA impact (post scenario - pre scenario) (kW).
         """
         return self.post_DER_total - self.pre_DER_total
+
+    @cached_property
+    def net_impact_cost(self):
+        """
+        Return total RA impact (post scenario - pre scenario) ($).
+        """
+        return self.net_impact * RA_DOLLARS_PER_KW
 
     @cached_property
     def pre_DER_system_intervalframe(self):

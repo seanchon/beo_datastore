@@ -266,7 +266,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         """
         Returns a tuple of the intervalframe's start and end times
         """
-        return [self.start_datetime, self.end_datetime]
+        return self.start_datetime, self.end_datetime
 
     @property
     def years(self):

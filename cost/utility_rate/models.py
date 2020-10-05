@@ -120,6 +120,7 @@ class RatePlan(ValidationModel):
         Return ValidationFrame288 of combined rates from associated
         rate_collections.
 
+        :param year: int
         :param rate_type: choice "energy" or "demand"
         :param schedule_type: choice "weekday" or "weekend"
         :param tier: choice of tier for tiered-rates (integer)
@@ -468,21 +469,21 @@ class StoredBillCalculation(ValidationModel):
 
             if new:
                 for start, end_limit in agg_bill_calculation.date_ranges:
-                    pre_DER_total = agg_bill_calculation.pre_bills[
+                    pre_der_total = agg_bill_calculation.pre_bills[
                         der_simulation.id
                     ][start].total
-                    post_DER_total = agg_bill_calculation.post_bills[
+                    post_der_total = agg_bill_calculation.post_bills[
                         der_simulation.id
                     ][start].total
                     BillComparison.objects.create(
                         start=start,
                         end_limit=end_limit,
-                        pre_DER_total=pre_DER_total,
-                        post_DER_total=post_DER_total,
+                        pre_DER_total=pre_der_total,
+                        post_DER_total=post_der_total,
                         bill_collection=bill_collection,
                     )
 
-            return (bill_collection, new)
+            return bill_collection, new
 
     @classmethod
     def generate(cls, der_simulation_set, rate_plan, multiprocess=False):
@@ -493,7 +494,7 @@ class StoredBillCalculation(ValidationModel):
 
         :param der_simulation_set: QuerySet or set of
             DERSimulations
-        :param RatePlan: RatePlan
+        :param rate_plan: RatePlan
         :param multiprocess: True to multiprocess
         :return: StoredBillCalculation QuerySet
         """
@@ -524,7 +525,7 @@ class StoredBillCalculation(ValidationModel):
         """
         Return pandas DataFrame in the format:
 
-        |   ID  |   BillPreDER  |   BillPostDER |   BillDelta   |
+        |   ID  |   BillRevenuePreDER  |   BillRevenuePostDER |   BillRevenueDelta   |
 
         :param bill_calculations: QuerySet or set of StoredBillCalculations
         :return: pandas DataFrame
@@ -548,9 +549,9 @@ class StoredBillCalculation(ValidationModel):
             return dataframe.rename(
                 columns={
                     0: "ID",
-                    1: "BillPreDER",
-                    2: "BillPostDER",
-                    3: "BillDelta",
+                    1: "BillRevenuePreDER",
+                    2: "BillRevenuePostDER",
+                    3: "BillRevenueDelta",
                 }
             ).set_index("ID")
         else:
