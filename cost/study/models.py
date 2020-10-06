@@ -237,8 +237,8 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         """
         return (
             self.simulations_completed
-            and not self.meter_intervalframe.dataframe.empty
             and self.cost_calculations_completed
+            and not self.meter_intervalframe.dataframe.empty
             and not self.report.empty
             and not self.report_summary.empty
         )
@@ -376,14 +376,17 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         Get and store report only if all DERSimulations have run and
         meter_intervalframe has been aggregated.
         """
-        if self.simulations_completed:
-            self.acquire_lock()
-            self._report = json.loads(self.get_report().to_json())
-            self._report_summary = json.loads(
-                self.get_report_summary().to_json()
-            )
-            self.save()
-            self.release_lock()
+        if (
+            self.simulations_completed
+            and self.cost_calculations_completed
+            and not self.meter_intervalframe.dataframe.empty
+        ):
+            with self.lock():
+                self._report = json.loads(self.get_report().to_json())
+                self._report_summary = json.loads(
+                    self.get_report_summary().to_json()
+                )
+                self.save()
 
     def get_report(self):
         """
@@ -831,11 +834,12 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         been run.
         """
         if self.simulations_completed:
-            self.acquire_lock()
-            der_intervalframe = self.get_aggregate_der_intervalframe()
-            self.intervalframe = self.pre_der_intervalframe + der_intervalframe
-            self.save()
-            self.release_lock()
+            with self.lock():
+                der_intervalframe = self.get_aggregate_der_intervalframe()
+                self.intervalframe = (
+                    self.pre_der_intervalframe + der_intervalframe
+                )
+                self.save()
 
     def make_origin_file(self):
         """

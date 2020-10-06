@@ -276,15 +276,14 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         Only aggretate meter_intervalframe if all self.meters have been
         ingested.
         """
-        self.acquire_lock()
-        if self.meters.count() == self.expected_meter_count:
-            self.intervalframe = reduce(
-                lambda x, y: x + y,
-                (x.meter_intervalframe for x in self.meters.all()),
-                PowerIntervalFrame(),
-            )
-            self.save()
-        self.release_lock()
+        with self.lock():
+            if self.meters.count() == self.expected_meter_count:
+                self.intervalframe = reduce(
+                    lambda x, y: x + y,
+                    (x.meter_intervalframe for x in self.meters.all()),
+                    PowerIntervalFrame(),
+                )
+                self.save()
 
     @classmethod
     def get_or_create(cls, file, name, load_serving_entity, owner=None):
@@ -423,8 +422,9 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
 
         :param chunk_size: number of lines to write to db at once
         """
-        self.acquire_lock()
-        with self.db_connect() as postgres, self.file.open(mode="r") as f_in:
+        with self.lock(), self.db_connect() as postgres, self.file.open(
+            mode="r"
+        ) as f_in:
             i = 0
             chunk = []
             for line in f_in.readlines()[1:]:  # skip header
@@ -450,7 +450,6 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
                     format_bulk_insert(chunk),
                 )
                 postgres.execute(command=command)
-        self.release_lock()
 
     def db_create_indexes(self):
         """
@@ -473,13 +472,16 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         Create and store an aggregate PowerIntervalFrame representing all
         constituent Meters.
         """
-        self.acquire_lock()
-        meter_group_df = self.db_get_meter_group_dataframe()
-        d_df = reformat_item_17(meter_group_df[meter_group_df["DIR"] == "D"])
-        r_df = reformat_item_17(meter_group_df[meter_group_df["DIR"] == "R"])
-        self.intervalframe.dataframe = d_df.add(r_df, fill_value=0)
-        self.save()
-        self.release_lock()
+        with self.lock():
+            meter_group_df = self.db_get_meter_group_dataframe()
+            d_df = reformat_item_17(
+                meter_group_df[meter_group_df["DIR"] == "D"]
+            )
+            r_df = reformat_item_17(
+                meter_group_df[meter_group_df["DIR"] == "R"]
+            )
+            self.intervalframe.dataframe = d_df.add(r_df, fill_value=0)
+            self.save()
 
     def db_drop(self):
         """

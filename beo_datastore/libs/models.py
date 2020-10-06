@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from functools import reduce
 
 from polymorphic.models import PolymorphicModel
@@ -155,7 +156,26 @@ class TaskStatusModelMixin(models.Model):
         instance = cls.objects.get(id=instance_id)
         return instance.completed
 
+    @contextmanager
+    def lock(self) -> None:
+        """
+        Context manager to lock an instance while a task is running.
+
+        Example:
+
+        with instance.lock():
+            # do something
+        """
+        self.acquire_lock()
+        try:
+            yield
+        finally:
+            self.release_lock()
+
     def acquire_lock(self) -> None:
+        """
+        Set a lock on a model's instance.
+        """
         if self.__class__.is_locked(self.id):
             raise RuntimeError(
                 "Cannot aquire lock: {} {}".format(self.__class__, self.id)
@@ -165,18 +185,27 @@ class TaskStatusModelMixin(models.Model):
         self.save()
 
     def release_lock(self) -> None:
+        """
+        Release a lock on a model's instance.
+        """
         if self.locked:
             self.locked = False
             self.locked_unlocked_at = now()
             self.save()
 
     def mark_complete(self) -> None:
+        """
+        Mark a task completed.
+        """
         if not self.completed:
             self.completed = True
             self.completed_incompleted_at = now()
             self.save()
 
     def mark_incomplete(self) -> None:
+        """
+        Mark a task incompleted.
+        """
         if not self.completed:
             self.completed = False
             self.completed_incompleted_at = now()
