@@ -25,8 +25,6 @@ from beo_datastore.libs.plot_intervalframe import (
     plot_frame288_monthly_comparison,
 )
 
-from reference.auth_user.models import LoadServingEntity
-
 
 class BuildingType(ValidationModel):
     """
@@ -87,46 +85,6 @@ class RateUnit(ValidationModel):
 
     def __str__(self):
         return "{}/{}".format(self.numerator, self.denominator)
-
-
-class VoltageCategory(ValidationModel):
-    """
-    Utility's Customer Voltage Category.
-    """
-
-    name = models.CharField(max_length=32)
-    load_serving_entity = models.ForeignKey(
-        to=LoadServingEntity,
-        related_name="voltage_categories",
-        on_delete=models.PROTECT,
-    )
-
-    class Meta:
-        ordering = ["id"]
-        unique_together = ("name", "load_serving_entity")
-
-    def __str__(self):
-        return self.name
-
-
-class Sector(ValidationModel):
-    """
-    Classification of LSE customer.
-
-    Ex. Residential, Commercial
-    """
-
-    name = models.CharField(max_length=32)
-    load_serving_entity = models.ForeignKey(
-        to=LoadServingEntity, related_name="sectors", on_delete=models.PROTECT
-    )
-
-    class Meta:
-        ordering = ["id"]
-        unique_together = ("name", "load_serving_entity")
-
-    def __str__(self):
-        return self.name
 
 
 # LOAD BASE MODELS

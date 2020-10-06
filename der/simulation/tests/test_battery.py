@@ -15,7 +15,8 @@ from beo_datastore.libs.intervalframe import PowerIntervalFrame
 
 from der.simulation.models import StoredBatterySimulation
 from load.customer.models import CustomerMeter, Channel
-from reference.reference_model.models import DataUnit, LoadServingEntity
+from reference.reference_model.models import DataUnit
+from reference.auth_user.models import LoadServingEntity
 
 
 class TestBattery(TestCase):
@@ -85,7 +86,8 @@ class TestBattery(TestCase):
 
         # run battery simulation
         builder = BatterySimulationBuilder(
-            der=self.battery, der_strategy=self.battery_strategy,
+            der=self.battery,
+            der_strategy=self.battery_strategy,
         )
         self.director = DERSimulationDirector(builder=builder)
         self.simulation = self.director.run_single_simulation(
