@@ -14,7 +14,7 @@ from beo_datastore.libs.fixtures import (
     load_intervalframe_files,
 )
 from cost.ghg.models import GHGRate
-from cost.study.models import SingleScenarioStudy, MultipleScenarioStudy
+from cost.study.models import Scenario
 from cost.utility_rate.models import RatePlan
 from der.simulation.models import BatteryConfiguration, BatteryStrategy
 from der.simulation.scripts.generate_der_strategy import (
@@ -45,12 +45,12 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         )
 
         self.endpoints = [
-            "/v1/cost/study/?include[]={}".format(x)
+            "/v1/cost/scenario/?include[]={}".format(x)
             for x in [
                 "ders",
                 "der_simulations",
                 "meters",
-                "meter_groups",
+                "meter_group",
                 "metadata",
                 "report",
                 "report_summary",
@@ -75,8 +75,8 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
             rate_plan=rate_plan,
         )
 
-        # create Study
-        single, _ = SingleScenarioStudy.objects.get_or_create(
+        # create Scenario
+        scenario, _ = Scenario.objects.get_or_create(
             start=datetime(2018, 1, 1),
             end_limit=datetime(2018, 1, 1, 1),
             der_strategy=battery_strategy,
@@ -84,25 +84,21 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
             meter_group=meter_group,
             rate_plan=RatePlan.objects.first(),
         )
-        single.ghg_rates.add(*GHGRate.objects.all())
-
-        multi = MultipleScenarioStudy.objects.create()
-        multi.single_scenario_studies.add(single)
-        multi.run()
+        scenario.ghg_rates.add(*GHGRate.objects.all())
+        scenario.run()
 
     def tearDown(self):
         flush_intervalframe_files()
 
-    def test_post_duplicate_multiple_scenario_study(self):
+    def test_post_duplicate_scenario(self):
         """
-        Test new objects created on POST to /cost/multiple_scenario_study/.
+        Test new objects created on POST to /cost/scenario/.
         """
-        post_endpoint = "/v1/cost/multiple_scenario_study/"
+        post_endpoint = "/v1/cost/scenario/"
         self.client.force_authenticate(user=self.user)
 
-        # Delete all Study objects
-        SingleScenarioStudy.objects.all().delete()
-        MultipleScenarioStudy.objects.all().delete()
+        # Delete all Scenario objects
+        Scenario.objects.all().delete()
 
         meter_group = MeterGroup.objects.first()
         configuration = BatteryConfiguration.objects.first()
@@ -120,36 +116,33 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         }
 
         # 0 count
-        self.assertEqual(SingleScenarioStudy.objects.count(), 0)
-        self.assertEqual(MultipleScenarioStudy.objects.count(), 0)
+        self.assertEqual(Scenario.objects.count(), 0)
 
         # 1 count
         response = self.client.post(post_endpoint, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(SingleScenarioStudy.objects.count(), 1)
-        self.assertEqual(MultipleScenarioStudy.objects.count(), 1)
+        self.assertEqual(Scenario.objects.count(), 1)
 
         # 1 count - do not create duplicates
         response = self.client.post(post_endpoint, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(SingleScenarioStudy.objects.count(), 1)
-        self.assertEqual(MultipleScenarioStudy.objects.count(), 1)
+        self.assertEqual(Scenario.objects.count(), 1)
 
-    def test_study_ownership(self):
+    def test_scenario_ownership(self):
         """
-        Test Study only appears for owner of MeterGroup.
+        Test Scenario only appears for owner of MeterGroup.
         """
-        get_endpoint = "/v1/cost/study/"
+        get_endpoint = "/v1/cost/scenario/"
         self.client.force_authenticate(user=self.user)
 
-        # 1 SingleScenarioStudy, 1 MultipleScenarioStudy related to MeterGroup
+        # 1 Scenario related to MeterGroup
         response = self.client.get(get_endpoint)
-        self.assertEqual(len(response.data["results"]["studies"]), 2)
+        self.assertEqual(len(response.data["results"]["scenarios"]), 1)
 
-        # 0 SingleScenarioStudy, 0 MultipleScenarioStudy
+        # 0 Scenario
         self.user.meter_groups.clear()
         response = self.client.get(get_endpoint)
-        self.assertEqual(len(response.data["results"]["studies"]), 0)
+        self.assertEqual(len(response.data["results"]["scenarios"]), 0)
 
 
 class TestEndpointsGHGRate(APITestCase, BasicAuthenticationTestMixin):

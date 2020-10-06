@@ -3,8 +3,7 @@ from rest_framework.routers import DefaultRouter
 from cost.views import (
     CAISORateViewSet,
     GHGRateViewSet,
-    MultipleScenarioStudyViewSet,
-    StudyViewSet,
+    ScenarioViewSet,
     RatePlanViewSet,
     RateCollectionViewSet,
 )
@@ -24,10 +23,7 @@ from load.views import (
 v1_router = DefaultRouter()
 v1_router.register(r"cost/caiso_rate", CAISORateViewSet, basename="CAISORate")
 v1_router.register(r"cost/ghg_rate", GHGRateViewSet, basename="GHGRate")
-v1_router.register(r"cost/study", StudyViewSet, basename="Study")
-v1_router.register(
-    r"cost/multiple_scenario_study", MultipleScenarioStudyViewSet
-)
+v1_router.register(r"cost/scenario", ScenarioViewSet, basename="Scenario")
 v1_router.register(r"cost/rate_plan", RatePlanViewSet, basename="RatePlan")
 v1_router.register(
     r"cost/rate_collection", RateCollectionViewSet, basename="RateCollection"

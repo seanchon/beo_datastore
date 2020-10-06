@@ -86,9 +86,9 @@ class TestSolarPV(APITestCase):
     @mock.patch("requests.get", side_effect=mocked_pvwatts_requests_get)
     def test_solar_api_simulation(self, mock_get):
         """
-        Test creation of SolarPV Django objects via POST v1/cost/study.
+        Test creation of SolarPV Django objects via POST v1/cost/scenario.
         """
-        post_endpoint = "/v1/cost/multiple_scenario_study/"
+        post_endpoint = "/v1/cost/scenario/"
 
         # create fake API user
         faker = Factory.create()

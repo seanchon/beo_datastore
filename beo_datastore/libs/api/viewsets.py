@@ -78,6 +78,16 @@ class ListRetrieveUpdateDestroyViewSet(
         )
 
 
+class CreateListRetrieveUpdateDestroyViewSet(
+    mixins.CreateModelMixin, ListRetrieveUpdateDestroyViewSet
+):
+    """
+    Dynamic rest viewset that allows POST, GET, PUT and DELETE methods
+    """
+
+    pass
+
+
 class ListRetrieveDestroyViewSet(
     WithDynamicViewSetMixin,
     mixins.ListModelMixin,

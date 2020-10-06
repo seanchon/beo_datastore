@@ -2,10 +2,8 @@ import json
 from datetime import timedelta
 import dateutil.parser
 
-from dynamic_rest.serializers import (
-    DynamicModelSerializer,
-    DynamicRelationField,
-)
+from dynamic_rest.fields import DynamicRelationField
+from dynamic_rest.serializers import DynamicModelSerializer
 from rest_framework import serializers
 
 from beo_datastore.libs.api.serializers import (
@@ -14,7 +12,7 @@ from beo_datastore.libs.api.serializers import (
 )
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate
-from cost.study.models import SingleScenarioStudy, MultipleScenarioStudy
+from cost.study.models import Scenario
 from cost.utility_rate.models import RatePlan, RateCollection
 from reference.auth_user.models import LoadServingEntity
 from der.serializers import (
@@ -23,82 +21,53 @@ from der.serializers import (
     DERStrategySerializer,
 )
 from load.serializers import MeterGroupSerializer, MeterSerializer
-from reference.reference_model.models import Study, Sector, VoltageCategory
+from reference.reference_model.models import Sector, VoltageCategory
 
 
-class GetStudyDataMixin(AbstractGetDataMixin):
-    intervalframe_name = "meter_intervalframe"
-
-
-class SingleScenarioStudySerializer(DynamicModelSerializer):
-    rate_plan_name = serializers.CharField(source="rate_plan.name")
-
-    class Meta:
-        model = SingleScenarioStudy
-        fields = (
-            "id",
-            "start",
-            "end_limit",
-            "der_strategy",
-            "der_configuration",
-            "rate_plan_name",
-        )
-
-
-class MultipleScenarioStudySerializer(DynamicModelSerializer):
-    single_scenario_studies = serializers.SerializerMethodField()
-
-    class Meta:
-        model = MultipleScenarioStudy
-        fields = ("id", "single_scenario_studies")
-
-    def get_single_scenario_studies(self, obj):
-        return SingleScenarioStudySerializer(
-            obj.single_scenario_studies, many=True, read_only=True
-        ).data
-
-
-class StudySerializer(GetStudyDataMixin, DynamicModelSerializer):
+class ScenarioSerializer(AbstractGetDataMixin, DynamicModelSerializer):
     data = serializers.SerializerMethodField()
     ders = serializers.SerializerMethodField()
     der_simulations = serializers.SerializerMethodField()
-    meter_groups = serializers.SerializerMethodField()
+    meter_group = DynamicRelationField(MeterGroupSerializer, deferred=True)
     meters = serializers.SerializerMethodField()
     metadata = serializers.SerializerMethodField()
     report = serializers.SerializerMethodField()
     report_summary = serializers.SerializerMethodField()
 
+    # required by AbstractGetDataMixin
+    intervalframe_name = "meter_intervalframe"
+
     class Meta:
-        model = Study
+        model = Scenario
         fields = (
-            "id",
-            "name",
             "created_at",
-            "object_type",
-            "der_simulation_count",
-            "expected_der_simulation_count",
-            "meter_count",
-            "ders",
-            "der_simulations",
-            "meters",
-            "meter_groups",
             "data",
+            "der_simulation_count",
+            "der_simulations",
+            "ders",
+            "expected_der_simulation_count",
+            "id",
             "metadata",
+            "meter_count",
+            "meter_group",
+            "meters",
+            "name",
+            "object_type",
             "report",
             "report_summary",
         )
         deferred_fields = (
-            "ders",
             "der_simulations",
+            "ders",
+            "meter_group",
             "meters",
-            "meter_groups",
             "report",
             "report_summary",
         )
 
     def get_ders(self, obj):
         """
-        DERs associated with Study.
+        DERs associated with Scenario.
         """
         return [
             {
@@ -112,7 +81,7 @@ class StudySerializer(GetStudyDataMixin, DynamicModelSerializer):
 
     def get_der_simulations(self, obj):
         """
-        DERSimulations associated with Study.
+        DERSimulations associated with Scenario.
         """
         return DERSimulationSerializer(
             obj.der_simulations, many=True, read_only=True
@@ -120,36 +89,33 @@ class StudySerializer(GetStudyDataMixin, DynamicModelSerializer):
 
     def get_meters(self, obj):
         """
-        Meters associated with Study.
+        Meters associated with Scenario.
         """
         return MeterSerializer(obj.meters, many=True, read_only=True).data
 
-    def get_meter_groups(self, obj):
+    def get_meter_group(self, obj):
         """
-        MeterGroups associated with Study.
+        MeterGroups associated with Scenario.
         """
         return MeterGroupSerializer(
             obj.meter_groups, many=True, read_only=True
         ).data
 
-    def get_metadata(self, obj):
+    def get_metadata(self, obj: Scenario):
         """
-        Data associated with Study child object.
+        Data associated with Scenario child object.
         """
-        if isinstance(obj, SingleScenarioStudy):
-            return SingleScenarioStudySerializer(
-                obj, many=False, read_only=True
-            ).data
-        elif isinstance(obj, MultipleScenarioStudy):
-            return MultipleScenarioStudySerializer(
-                obj, many=False, read_only=True
-            ).data
-        else:
-            return {}
+        return {
+            "start": obj.start,
+            "end_limit": obj.end_limit,
+            "der_strategy": obj.der_strategy.id,
+            "der_configuration": obj.der_configuration.id,
+            "rate_plan_name": obj.rate_plan.name,
+        }
 
     def get_report(self, obj):
         """
-        Report associated with Study.
+        Report associated with Scenario.
         """
         return json.loads(
             obj.report.reset_index().to_json(default_handler=str)
@@ -157,7 +123,7 @@ class StudySerializer(GetStudyDataMixin, DynamicModelSerializer):
 
     def get_report_summary(self, obj):
         """
-        Report summary associated with Study.
+        Report summary associated with Scenario.
         """
         return json.loads(obj.report_summary.to_json(default_handler=str))
 
@@ -220,18 +186,17 @@ class GHGRateSerializer(DynamicModelSerializer):
             return None
 
 
-class GetCAISORateDataMixin(AbstractGetDataMixin):
-    intervalframe_name = "intervalframe"
-
-
-class CAISORateSerializer(GetCAISORateDataMixin, DynamicModelSerializer):
+class CAISORateSerializer(AbstractGetDataMixin, DynamicModelSerializer):
     data = serializers.SerializerMethodField()
     filters = serializers.JSONField()
     year = serializers.SerializerMethodField()
 
+    # required by AbstractGetDataMixin
+    intervalframe_name = "intervalframe"
+
     class Meta:
         model = CAISORate
-        fields = ("id", "name", "filters", "data", "year")
+        fields = ("data", "filters", "id", "name", "year")
 
     def get_year(self, obj):
         return obj.caiso_report.year

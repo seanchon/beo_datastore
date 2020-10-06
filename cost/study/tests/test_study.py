@@ -10,8 +10,8 @@ from beo_datastore.libs.fixtures import (
 
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate
-from cost.study.models import MultipleScenarioStudy, SingleScenarioStudy
-from cost.tasks import run_study
+from cost.study.models import Scenario
+from cost.tasks import run_scenario
 from cost.utility_rate.models import RatePlan
 from der.simulation.models import BatteryConfiguration
 from der.simulation.scripts.generate_der_strategy import (
@@ -20,13 +20,13 @@ from der.simulation.scripts.generate_der_strategy import (
 from load.customer.models import CustomerPopulation, OriginFile
 
 
-class TestStudy(TestCase):
+class TestScenario(TestCase):
     """
-    Test the creation of a DER study, which is a four-step process.
+    Test the creation of a DER scenario, which is a four-step process.
         1. Create and choose k-means clusters (load)
         2. Create and choose battery and strategy (DER)
         3. Create and choose cost functions (cost)
-        4. Run study.
+        4. Run scenario.
 
     This test ensures that following demo scripts are functional.
         - demo/1_create_kmeans_clusters.ipynb
@@ -54,7 +54,7 @@ class TestStudy(TestCase):
         """
         flush_intervalframe_files()
 
-    def test_study(self):
+    def test_scenario(self):
         meter_group = OriginFile.objects.first()
 
         # 1. Create and choose k-means clusters (load)
@@ -89,9 +89,8 @@ class TestStudy(TestCase):
         )
 
         # 3. Create and choose cost functions (cost)
-        # 4. Run study.
-        multi = MultipleScenarioStudy.objects.create()
-        single, _ = SingleScenarioStudy.objects.get_or_create(
+        # 4. Run scenario.
+        scenario, _ = Scenario.objects.get_or_create(
             start=datetime(2018, 1, 1),
             end_limit=datetime(2018, 1, 2),
             der_strategy=battery_strategy,
@@ -99,24 +98,26 @@ class TestStudy(TestCase):
             meter_group=customer_population.customer_clusters.first(),
             rate_plan=RatePlan.objects.get(name__contains="EV"),
         )
-        single.ghg_rates.add(*GHGRate.objects.filter(name="Clean Net Short"))
-        single.caiso_rates.add(*CAISORate.objects.all())
-        multi.single_scenario_studies.add(single)
-        run_study(multi.id)
+        scenario.ghg_rates.add(*GHGRate.objects.filter(name="Clean Net Short"))
+        scenario.caiso_rates.add(*CAISORate.objects.all())
+        run_scenario(scenario.id)
+
+        # get updates made by the task
+        scenario = Scenario.objects.get(id=scenario.id)
 
         # all meters found in report
         self.assertEqual(
-            len(multi.report),
+            len(scenario.report),
             customer_population.customer_clusters.first().meters.count(),
         )
         # index is named "ID"
-        self.assertEqual(multi.report.index.name, "ID")
-        self.assertEqual(multi.report_summary.index.name, "ID")
+        self.assertEqual(scenario.report.index.name, "ID")
+        self.assertEqual(scenario.report_summary.index.name, "ID")
         # battery modifies load
-        self.assertNotEqual(np.mean(multi.report["UsageDelta"]), 0)
+        self.assertNotEqual(np.mean(scenario.report["UsageDelta"]), 0)
         # report columns all exist
         self.assertEqual(
-            set(multi.report.columns),
+            set(scenario.report.columns),
             {
                 "UsagePreDER",
                 "UsagePostDER",
@@ -147,6 +148,6 @@ class TestStudy(TestCase):
                 "ProfitDelta",
                 "SA ID",
                 "MeterRatePlan",
-                "SingleScenarioStudy",
+                "ScenarioID",
             },
         )
