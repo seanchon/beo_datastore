@@ -18,6 +18,7 @@ from beo_datastore.libs.der.builder import (
 from beo_datastore.libs.models import (
     IntervalFrameFileMixin,
     PolymorphicValidationModel,
+    TaskStatusModelMixin,
     ValidationModel,
 )
 from beo_datastore.libs.plot_intervalframe import (
@@ -205,7 +206,9 @@ class MeterDataMixin(object):
         self.save()
 
 
-class MeterGroup(PolymorphicValidationModel, MeterDataMixin):
+class MeterGroup(
+    PolymorphicValidationModel, MeterDataMixin, TaskStatusModelMixin
+):
     """
     Base model containing many Meters.
     """
@@ -534,7 +537,7 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         PowerIntervalFrame after running a DERSimulation.
         """
         return (
-            self.meter.intervalframe.filter_by_datetime(
+            self.meter.meter_intervalframe.filter_by_datetime(
                 start=self.start, end_limit=self.end_limit
             )
             + self.intervalframe
@@ -613,7 +616,7 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         """
         Return DERProduct equivalent of self.
         """
-        pre_der_intervalframe = self.meter.intervalframe.filter_by_datetime(
+        pre_der_intervalframe = self.meter.meter_intervalframe.filter_by_datetime(
             start=self.start, end_limit=self.end_limit
         )
 

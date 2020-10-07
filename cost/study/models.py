@@ -4,6 +4,7 @@ import json
 from jsonfield import JSONField
 import os
 import pandas as pd
+from pathlib import Path
 import re
 
 from django.core.exceptions import ValidationError
@@ -71,15 +72,13 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
     start = models.DateTimeField()
     end_limit = models.DateTimeField()
     der_strategy = models.ForeignKey(
-        to=DERStrategy, related_name="scenarios", on_delete=models.CASCADE,
+        to=DERStrategy, related_name="scenarios", on_delete=models.CASCADE
     )
     der_configuration = models.ForeignKey(
-        to=DERConfiguration,
-        related_name="scenarios",
-        on_delete=models.CASCADE,
+        to=DERConfiguration, related_name="scenarios", on_delete=models.CASCADE
     )
     meter_group = models.ForeignKey(
-        to=MeterGroup, related_name="scenarios", on_delete=models.CASCADE,
+        to=MeterGroup, related_name="scenarios", on_delete=models.CASCADE
     )
     # Constrains Meters and RatePlan to belong to LSE. If null is True, any
     # Meter and RatePlan can be used in optimization.
@@ -91,7 +90,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         null=True,
     )
     rate_plan = models.ForeignKey(
-        to=RatePlan, related_name="scenarios", on_delete=models.CASCADE,
+        to=RatePlan, related_name="scenarios", on_delete=models.CASCADE
     )
     ghg_rates = models.ManyToManyField(
         to=GHGRate, related_name="scenarios", blank=True
@@ -173,6 +172,76 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
             )
 
         super().clean(*args, **kwargs)
+
+    @property
+    def expected_der_simulation_count(self):
+        """
+        Number of expected DERSimulation objects with regards to any applied
+        filter_by_query() or filter_by_transform() operations.
+        """
+        return self.meters.count()
+
+    @property
+    def der_simulation_count(self):
+        """
+        Number of created DERSimulation objects.
+        """
+        return self.der_simulations.count()
+
+    @property
+    def simulations_completed(self):
+        """
+        True if all DERSimulations have completed.
+        """
+        return self.der_simulation_count == self.expected_der_simulation_count
+
+    @property
+    def expected_cost_calculation_count(self):
+        """
+        Number of expected cost calculations based on the number of
+        cost-function rates muliplied by the number of DER simulations.
+        """
+        cost_rate_count = 1  # billing rates (rate_plan)
+        cost_rate_count += self.ghg_rates.count()  # GHG rates
+        cost_rate_count += self.system_profiles.count()  # RA rates
+        cost_rate_count += self.caiso_rates.count()  # Procurement rates
+
+        return cost_rate_count * self.expected_der_simulation_count
+
+    @property
+    def cost_calculation_count(self):
+        """
+        Number of completed cost calculations.
+        """
+        cost_calculation_count = self.bill_calculations.count()
+        cost_calculation_count += self.ghg_calculations.count()
+        cost_calculation_count += self.resource_adequacy_calculations.count()
+        cost_calculation_count += self.procurement_calculations.count()
+
+        return cost_calculation_count
+
+    @property
+    def cost_calculations_completed(self):
+        """
+        Return True if all cost calculations have completed.
+        """
+        return (
+            self.expected_cost_calculation_count == self.cost_calculation_count
+        )
+
+    @property
+    def has_completed(self):
+        """
+        True if all DERSimulations have been completed,
+        self.meter_intervalframe has been aggregated, and reports generated.
+        """
+        return (
+            self.simulations_completed
+            and self.cost_calculations_completed
+            and not self.meter_intervalframe.dataframe.empty
+            and not self.report.empty
+            and not self.report_summary.empty
+        )
 
     @property
     def meter_intervalframe(self):
@@ -261,31 +330,6 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         )
 
     @property
-    def der_simulation_count(self):
-        """
-        Number of created DERSimulation objects.
-        """
-        return self.der_simulations.count()
-
-    @property
-    def expected_der_simulation_count(self):
-        """
-        Number of expected DERSimulation objects.
-        """
-        return self.meters.count()
-
-    @property
-    def simulations_complete(self):
-        """
-        Return True if all DERSimulations have run and meter_intervalframe has
-        been aggregated.
-        """
-        return (
-            self.der_simulations.count() == self.expected_der_simulation_count
-            and not self.meter_intervalframe.dataframe.empty
-        )
-
-    @property
     def report(self):
         """
         Report containing meter SA IDs, DERConfiguration details, RatePlan
@@ -332,12 +376,17 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         Get and store report only if all DERSimulations have run and
         meter_intervalframe has been aggregated.
         """
-        if self.simulations_complete:
-            self._report = json.loads(self.get_report().to_json())
-            self._report_summary = json.loads(
-                self.get_report_summary().to_json()
-            )
-            self.save()
+        if (
+            self.simulations_completed
+            and self.cost_calculations_completed
+            and not self.meter_intervalframe.dataframe.empty
+        ):
+            with self.lock():
+                self._report = json.loads(self.get_report().to_json())
+                self._report_summary = json.loads(
+                    self.get_report_summary().to_json()
+                )
+                self.save()
 
     def get_report(self):
         """
@@ -775,25 +824,22 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         """
         return reduce(
             lambda x, y: x + y,
-            [x.der_intervalframe for x in self.der_simulations.all()],
+            (x.der_intervalframe for x in self.der_simulations.all()),
             PowerIntervalFrame(),
         )
 
-    def aggregate_meter_intervalframe(self, force=False):
+    def aggregate_meter_intervalframe(self):
         """
-        Only aggretate meter_intervalframe if:
-            - all self.der_simulations have been run.
-            - self.meter_intervalframe has not yet been aggregated.
-
-        :param force: True to force aggregation
+        Only aggretate meter_intervalframe if all self.der_simulations have
+        been run.
         """
-        if (
-            (self.der_simulations.count() == self.meters.count())
-            and self.meter_intervalframe.dataframe.empty
-        ) or force:
-            der_intervalframe = self.get_aggregate_der_intervalframe()
-            self.intervalframe = self.pre_der_intervalframe + der_intervalframe
-            self.save()
+        if self.simulations_completed:
+            with self.lock():
+                der_intervalframe = self.get_aggregate_der_intervalframe()
+                self.intervalframe = (
+                    self.pre_der_intervalframe + der_intervalframe
+                )
+                self.save()
 
     def make_origin_file(self):
         """
@@ -803,11 +849,15 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         NOTE: This is a temporary method for use until a scenario can be the
         starting point for the creation of a new scenario.
         """
+        # spoof file
+        blank_file = "/tmp/null.csv"
+        Path(blank_file).touch()
+
         meter_group = self.meter_group
         origin_file, _ = OriginFile.get_or_create(
             name=self.name,
             load_serving_entity=meter_group.load_serving_entity,
-            file=meter_group.file,
+            file=open(blank_file, "rb"),
         )
 
         origin_file.expected_meter_count = meter_group.meters.count()
@@ -816,6 +866,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         origin_file.save()
 
         aggregate_meter_group_intervalframes.delay(origin_file.id)
+
         return origin_file
 
 
