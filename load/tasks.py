@@ -2,10 +2,14 @@ from datetime import datetime, timedelta
 from celery.utils.log import get_task_logger
 
 from django.contrib.auth.models import User
+from django.core.mail import send_mail
+from django.db.models import Count
+from django.utils.timezone import now
 
 from beo_datastore.celery import app
 from beo_datastore.libs.ingest import reformat_item_17
 from beo_datastore.libs.utils import chunks
+from beo_datastore.settings import ADMINS, APP_URL
 
 from load.customer.models import CustomerMeter, CustomerPopulation, OriginFile
 from reference.reference_model.models import MeterGroup
@@ -32,6 +36,10 @@ def ingest_origin_file_meters(origin_file_id, chunk_size=5, overwrite=False):
     # retrieve sa_ids to ingest
     origin_file = OriginFile.objects.get(id=origin_file_id)
 
+    # set locked_unlocked_at for rerun_incomplete_origin_file_ingests() check
+    origin_file.locked_unlocked_at = now()
+    origin_file.save()
+
     # recreate file database
     if not origin_file.db_exists or overwrite:
         ingest_origin_file(origin_file_id)
@@ -51,6 +59,9 @@ def ingest_origin_file_meters(origin_file_id, chunk_size=5, overwrite=False):
     # ingest meters
     for sa_ids in chunks(list(sa_ids), chunk_size):
         ingest_meters.delay(origin_file.id, sa_ids, overwrite)
+
+    if origin_file.has_completed:
+        origin_file.mark_complete()
 
 
 @app.task
@@ -119,7 +130,7 @@ def ingest_meters(origin_file_id, sa_ids, overwrite=False):
             logger.exception(e)
 
     if origin_file.has_completed:
-        origin_file.mark_complete()  # mark complete
+        origin_file.mark_complete()
 
 
 @app.task(soft_time_limit=1800, max_retries=3)
@@ -149,6 +160,75 @@ def aggregate_meter_group_intervalframes(
 
     if meter_group.has_completed:
         meter_group.mark_complete()
+
+
+@app.task()
+def rerun_incomplete_origin_file_ingests(older_than_minutes: int):
+    """
+    Scans for and re-runs incomplete OriginFile ingests where:
+        - meter_group.completed is False
+        - meter_group.locked_unlocked_at timestamp is older_than_minutes, which
+          specifies that the meter_group has not ingested in older_than_minutes.
+
+    This is meant as a celery periodic task:
+        - see: APP_URL/admin/django_celery_beat/periodictask/
+
+    Email is sent to application ADMINS noting which ingests have been re-run.
+    """
+    incomplete_origin_files = OriginFile.objects.filter(
+        completed=False,
+        locked_unlocked_at__lte=(
+            now() - timedelta(minutes=older_than_minutes)
+        ),
+    )
+    incomplete_ids = incomplete_origin_files.values_list("id", flat=True)
+
+    for origin_file in incomplete_origin_files:
+        if origin_file.meters.count() > origin_file.expected_meter_count:
+            # TODO: delete this call after all duplicates are gone
+            deduplicate_meters.delay(origin_file.id)
+        ingest_origin_file_meters.delay(origin_file.id)
+
+    if incomplete_ids:
+        send_mail(
+            subject="OriginFile ingests re-run on {}".format(APP_URL),
+            message="The following OriginFiles were re-ingested:\n{}".format(
+                "\n".join([str(x) for x in incomplete_ids])
+            ),
+            from_email=None,
+            recipient_list=[x[1] for x in ADMINS],
+            fail_silently=False,
+        )
+
+
+@app.task
+def deduplicate_meters(origin_file_id):
+    """
+    Addresses an older ingest bug that in some cases ingested the same meter
+    twice. The root cause has to do with the mishandling multiple "RS" values
+    in the original file.
+
+    https://github.com/TerraVerdeRenewablePartners/beo_datastore/blob/66b17fb7a47d04cb517635ae31376d4ee5beee83/load/tasks.py#L106
+    """
+    # TODO: delete this task after all duplicates are gone
+
+    origin_file = OriginFile.objects.get(id=origin_file_id)
+
+    duplicate_ids = (
+        origin_file.meters.instance_of(CustomerMeter)
+        .values("customermeter__sa_id")
+        .annotate(total=Count("customermeter__sa_id"))
+        .order_by("total")
+        .filter(total__gt=1)
+        .values_list("customermeter__sa_id", flat=True)
+    )
+
+    for duplicate_id in duplicate_ids:
+        # keep only most-recent meter
+        duplicate_meters = origin_file.meters.filter(
+            customermeter__sa_id=duplicate_id
+        ).order_by("-created_at")[1:]
+        origin_file.meters.remove(*duplicate_meters)
 
 
 @app.task(soft_time_limit=180)

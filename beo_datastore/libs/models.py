@@ -206,7 +206,7 @@ class TaskStatusModelMixin(models.Model):
         """
         Mark a task incompleted.
         """
-        if not self.completed:
+        if self.completed:
             self.completed = False
             self.completed_incompleted_at = now()
             self.save()
