@@ -297,7 +297,7 @@ class FrameFileMixin(object):
         """
         Retrieves frame from parquet file.
         """
-        if not hasattr(self, "_frame"):
+        if not hasattr(self, "_frame") or self._frame.dataframe.empty:
             self._frame = self.frame_file_class.get_frame_from_file(
                 reference_object=self
             )
