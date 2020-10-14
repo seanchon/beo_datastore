@@ -5,7 +5,6 @@ import os
 import urllib
 
 from cost.utility_rate.models import RateCollection, RatePlan
-from reference.reference_model.models import Sector, VoltageCategory
 from reference.auth_user.models import LoadServingEntity
 
 
@@ -93,17 +92,7 @@ def run(*args):
         load_serving_entity, _ = LoadServingEntity.objects.get_or_create(
             name=rate_data.get("utilityName", None), state="CA"
         )
-        sector, _ = Sector.objects.get_or_create(
-            name=rate_data.get("sector", None),
-            load_serving_entity=load_serving_entity,
-        )
-        if rate_data.get("voltageCategory", None):
-            voltage_category, _ = VoltageCategory.objects.get_or_create(
-                name=rate_data.get("voltageCategory", None),
-                load_serving_entity=load_serving_entity,
-            )
-        else:
-            voltage_category = None
+        sector = rate_data.get("sector", None)
 
         rate_plan, _ = RatePlan.objects.get_or_create(
             name=rate_data.get("rateName", None),
@@ -112,7 +101,6 @@ def run(*args):
             demand_max=rate_data.get("demandMax", None),
             load_serving_entity=load_serving_entity,
             sector=sector,
-            voltage_category=voltage_category,
         )
 
         effective_date_epoch = rate_data["effectiveDate"]["$date"]

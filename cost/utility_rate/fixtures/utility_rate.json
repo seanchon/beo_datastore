@@ -8,8 +8,7 @@
     "demand_min": null,
     "demand_max": null,
     "load_serving_entity": 1,
-    "sector": 1,
-    "voltage_category": null
+    "sector": "Residential"
   }
 },
 {
@@ -21,8 +20,7 @@
     "demand_min": null,
     "demand_max": null,
     "load_serving_entity": 2,
-    "sector": 4,
-    "voltage_category": null
+    "sector": "Residential"
   }
 },
 {
@@ -34,8 +32,7 @@
     "demand_min": null,
     "demand_max": null,
     "load_serving_entity": 2,
-    "sector": 4,
-    "voltage_category": null
+    "sector": "Residential"
   }
 },
 {
@@ -47,8 +44,7 @@
     "demand_min": null,
     "demand_max": null,
     "load_serving_entity": 2,
-    "sector": 4,
-    "voltage_category": null
+    "sector": "Residential"
   }
 },
 {
@@ -60,8 +56,7 @@
     "demand_min": null,
     "demand_max": null,
     "load_serving_entity": 2,
-    "sector": 5,
-    "voltage_category": null
+    "sector": "Commercial"
   }
 },
 {

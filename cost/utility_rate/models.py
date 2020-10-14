@@ -12,11 +12,7 @@ from beo_datastore.libs.intervalframe import ValidationFrame288
 from beo_datastore.libs.models import ValidationModel
 from beo_datastore.libs.views import dataframe_to_html
 
-from reference.reference_model.models import (
-    DERSimulation,
-    Sector,
-    VoltageCategory,
-)
+from reference.reference_model.models import DERSimulation
 from reference.auth_user.models import LoadServingEntity
 
 
@@ -34,16 +30,14 @@ class RatePlan(ValidationModel):
         related_name="rate_plans",
         on_delete=models.PROTECT,
     )
-    sector = models.ForeignKey(
-        to=Sector, related_name="rate_plans", on_delete=models.PROTECT
-    )
-    voltage_category = models.ForeignKey(
-        to=VoltageCategory,
-        related_name="rate_plans",
-        on_delete=models.PROTECT,
-        blank=True,
-        null=True,
-    )
+    SECTOR_OPTIONS = [
+        ("Industrial", "Industrial"),
+        ("Residential", "Residential"),
+        ("Commercial", "Commercial"),
+        ("Agricultural", "Agricultural"),
+        ("Lighting", "Lighting"),
+    ]
+    sector = models.CharField(max_length=12, choices=SECTOR_OPTIONS)
 
     class Meta:
         ordering = ["id"]

@@ -284,8 +284,6 @@ class TestEndpointsUtilityRatePlan(APITestCase, BasicAuthenticationTestMixin):
             for related_field in [
                 "rate_collections.*",
                 "load_serving_entity.*",
-                "sector.*",
-                "voltage_category.*",
             ]
         ]
 

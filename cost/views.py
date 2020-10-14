@@ -435,6 +435,11 @@ class RatePlanViewSet(ListRetrieveDestroyViewSet, mixins.CreateModelMixin):
     model = RatePlan
     serializer_class = RatePlanSerializer
 
+    def get_queryset(self):
+        return RatePlan.objects.filter(
+            load_serving_entity_id=self.request.user.profile.load_serving_entity_id
+        )
+
 
 class RateCollectionViewSet(
     ListRetrieveDestroyViewSet, mixins.CreateModelMixin
@@ -445,6 +450,11 @@ class RateCollectionViewSet(
 
     model = RateCollection
     serializer_class = RateCollectionSerializer
+
+    def get_queryset(self):
+        return RateCollection.objects.filter(
+            rate_plan__load_serving_entity_id=self.request.user.profile.load_serving_entity_id
+        )
 
     def create(self, request, **kwargs):
         """

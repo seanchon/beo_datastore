@@ -30,7 +30,8 @@ from beo_datastore.libs.procurement import ProcurementRateIntervalFrame
 from beo_datastore.settings import MEDIA_ROOT
 from beo_datastore.libs.views import dataframe_to_html
 
-from reference.reference_model.models import DERSimulation, LoadServingEntity
+from reference.reference_model.models import DERSimulation
+from reference.auth_user.models import LoadServingEntity
 
 # File constants
 RA_DOLLARS_PER_KW = 6

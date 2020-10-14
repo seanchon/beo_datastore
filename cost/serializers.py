@@ -1,8 +1,8 @@
 import json
-from datetime import timedelta
+from datetime import timedelta, datetime
 import dateutil.parser
 
-from dynamic_rest.fields import DynamicRelationField
+from dynamic_rest.fields import DynamicRelationField, DynamicComputedField
 from dynamic_rest.serializers import DynamicModelSerializer
 from rest_framework import serializers
 
@@ -21,7 +21,6 @@ from der.serializers import (
     DERStrategySerializer,
 )
 from load.serializers import MeterGroupSerializer, MeterSerializer
-from reference.reference_model.models import Sector, VoltageCategory
 
 
 class ScenarioSerializer(AbstractGetDataMixin, DynamicModelSerializer):
@@ -225,29 +224,30 @@ class LoadServingEntitySerializer(DynamicModelSerializer):
         fields = ("id", "name", "short_name", "state")
 
 
-class SectorSerializer(DynamicModelSerializer):
-    load_serving_entity = DynamicRelationField(LoadServingEntitySerializer)
+class EffectiveDateComputedField(DynamicComputedField):
+    def __init__(self, **kwargs):
+        kwargs["field_type"] = datetime
+        super(EffectiveDateComputedField, self).__init__(**kwargs)
 
-    class Meta:
-        model = Sector
-        fields = ("id", "name", "load_serving_entity")
-
-
-class VoltageCategorySerializer(DynamicModelSerializer):
-    load_serving_entity = DynamicRelationField(LoadServingEntitySerializer)
-
-    class Meta:
-        model = VoltageCategory
-        fields = ("id", "name", "load_serving_entity")
+    def get_attribute(self, rate_plan):
+        rate_collection = rate_plan.rate_collections.order_by(
+            "effective_date"
+        ).first()
+        return (
+            rate_collection.effective_date
+            if rate_collection is not None
+            else None
+        )
 
 
 class RatePlanSerializer(DynamicModelSerializer):
-    load_serving_entity = DynamicRelationField(LoadServingEntitySerializer)
-    sector = DynamicRelationField(SectorSerializer)
-    voltage_category = DynamicRelationField(VoltageCategorySerializer)
-    rate_collections = DynamicRelationField(
-        RateCollectionSerializer, many=True
+    load_serving_entity = DynamicRelationField(
+        LoadServingEntitySerializer, deferred=True
     )
+    rate_collections = DynamicRelationField(
+        RateCollectionSerializer, many=True, deferred=True
+    )
+    start_date = EffectiveDateComputedField()
 
     class Meta:
         model = RatePlan
@@ -260,5 +260,5 @@ class RatePlanSerializer(DynamicModelSerializer):
             "demand_max",
             "load_serving_entity",
             "sector",
-            "voltage_category",
+            "start_date",
         )
