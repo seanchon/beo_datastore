@@ -4,7 +4,7 @@ import pandas as pd
 
 from unittest import mock, TestCase
 
-from beo_datastore.libs.intervalframe import PowerIntervalFrame
+from beo_datastore.libs.load.intervalframe import PowerIntervalFrame
 from beo_datastore.libs.der.solar import (
     SolarPV,
     SolarPVSimulationBuilder,

@@ -7,7 +7,7 @@ from beo_datastore.libs.fixtures import (
     flush_intervalframe_files,
     load_intervalframe_files,
 )
-from beo_datastore.libs.intervalframe import (
+from beo_datastore.libs.load.intervalframe import (
     EnergyIntervalFrame,
     PowerIntervalFrame,
 )

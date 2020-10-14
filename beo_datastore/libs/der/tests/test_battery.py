@@ -9,7 +9,7 @@ from beo_datastore.libs.der.battery import (
     BatteryStrategy,
 )
 from beo_datastore.libs.der.builder import DERSimulationDirector
-from beo_datastore.libs.intervalframe import PowerIntervalFrame
+from beo_datastore.libs.load.intervalframe import PowerIntervalFrame
 
 
 class TestBattery(TestCase):

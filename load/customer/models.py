@@ -9,8 +9,8 @@ from django.db import models, transaction
 from django.db.models import Count
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.clustering import KMeansLoadClustering
-from beo_datastore.libs.ingest import (
+from beo_datastore.libs.load.clustering import KMeansLoadClustering
+from beo_datastore.libs.load.ingest import (
     csv_split,
     get_timedelta_from_time_strings,
     get_timestamp_columns,
@@ -18,8 +18,8 @@ from beo_datastore.libs.ingest import (
     shift_time_string,
     reformat_item_17,
 )
-from beo_datastore.libs.intervalframe import PowerIntervalFrame
-from beo_datastore.libs.intervalframe_file import (
+from beo_datastore.libs.load.intervalframe import PowerIntervalFrame
+from beo_datastore.libs.load.intervalframe_file import (
     Frame288File,
     PowerIntervalFrameFile,
 )
@@ -28,7 +28,7 @@ from beo_datastore.libs.models import (
     Frame288FileMixin,
     IntervalFrameFileMixin,
 )
-from beo_datastore.libs.plot_intervalframe import (
+from beo_datastore.libs.load.plot_intervalframe import (
     plot_frame288,
     plot_intervalframe,
     plot_frame288_monthly_comparison,

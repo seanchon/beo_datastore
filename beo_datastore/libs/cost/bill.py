@@ -5,8 +5,8 @@ import pandas as pd
 import re
 import warnings
 
-from beo_datastore.libs.dataframe import get_unique_values
-from beo_datastore.libs.intervalframe import (
+from beo_datastore.libs.load.dataframe import get_unique_values
+from beo_datastore.libs.load.intervalframe import (
     ValidationDataFrame,
     ValidationFrame288,
     PowerIntervalFrame,

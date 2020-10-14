@@ -11,26 +11,29 @@ import uuid
 from django.db import models, transaction
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.controller import (
+from beo_datastore.libs.cost.controller import (
     AggregateProcurementCostCalculation,
     AggregateResourceAdequacyCalculation,
 )
-from beo_datastore.libs.dataframe import get_dataframe_period
-from beo_datastore.libs.intervalframe import ValidationFrame288
-from beo_datastore.libs.intervalframe_file import (
+from beo_datastore.libs.load.dataframe import get_dataframe_period
+from beo_datastore.libs.load.intervalframe import ValidationFrame288
+from beo_datastore.libs.load.intervalframe_file import (
     ArbitraryDataFrameFile,
     PowerIntervalFrameFile,
 )
-from beo_datastore.libs.models import ValidationModel, IntervalFrameFileMixin
-from beo_datastore.libs.plot_intervalframe import (
+from beo_datastore.libs.models import IntervalFrameFileMixin, ValidationModel
+from beo_datastore.libs.load.plot_intervalframe import (
     plot_frame288,
     plot_intervalframe,
 )
 from beo_datastore.libs.procurement import ProcurementRateIntervalFrame
 from beo_datastore.settings import MEDIA_ROOT
-from beo_datastore.libs.views import dataframe_to_html
 
-from reference.reference_model.models import DERSimulation
+from reference.reference_model.models import (
+    CostCalculationMixin,
+    DERSimulation,
+    RateDataMixin,
+)
 from reference.auth_user.models import LoadServingEntity
 
 # File constants
@@ -46,7 +49,7 @@ class SystemProfileIntervalFrame(PowerIntervalFrameFile):
     file_directory = os.path.join(MEDIA_ROOT, "system_profiles")
 
 
-class SystemProfile(IntervalFrameFileMixin, ValidationModel):
+class SystemProfile(IntervalFrameFileMixin, RateDataMixin, ValidationModel):
     name = models.CharField(max_length=32)
     load_serving_entity = models.ForeignKey(
         to=LoadServingEntity,
@@ -63,6 +66,20 @@ class SystemProfile(IntervalFrameFileMixin, ValidationModel):
 
     def __str__(self):
         return self.load_serving_entity.name + ": " + self.name
+
+    @property
+    def cost_calculation_model(self):
+        """
+        Required by RateDataMixin.
+        """
+        return AggregateResourceAdequacyCalculation
+
+    @property
+    def rate_data(self):
+        """
+        Required by RateDataMixin.
+        """
+        return self.intervalframe
 
     @property
     def short_name(self):
@@ -98,7 +115,7 @@ class SystemProfile(IntervalFrameFileMixin, ValidationModel):
         )
 
 
-class StoredResourceAdequacyCalculation(ValidationModel):
+class StoredResourceAdequacyCalculation(CostCalculationMixin, ValidationModel):
     """
     Container for storing AggregateResourceAdequacyCalculation.
     """
@@ -118,14 +135,7 @@ class StoredResourceAdequacyCalculation(ValidationModel):
 
     class Meta:
         ordering = ["id"]
-        unique_together = ("der_simulation", "system_profile")
-
-    @property
-    def net_impact(self):
-        """
-        Return post-DER total minus pre-DER total.
-        """
-        return self.post_DER_total - self.pre_DER_total
+        unique_together = ("der_simulation", "system_profile", "stacked")
 
     @property
     def pre_der_total_cost(self):
@@ -148,27 +158,8 @@ class StoredResourceAdequacyCalculation(ValidationModel):
         """
         return self.post_der_total_cost - self.pre_der_total_cost
 
-    @property
-    def comparision_html_table(self):
-        """
-        Return Django-formatted HTML pre vs. post comparision table.
-        """
-        return dataframe_to_html(
-            self.aggregate_resource_adequacy_calculation.comparison_table
-        )
-
-    @cached_property
-    def aggregate_resource_adequacy_calculation(self):
-        """
-        Return AggregateResourceAdequacyCalculation equivalent of self.
-        """
-        return AggregateResourceAdequacyCalculation(
-            agg_simulation=self.der_simulation.agg_simulation,
-            system_profile_intervalframe=self.system_profile.intervalframe,
-        )
-
     @classmethod
-    def generate(cls, der_simulation_set, system_profile):
+    def generate(cls, der_simulation_set, system_profile, stacked):
         """
         Get or create many StoredResourceAdequacyCalculations at once.
         Pre-existing StoredResourceAdequacyCalculations are retrieved and
@@ -177,6 +168,8 @@ class StoredResourceAdequacyCalculation(ValidationModel):
         :param der_simulation_set: QuerySet or set of
             DERSimulations
         :param system_profile: SystemProfile
+        :param stacked: True to used StackedDERSimulation, False to use
+            DERSimulation
         :return: StoredResourceAdequacyCalculation QuerySet
         """
         with transaction.atomic():
@@ -184,19 +177,19 @@ class StoredResourceAdequacyCalculation(ValidationModel):
             stored_ra_calculations = cls.objects.filter(
                 der_simulation__in=der_simulation_set,
                 system_profile=system_profile,
+                stacked=stacked,
             )
 
             # create new RA calculations
-            stored_simulations = [
+            already_calculated = [
                 x.der_simulation for x in stored_ra_calculations
             ]
             objects = []
             for der_simulation in der_simulation_set:
-                if der_simulation in stored_simulations:
+                if der_simulation in already_calculated:
                     continue
-                ra_calculation = AggregateResourceAdequacyCalculation(
-                    agg_simulation=der_simulation.agg_simulation,
-                    system_profile_intervalframe=system_profile.intervalframe,
+                ra_calculation = system_profile.calculate_cost(
+                    der_simulation=der_simulation, stacked=stacked
                 )
                 objects.append(
                     cls(
@@ -204,6 +197,7 @@ class StoredResourceAdequacyCalculation(ValidationModel):
                         post_DER_total=ra_calculation.post_DER_total,
                         der_simulation=der_simulation,
                         system_profile=system_profile,
+                        stacked=stacked,
                     )
                 )
             cls.objects.bulk_create(objects)
@@ -211,6 +205,7 @@ class StoredResourceAdequacyCalculation(ValidationModel):
             return cls.objects.filter(
                 der_simulation__in=der_simulation_set,
                 system_profile=system_profile,
+                stacked=stacked,
             )
 
     @staticmethod
@@ -500,7 +495,7 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
         return ProcurementRateIntervalFrame(dataframe=df)
 
 
-class CAISORate(ValidationModel):
+class CAISORate(RateDataMixin, ValidationModel):
     """
     Container for referencing associated CAISO ProcurementRateIntervalFrame.
     """
@@ -513,6 +508,20 @@ class CAISORate(ValidationModel):
     class Meta:
         ordering = ["id"]
         unique_together = ["filters", "caiso_report"]
+
+    @property
+    def cost_calculation_model(self):
+        """
+        Required by RateDataMixin.
+        """
+        return AggregateProcurementCostCalculation
+
+    @property
+    def rate_data(self):
+        """
+        Required by RateDataMixin.
+        """
+        return self.intervalframe
 
     @property
     def name(self):
@@ -538,7 +547,7 @@ class CAISORate(ValidationModel):
         return plot_intervalframe(self.intervalframe, to_html=True)
 
 
-class StoredProcurementCostCalculation(ValidationModel):
+class StoredProcurementCostCalculation(CostCalculationMixin, ValidationModel):
     """
     Container for storing AggregateProcurementCostCalculation.
     """
@@ -558,31 +567,14 @@ class StoredProcurementCostCalculation(ValidationModel):
 
     class Meta:
         ordering = ["id"]
-        unique_together = ("der_simulation", "caiso_rate")
-
-    @property
-    def net_impact(self):
-        """
-        Return post-DER total minus pre-DER total.
-        """
-        return self.post_DER_total - self.pre_DER_total
+        unique_together = ("der_simulation", "caiso_rate", "stacked")
 
     @cached_property
     def procurement_rate_intervalframe(self):
         return self.caiso_rate.intervalframe
 
-    @cached_property
-    def aggregate_procurement_cost_calculation(self):
-        """
-        Return AggregateProcurementCostCalculation equivalent of self.
-        """
-        return AggregateProcurementCostCalculation(
-            agg_simulation=self.der_simulation.agg_simulation,
-            procurement_rate_intervalframe=self.procurement_rate_intervalframe,
-        )
-
     @classmethod
-    def generate(cls, der_simulation_set, caiso_rate):
+    def generate(cls, der_simulation_set, caiso_rate, stacked):
         """
         Get or create many StoredProcurementCostCalculations at once.
         Pre-existing StoredProcurementCostCalculations are retrieved and
@@ -590,25 +582,28 @@ class StoredProcurementCostCalculation(ValidationModel):
 
         :param der_simulation_set: QuerySet or set of DERSimulations
         :param caiso_rate: CAISORate
+        :param stacked: True to used StackedDERSimulation, False to use
+            DERSimulation
         :return: StoredProcurementCostCalculation QuerySet
         """
         with transaction.atomic():
             # get stored procurement cost calculations
             stored_procurement_calculations = cls.objects.filter(
-                der_simulation__in=der_simulation_set, caiso_rate=caiso_rate
+                der_simulation__in=der_simulation_set,
+                caiso_rate=caiso_rate,
+                stacked=stacked,
             )
 
             # create new procurement cost calculations
-            stored_simulations = [
+            already_calculated = [
                 x.der_simulation for x in stored_procurement_calculations
             ]
             objects = []
             for der_simulation in der_simulation_set:
-                if der_simulation in stored_simulations:
+                if der_simulation in already_calculated:
                     continue
-                cost_calulation = AggregateProcurementCostCalculation(
-                    agg_simulation=der_simulation.agg_simulation,
-                    procurement_rate_intervalframe=caiso_rate.intervalframe,
+                cost_calulation = caiso_rate.calculate_cost(
+                    der_simulation=der_simulation, stacked=stacked
                 )
                 objects.append(
                     cls(
@@ -616,12 +611,15 @@ class StoredProcurementCostCalculation(ValidationModel):
                         post_DER_total=cost_calulation.post_DER_total,
                         der_simulation=der_simulation,
                         caiso_rate=caiso_rate,
+                        stacked=stacked,
                     )
                 )
             cls.objects.bulk_create(objects)
 
             return cls.objects.filter(
-                der_simulation__in=der_simulation_set, caiso_rate=caiso_rate
+                der_simulation__in=der_simulation_set,
+                caiso_rate=caiso_rate,
+                stacked=stacked,
             )
 
     @staticmethod

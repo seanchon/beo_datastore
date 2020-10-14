@@ -1,7 +1,7 @@
 import json
 import pandas as pd
 
-from beo_datastore.libs.bill import (
+from beo_datastore.libs.cost.bill import (
     convert_rate_df_to_dict,
     convert_rate_dict_to_df,
 )

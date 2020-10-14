@@ -1,5 +1,9 @@
+import attr
+from datetime import datetime
 from enum import Enum
+from functools import reduce
 import pandas as pd
+from typing import List
 import uuid
 
 from django.contrib.auth.models import User
@@ -15,13 +19,17 @@ from beo_datastore.libs.der.builder import (
     DERSimulationDirector,
     DERStrategy as pyDERStrategy,
 )
+from beo_datastore.libs.load.intervalframe import (
+    PowerIntervalFrame,
+    ValidationIntervalFrame,
+)
 from beo_datastore.libs.models import (
     IntervalFrameFileMixin,
     PolymorphicValidationModel,
     TaskStatusModelMixin,
     ValidationModel,
 )
-from beo_datastore.libs.plot_intervalframe import (
+from beo_datastore.libs.load.plot_intervalframe import (
     plot_intervalframe,
     plot_frame288_monthly_comparison,
 )
@@ -438,13 +446,20 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         super().clean(*args, **kwargs)
 
     @property
+    def is_stacked(self) -> bool:
+        """
+        DERSimulation is not a StackedDERSimulation.
+        """
+        return False
+
+    @property
     def frame_file_class(self):
         raise NotImplementedError(
             "frame_file_class must be set in {}".format(self.__class__)
         )
 
     @property
-    def rate_plan_name(self):
+    def rate_plan_name(self) -> str:
         """
         rate_plan_name associated with upstream CustomerMeter.
         """
@@ -465,18 +480,20 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         return self.meter.sa_id
 
     @cached_property
-    def net_impact(self):
+    def net_impact(self) -> float:
         return self.post_DER_total - self.pre_DER_total
 
     @cached_property
-    def pre_der_intervalframe(self):
+    def pre_der_intervalframe(self) -> PowerIntervalFrame:
         """
         PowerIntervalFrame before running a DERSimulation.
         """
-        return self.meter.meter_intervalframe
+        return self.meter.meter_intervalframe.filter_by_datetime(
+            start=self.start, end_limit=self.end_limit
+        )
 
     @property
-    def der_intervalframe(self):
+    def der_intervalframe(self) -> ValidationIntervalFrame:
         """
         ValidationIntervalFrame representing all DER operations.
         """
@@ -490,19 +507,14 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         return self.der_intervalframe.dataframe.columns
 
     @cached_property
-    def post_der_intervalframe(self):
+    def post_der_intervalframe(self) -> PowerIntervalFrame:
         """
         PowerIntervalFrame after running a DERSimulation.
         """
-        return (
-            self.meter.meter_intervalframe.filter_by_datetime(
-                start=self.start, end_limit=self.end_limit
-            )
-            + self.intervalframe
-        )
+        return self.pre_der_intervalframe + self.der_intervalframe
 
     @cached_property
-    def meter_intervalframe(self):
+    def meter_intervalframe(self) -> PowerIntervalFrame:
         """
         PowerIntervalFrame representing building load after DER has been
         introduced.
@@ -570,28 +582,20 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
             return pd.DataFrame()
 
     @cached_property
-    def simulation(self):
+    def simulation(self) -> DERProduct:
         """
         Return DERProduct equivalent of self.
         """
-        pre_der_intervalframe = (
-            self.meter.meter_intervalframe.filter_by_datetime(
-                start=self.start, end_limit=self.end_limit
-            )
-        )
-
         return DERProduct(
             der=self.der_configuration.der,
             der_strategy=self.der_strategy.der_strategy,
-            pre_der_intervalframe=pre_der_intervalframe,
-            der_intervalframe=self.intervalframe,
-            post_der_intervalframe=(
-                pre_der_intervalframe + self.intervalframe
-            ),
+            pre_der_intervalframe=self.pre_der_intervalframe,
+            der_intervalframe=self.der_intervalframe,
+            post_der_intervalframe=self.post_der_intervalframe,
         )
 
     @cached_property
-    def agg_simulation(self):
+    def agg_simulation(self) -> AggregateDERProduct:
         """
         Return AggregateDERProduct equivalent of self.
 
@@ -600,6 +604,27 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         beo_datastore/libs/controller.py.
         """
         return AggregateDERProduct(der_products={self.id: self.simulation})
+
+    @cached_property
+    def instream_der_simulations(self) -> List:
+        """
+        A list of DERSimulation objects representing all historical DER
+        transformations.
+        """
+        if isinstance(self.meter, DERSimulation):
+            return self.meter.instream_der_simulations + [self]
+        else:
+            return [self]
+
+    @cached_property
+    def stacked_der_simulation(self):
+        """
+        Return StackedDERSimulation equivalent of self including all upstream
+        DERSimulation objects.
+        """
+        return StackedDERSimulation(
+            der_simulations=self.instream_der_simulations
+        )
 
     @classmethod
     def get_or_create_from_objects(
@@ -732,3 +757,190 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
                 start=start,
                 end_limit=end_limit,
             )
+
+
+@attr.s(frozen=True)
+class StackedDERSimulation(object):
+    """
+    A container for sequential DERSimulations.
+    """
+
+    der_simulations = attr.ib(type=List[DERSimulation])
+
+    @der_simulations.validator
+    def _validate_der_simulations(self, attribute, value):
+        """
+        Validate that der_simulations contains sequential DERSimulations.
+        """
+        if len(value) < 1:
+            raise LookupError("der_simulations cannot be empty.")
+
+        for i, _ in enumerate(value[:-1]):
+            current = value[i]
+            next_ = value[i + 1]
+
+            if current != next_.meter:
+                raise LookupError("DERSimulations are not sequential.")
+
+    @property
+    def id(self):
+        return self.last_simulation.id
+
+    @property
+    def is_stacked(self) -> bool:
+        """
+        StackedDERSimulation is stacked.
+        """
+        return True
+
+    @property
+    def first_simulation(self):
+        return self.der_simulations[0]
+
+    @property
+    def last_simulation(self):
+        return self.der_simulations[-1]
+
+    @property
+    def meter(self):
+        return self.last_simulation.meter
+
+    @property
+    def start(self) -> datetime:
+        return self.last_simulation.start
+
+    @property
+    def end_limit(self) -> datetime:
+        return self.last_simulation.end_limit
+
+    @property
+    def der_configuration(self) -> DERConfiguration:
+        return self.last_simulation.der_configuration
+
+    @property
+    def der_strategy(self) -> DERStrategy:
+        return self.last_simulation.der_strategy
+
+    @property
+    def pre_DER_total(self) -> float:
+        return self.first_simulation.pre_DER_total
+
+    @property
+    def post_DER_total(self) -> float:
+        return self.last_simulation.post_DER_total
+
+    @property
+    def net_impact(self) -> float:
+        return self.post_DER_total - self.pre_DER_total
+
+    @property
+    def pre_der_intervalframe(self) -> PowerIntervalFrame:
+        return self.first_simulation.pre_der_intervalframe.filter_by_datetime(
+            start=self.start, end_limit=self.end_limit
+        )
+
+    @property
+    def der_intervalframe(self) -> PowerIntervalFrame:
+        return reduce(
+            lambda x, y: x + y,
+            [sim.der_intervalframe for sim in self.der_simulations],
+            PowerIntervalFrame(),
+        )
+
+    @property
+    def post_der_intervalframe(self) -> PowerIntervalFrame:
+        return self.last_simulation.post_der_intervalframe
+
+    @property
+    def simulation(self):
+        """
+        Return DERProduct equivalent of a StackedDERSimulation using the
+        most-recent DER and DERStrategy as placeholder values.
+        """
+        return DERProduct(
+            der=self.der_configuration.der,
+            der_strategy=self.der_strategy.der_strategy,
+            pre_der_intervalframe=self.pre_der_intervalframe,
+            der_intervalframe=self.der_intervalframe,
+            post_der_intervalframe=self.post_der_intervalframe,
+        )
+
+    @cached_property
+    def agg_simulation(self):
+        """
+        Return AggregateDERProduct equivalent of a StackedDERSimulation.
+        """
+        return AggregateDERProduct(der_products={self.id: self.simulation})
+
+
+class RateDataMixin(object):
+    """
+    Mixin for all DER rate models used to generate DER cost-calcuations.
+    """
+
+    @property
+    def cost_calculation_model(self):
+        """
+        DERCostCalculation model associated with rate.
+        """
+        raise NotImplementedError(
+            "cost_calculation_model must be defined in {}".format(
+                self.__class__
+            )
+        )
+
+    def rate_data(self):
+        """
+        Data structure containing rates (i.e. ValidationFrame288,
+        ValidationIntervalFrame, dictionary, etc.)
+        """
+        raise NotImplementedError(
+            "rate_data must be defined in {}".format(self.__class__)
+        )
+
+    def calculate_cost(self, der_simulation: DERSimulation, stacked: bool):
+        """
+        Perform DERCostCalculation.
+        """
+        if not isinstance(der_simulation, DERSimulation):
+            raise TypeError(
+                "{} must be a DERSimulation.".format(der_simulation)
+            )
+
+        if stacked:
+            effective_der_simulation = der_simulation.stacked_der_simulation
+        else:
+            effective_der_simulation = der_simulation
+
+        return self.cost_calculation_model(
+            agg_simulation=effective_der_simulation.agg_simulation,
+            rate_data=self.rate_data,
+        )
+
+
+class CostCalculationMixin(models.Model):
+    """
+    Mixin for all DER cost-calculation models.
+    """
+
+    stacked = models.BooleanField(default=True)
+
+    class Meta:
+        abstract = True
+
+    @property
+    def net_impact(self):
+        """
+        Return post-DER total minus pre-DER total.
+        """
+        return self.post_DER_total - self.pre_DER_total
+
+    @property
+    def effective_der_simulation(self):
+        """
+        DERSimulation used in cost calculation.
+        """
+        if self.stacked:
+            return self.der_simulation.stacked_der_simulation
+        else:
+            return self.der_simulation

@@ -5,13 +5,13 @@ from django.test import TestCase
 
 from beo_datastore.libs.der.schedule_utils import create_diurnal_schedule
 from beo_datastore.libs.der.battery import (
-    Battery,
+    Battery as pyBattery,
     BatterySimulationBuilder,
-    BatteryStrategy,
+    BatteryStrategy as pyBatteryStrategy,
 )
 from beo_datastore.libs.der.builder import DERSimulationDirector
 from beo_datastore.libs.fixtures import flush_intervalframe_files
-from beo_datastore.libs.intervalframe import PowerIntervalFrame
+from beo_datastore.libs.load.intervalframe import PowerIntervalFrame
 
 from der.simulation.models import StoredBatterySimulation
 from load.customer.models import CustomerMeter, Channel
@@ -67,7 +67,7 @@ class TestBattery(TestCase):
             dataframe=self.intervalframe.dataframe,
         )
 
-        self.battery = Battery(
+        self.battery = pyBattery(
             rating=5, discharge_duration=timedelta(hours=2), efficiency=0.5
         )
         # always attempt to charge on negative kW readings
@@ -79,15 +79,14 @@ class TestBattery(TestCase):
             start_hour=0, end_limit_hour=0, power_limit_1=5, power_limit_2=5
         )
 
-        self.battery_strategy = BatteryStrategy(
+        self.battery_strategy = pyBatteryStrategy(
             charge_schedule=self.charge_schedule,
             discharge_schedule=self.discharge_schedule,
         )
 
         # run battery simulation
         builder = BatterySimulationBuilder(
-            der=self.battery,
-            der_strategy=self.battery_strategy,
+            der=self.battery, der_strategy=self.battery_strategy
         )
         self.director = DERSimulationDirector(builder=builder)
         self.simulation = self.director.run_single_simulation(
@@ -123,7 +122,7 @@ class TestBattery(TestCase):
 
     def test_stored_aggregate_simulation(self):
         """
-        Test the retreival of aggregate battery simulations from disk/database.
+        Test the retrieval of aggregate battery simulations from disk/database.
         """
         StoredBatterySimulation.generate(
             der=self.battery,
