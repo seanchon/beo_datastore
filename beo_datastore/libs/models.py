@@ -79,7 +79,7 @@ def nested_getattr(object, nested_attr, default=None, strict=False):
             )
     except AttributeError as e:
         if strict:
-            raise (e)
+            raise e
         else:
             return default
 

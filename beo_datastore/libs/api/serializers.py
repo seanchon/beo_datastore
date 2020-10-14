@@ -1,8 +1,10 @@
 from datetime import timedelta
 import dateutil.parser
+from dynamic_rest.fields import DynamicComputedField
 import pandas as pd
-
 from rest_framework import serializers
+
+from beo_datastore.libs.models import nested_getattr
 
 
 def require_request_data(request, input_list):
@@ -32,6 +34,27 @@ def get_context_request_param(context, param):
         return context["request"].query_params.get(param)
     else:
         return None
+
+
+class Frame288ComputedField(DynamicComputedField):
+    """
+    ComputedField for serializing frame 288's
+    """
+
+    frame_key: str = None
+
+    def __init__(self, frame_key: str, **kwargs):
+        self.frame_key = frame_key
+        super().__init__(**kwargs)
+
+    def get_attribute(self, instance):
+        try:
+            frame288 = nested_getattr(instance, self.frame_key, strict=True)
+            return frame288.dataframe.astype(str)
+        except AttributeError:
+            raise serializers.ValidationError(
+                f"Object {instance} does not have attribute {self.frame_key}"
+            )
 
 
 class AbstractGetDataMixin(object):
