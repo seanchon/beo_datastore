@@ -574,8 +574,10 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         """
         Return DERProduct equivalent of self.
         """
-        pre_der_intervalframe = self.meter.meter_intervalframe.filter_by_datetime(
-            start=self.start, end_limit=self.end_limit
+        pre_der_intervalframe = (
+            self.meter.meter_intervalframe.filter_by_datetime(
+                start=self.start, end_limit=self.end_limit
+            )
         )
 
         return DERProduct(
