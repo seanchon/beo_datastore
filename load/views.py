@@ -239,7 +239,7 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
         """
         user = self.request.user
 
-        object_type = self.request.query_params.get("object_type")
+        object_type = self._param("object_type")
 
         if object_type:
             model = get_model_from_any_app(object_type, MeterGroup)
@@ -318,7 +318,7 @@ class MeterViewSet(ListRetrieveViewSet):
         """
         user = self.request.user
 
-        object_type = self.request.query_params.get("object_type")
+        object_type = self._param("object_type")
 
         if object_type:
             model = get_model_from_any_app(object_type, Meter)

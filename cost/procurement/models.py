@@ -234,11 +234,7 @@ class StoredResourceAdequacyCalculation(ValidationModel):
 
         dataframes = []
         for system_profile_id in system_profile_ids:
-            title_prefix = ""
             system_profile = SystemProfile.objects.get(id=system_profile_id)
-            if len(system_profile_ids) > 1:
-                title_prefix = system_profile.short_name
-
             dataframe = pd.DataFrame(
                 sorted(
                     [
@@ -264,12 +260,12 @@ class StoredResourceAdequacyCalculation(ValidationModel):
                     dataframe.rename(
                         columns={
                             0: "ID",
-                            1: "{}RAPreDER".format(title_prefix),
-                            2: "{}RAPostDER".format(title_prefix),
-                            3: "{}RADelta".format(title_prefix),
-                            4: "{}RAPreDERCost".format(title_prefix),
-                            5: "{}RAPostDERCost".format(title_prefix),
-                            6: "{}RADeltaCost".format(title_prefix),
+                            1: "RAPreDER",
+                            2: "RAPostDER",
+                            3: "RADelta",
+                            4: "RACostPreDER",
+                            5: "RACostPostDER",
+                            6: "RACostDelta",
                         }
                     ).set_index("ID")
                 )
@@ -671,9 +667,9 @@ class StoredProcurementCostCalculation(ValidationModel):
                     dataframe.rename(
                         columns={
                             0: "ID",
-                            1: "{}PreDER".format(caiso_rate.short_name),
-                            2: "{}PostDER".format(caiso_rate.short_name),
-                            3: "{}Delta".format(caiso_rate.short_name),
+                            1: "ProcurementCostPreDER",
+                            2: "ProcurementCostPostDER",
+                            3: "ProcurementCostDelta",
                         }
                     ).set_index("ID")
                 )

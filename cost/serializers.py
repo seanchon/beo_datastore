@@ -11,7 +11,7 @@ from beo_datastore.libs.api.serializers import (
     get_context_request_param,
 )
 from cost.ghg.models import GHGRate
-from cost.procurement.models import CAISORate
+from cost.procurement.models import CAISORate, SystemProfile
 from cost.study.models import Scenario
 from cost.utility_rate.models import RatePlan, RateCollection
 from reference.auth_user.models import LoadServingEntity
@@ -20,46 +20,31 @@ from der.serializers import (
     DERSimulationSerializer,
     DERStrategySerializer,
 )
-from load.serializers import MeterGroupSerializer, MeterSerializer
+from load.serializers import MeterGroupSerializer
 
 
-class ScenarioSerializer(AbstractGetDataMixin, DynamicModelSerializer):
-    data = serializers.SerializerMethodField()
+class ScenarioSerializer(MeterGroupSerializer):
     ders = serializers.SerializerMethodField()
     der_simulations = serializers.SerializerMethodField()
     meter_group = DynamicRelationField(MeterGroupSerializer, deferred=True)
-    meters = serializers.SerializerMethodField()
-    metadata = serializers.SerializerMethodField()
     report = serializers.SerializerMethodField()
     report_summary = serializers.SerializerMethodField()
 
-    # required by AbstractGetDataMixin
-    intervalframe_name = "meter_intervalframe"
-
     class Meta:
         model = Scenario
-        fields = (
-            "created_at",
-            "data",
+        fields = MeterGroupSerializer.Meta.fields + (
             "der_simulation_count",
             "der_simulations",
             "ders",
             "expected_der_simulation_count",
-            "id",
-            "metadata",
-            "meter_count",
             "meter_group",
-            "meters",
-            "name",
-            "object_type",
             "report",
             "report_summary",
         )
-        deferred_fields = (
+        deferred_fields = MeterGroupSerializer.Meta.deferred_fields + (
             "der_simulations",
             "ders",
             "meter_group",
-            "meters",
             "report",
             "report_summary",
         )
@@ -86,20 +71,6 @@ class ScenarioSerializer(AbstractGetDataMixin, DynamicModelSerializer):
             obj.der_simulations, many=True, read_only=True
         ).data
 
-    def get_meters(self, obj):
-        """
-        Meters associated with Scenario.
-        """
-        return MeterSerializer(obj.meters, many=True, read_only=True).data
-
-    def get_meter_group(self, obj):
-        """
-        MeterGroups associated with Scenario.
-        """
-        return MeterGroupSerializer(
-            obj.meter_groups, many=True, read_only=True
-        ).data
-
     def get_metadata(self, obj: Scenario):
         """
         Data associated with Scenario child object.
@@ -109,7 +80,7 @@ class ScenarioSerializer(AbstractGetDataMixin, DynamicModelSerializer):
             "end_limit": obj.end_limit,
             "der_strategy": obj.der_strategy.id,
             "der_configuration": obj.der_configuration.id,
-            "rate_plan_name": obj.rate_plan.name,
+            "is_complete": obj.has_completed,
         }
 
     def get_report(self, obj):
@@ -262,3 +233,13 @@ class RatePlanSerializer(DynamicModelSerializer):
             "sector",
             "start_date",
         )
+
+
+class SystemProfileSerializer(DynamicModelSerializer):
+    load_serving_entity = DynamicRelationField(
+        LoadServingEntitySerializer, deferred=True, embed=True
+    )
+
+    class Meta:
+        model = SystemProfile
+        fields = ("id", "name", "load_serving_entity")

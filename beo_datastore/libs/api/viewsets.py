@@ -1,6 +1,7 @@
 from dynamic_rest.viewsets import WithDynamicViewSetMixin
 from rest_framework import mixins
 from rest_framework import viewsets
+from typing import List
 
 from beo_datastore.libs.api.pagination import DefaultResultsSetPagination
 
@@ -17,6 +18,14 @@ class BaseViewSet(viewsets.GenericViewSet):
         :param query_param: name of the query parameter to fetch
         """
         return self.request.query_params.get(query_param)
+
+    def _data(self, data_keys: List[str]):
+        """
+        Shortcut for accessing the request object's data fields
+
+        :param data_keys: the names of the data keys to get
+        """
+        return [self.request.data.get(key) for key in data_keys]
 
 
 class CreateViewSet(mixins.CreateModelMixin, BaseViewSet):

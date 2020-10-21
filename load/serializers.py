@@ -3,6 +3,7 @@ from dynamic_rest.serializers import DynamicModelSerializer
 from rest_framework import serializers
 
 from beo_datastore.libs.api.serializers import AbstractGetDataMixin
+from cost.study.models import Scenario
 from load.customer.models import CustomerCluster, CustomerMeter, OriginFile
 from load.openei.models import ReferenceMeter
 from reference.reference_model.models import DERSimulation, Meter, MeterGroup
@@ -34,6 +35,14 @@ class CustomerClusterSerializer(DynamicModelSerializer):
             "number_of_clusters",
             "meter_group_id",
         )
+
+
+class ScenarioSerializer(DynamicModelSerializer):
+    is_complete = serializers.BooleanField(source="has_completed")
+
+    class Meta:
+        model = Scenario
+        fields = ("is_complete",)
 
 
 class MeterGroupSerializer(GetMeterDataMixin, DynamicModelSerializer):
@@ -80,6 +89,8 @@ class MeterGroupSerializer(GetMeterDataMixin, DynamicModelSerializer):
             return CustomerClusterSerializer(
                 obj, many=False, read_only=True
             ).data
+        if isinstance(obj, Scenario):
+            return ScenarioSerializer(obj, many=False, read_only=True).data
         else:
             return {}
 

@@ -14,6 +14,7 @@ from beo_datastore.libs.fixtures import (
     load_intervalframe_files,
 )
 from cost.ghg.models import GHGRate
+from cost.procurement.models import CAISORate
 from cost.study.models import Scenario
 from cost.utility_rate.models import RatePlan
 from der.simulation.models import BatteryConfiguration, BatteryStrategy
@@ -30,7 +31,13 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
     without errors.
     """
 
-    fixtures = ["reference_model", "customer", "ghg", "utility_rate"]
+    fixtures = [
+        "reference_model",
+        "customer",
+        "ghg",
+        "utility_rate",
+        "caiso_rate",
+    ]
 
     def setUp(self):
         """
@@ -41,7 +48,9 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         # create fake API user
         faker = Factory.create()
         self.user = User.objects.create(
-            username=faker.user_name(), email=faker.email(), is_superuser=False
+            username=faker.user_name(),
+            email=faker.email(domain="@pge.com"),
+            is_superuser=False,
         )
 
         self.endpoints = [
@@ -84,7 +93,8 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
             meter_group=meter_group,
             rate_plan=RatePlan.objects.first(),
         )
-        scenario.ghg_rates.add(*GHGRate.objects.all())
+        scenario.ghg_rate = GHGRate.objects.first()
+        scenario.save()
         scenario.run()
 
     def tearDown(self):
@@ -105,6 +115,7 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         strategy = BatteryStrategy.objects.first()
 
         data = {
+            "cost_functions": {},
             "name": "test",
             "meter_group_ids": [str(meter_group.id)],
             "ders": [
@@ -143,6 +154,49 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         self.user.meter_groups.clear()
         response = self.client.get(get_endpoint)
         self.assertEqual(len(response.data["results"]["scenarios"]), 0)
+
+    def test_scenario_creation_assigns_cost_functions(self):
+        """
+        Tests that cost functions are correctly assigned to the scenario upon
+        creation
+        """
+        self.client.force_authenticate(user=self.user)
+
+        # Delete all Scenario objects
+        Scenario.objects.all().delete()
+
+        meter_group = MeterGroup.objects.first()
+        configuration = BatteryConfiguration.objects.first()
+        strategy = BatteryStrategy.objects.first()
+        rate_plan = RatePlan.objects.first()
+        ghg_rate = GHGRate.objects.first()
+        procurement_rate = CAISORate.objects.first()
+
+        data = {
+            "cost_functions": {
+                "rate_plan": rate_plan.id,
+                "ghg_rate": ghg_rate.id,
+                "procurement_rate": procurement_rate.id,
+            },
+            "name": "test",
+            "meter_group_ids": [str(meter_group.id)],
+            "ders": [
+                {
+                    "der_configuration_id": str(configuration.id),
+                    "der_strategy_id": str(strategy.id),
+                }
+            ],
+        }
+
+        # Create the scenario
+        post_endpoint = "/v1/cost/scenario/"
+        response = self.client.post(post_endpoint, data, format="json")
+
+        # Assert the scenario has been assigned the correct rates
+        scenario = Scenario.objects.get(id=response.data["id"])
+        self.assertEqual(scenario.rate_plan, rate_plan)
+        self.assertEqual(scenario.ghg_rate, ghg_rate)
+        self.assertEqual(scenario.procurement_rate, procurement_rate)
 
 
 class TestEndpointsGHGRate(APITestCase, BasicAuthenticationTestMixin):

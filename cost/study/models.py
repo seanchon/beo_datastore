@@ -10,8 +10,6 @@ import re
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.functions import Coalesce
-from django.db.models.signals import m2m_changed
-from django.dispatch import receiver
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.der.builder import AggregateDERProduct, DERProduct
@@ -90,16 +88,32 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         null=True,
     )
     rate_plan = models.ForeignKey(
-        to=RatePlan, related_name="scenarios", on_delete=models.CASCADE
+        to=RatePlan,
+        related_name="scenarios",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
     )
-    ghg_rates = models.ManyToManyField(
-        to=GHGRate, related_name="scenarios", blank=True
+    ghg_rate = models.ForeignKey(
+        to=GHGRate,
+        related_name="scenarios",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
     )
-    system_profiles = models.ManyToManyField(
-        to=SystemProfile, related_name="scenarios", blank=True
+    system_profile = models.ForeignKey(
+        to=SystemProfile,
+        related_name="scenarios",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
     )
-    caiso_rates = models.ManyToManyField(
-        to=CAISORate, related_name="scenarios", blank=True
+    procurement_rate = models.ForeignKey(
+        to=CAISORate,
+        related_name="scenarios",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
     )
     _report = JSONField(blank=True, null=True, default={})
     _report_summary = JSONField(blank=True, null=True, default={})
@@ -201,12 +215,15 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         Number of expected cost calculations based on the number of
         cost-function rates muliplied by the number of DER simulations.
         """
-        cost_rate_count = 1  # billing rates (rate_plan)
-        cost_rate_count += self.ghg_rates.count()  # GHG rates
-        cost_rate_count += self.system_profiles.count()  # RA rates
-        cost_rate_count += self.caiso_rates.count()  # Procurement rates
+        cost_fns = [
+            self.rate_plan,
+            self.ghg_rate,
+            self.system_profile,
+            self.procurement_rate,
+        ]
 
-        return cost_rate_count * self.expected_der_simulation_count
+        num_cost_fns = sum(map(bool, cost_fns))
+        return num_cost_fns * self.expected_der_simulation_count
 
     @property
     def cost_calculation_count(self):
@@ -512,6 +529,14 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         expenses = self.standardize_delta_df(
             self.expense_report_summary.transpose()
         )
+
+        missing_expenses = expenses.empty
+        missing_revenue = "BillRevenueDelta" not in self.report.columns
+
+        # If there's no revenue info or no expense info, return an empty frame
+        if missing_expenses or missing_revenue:
+            return pd.DataFrame()
+
         revenues = self.standardize_delta_df(
             self.linear_report_summary(
                 ["BillRevenuePreDER", "BillRevenuePostDER", "BillRevenueDelta"]
@@ -547,15 +572,13 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         Return AggregateResourceAdequacyCalculation equivalent of self, or None
         if no system profile is associated with the study
         """
-        # TODO: Account for CCA's with multiple system profiles
-        system_profile = self.system_profiles.last()
-        if not system_profile:
+        if not self.system_profile:
             return None
 
         # compute RA on all meters combined
         return AggregateResourceAdequacyCalculation(
             agg_simulation=self.agg_simulation,
-            system_profile_intervalframe=system_profile.intervalframe,
+            system_profile_intervalframe=self.system_profile.intervalframe,
         )
 
     @cached_property
@@ -597,8 +620,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         return StoredGHGCalculation.objects.select_related(
             "der_simulation__meter"
         ).filter(
-            der_simulation__in=self.der_simulations,
-            ghg_rate__in=self.ghg_rates.all(),
+            der_simulation__in=self.der_simulations, ghg_rate=self.ghg_rate,
         )
 
     @property
@@ -610,7 +632,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
             "der_simulation__meter"
         ).filter(
             der_simulation__in=self.der_simulations,
-            system_profile__in=self.system_profiles.all(),
+            system_profile=self.system_profile,
         )
 
     @property
@@ -622,7 +644,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
             "der_simulation__meter"
         ).filter(
             der_simulation__in=self.der_simulations,
-            caiso_rate__in=self.caiso_rates.all(),
+            caiso_rate=self.procurement_rate,
         )
 
     @property
@@ -782,26 +804,28 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
             multiprocess=False,
         )
 
-        StoredBillCalculation.generate(
-            der_simulation_set=der_simulation_set,
-            rate_plan=self.rate_plan,  # TODO: link to meter
-            multiprocess=False,
-        )
-
-        for ghg_rate in self.ghg_rates.all():
-            StoredGHGCalculation.generate(
-                der_simulation_set=der_simulation_set, ghg_rate=ghg_rate
+        if self.rate_plan:
+            StoredBillCalculation.generate(
+                der_simulation_set=der_simulation_set,
+                rate_plan=self.rate_plan,  # TODO: link to meter
+                multiprocess=False,
             )
 
-        for system_profile in self.system_profiles.all():
+        if self.ghg_rate:
+            StoredGHGCalculation.generate(
+                der_simulation_set=der_simulation_set, ghg_rate=self.ghg_rate
+            )
+
+        if self.system_profile:
             StoredResourceAdequacyCalculation.generate(
                 der_simulation_set=der_simulation_set,
-                system_profile=system_profile,
+                system_profile=self.system_profile,
             )
 
-        for caiso_rate in self.caiso_rates.all():
+        if self.procurement_rate:
             StoredProcurementCostCalculation.generate(
-                der_simulation_set=der_simulation_set, caiso_rate=caiso_rate
+                der_simulation_set=der_simulation_set,
+                caiso_rate=self.procurement_rate,
             )
 
     def run(self):
@@ -869,12 +893,48 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
 
         return origin_file
 
+    def assign_cost_functions(self, cost_functions):
+        """
+        Assigns cost functions to the scenario
 
-@receiver(m2m_changed, sender=Scenario.ghg_rates.through)
-def reset_cached_properties_update_ghg_rates(sender, **kwargs):
-    """
-    Reset cached properties whenever ghg_rates is updated. This resets any
-    cached reports.
-    """
-    simulation_optimization = kwargs.get("instance", Scenario.objects.none())
-    simulation_optimization._reset_cached_properties()
+        :param cost_functions: dictionary mapping a cost function-type to the ID
+          of the cost function to apply. Expected keys are "rate_plan",
+          "ghg_rate", "procurement_rate" and "system_profile". No key is
+          required
+        """
+        if "rate_plan" in cost_functions:
+            try:
+                self.rate_plan = RatePlan.objects.get(
+                    id=cost_functions["rate_plan"],
+                    load_serving_entity=self.load_serving_entity,
+                )
+            except RatePlan.DoesNotExist:
+                pass
+
+        if "ghg_rate" in cost_functions:
+            try:
+                self.ghg_rate = GHGRate.objects.get(
+                    id=cost_functions["ghg_rate"]
+                )
+            except GHGRate.DoesNotExist:
+                pass
+
+        if "procurement_rate" in cost_functions:
+            try:
+                self.procurement_rate = CAISORate.objects.get(
+                    id=cost_functions["procurement_rate"]
+                )
+            except CAISORate.DoesNotExist:
+                pass
+
+        if "system_profile" in cost_functions:
+            try:
+                self.system_profile = SystemProfile.objects.get(
+                    id=cost_functions["system_profile"],
+                    load_serving_entity=self.load_serving_entity,
+                )
+            except SystemProfile.DoesNotExist:
+                pass
+
+        # save the above changes
+        self.save()

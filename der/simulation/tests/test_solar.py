@@ -110,6 +110,7 @@ class TestSolarPV(APITestCase):
         )
 
         data = {
+            "cost_functions": {},
             "name": "test",
             "meter_group_ids": [str(meter_group.id)],
             "ders": [

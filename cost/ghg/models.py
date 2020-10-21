@@ -192,9 +192,9 @@ class StoredGHGCalculation(ValidationModel):
                     dataframe.rename(
                         columns={
                             0: "ID",
-                            1: "{}PreDER".format(ghg_rate.short_name),
-                            2: "{}PostDER".format(ghg_rate.short_name),
-                            3: "{}Delta".format(ghg_rate.short_name),
+                            1: "GHGPreDER",
+                            2: "GHGPostDER",
+                            3: "GHGDelta",
                         }
                     ).set_index("ID")
                 )

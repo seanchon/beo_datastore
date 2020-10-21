@@ -6,6 +6,7 @@ from cost.views import (
     ScenarioViewSet,
     RatePlanViewSet,
     RateCollectionViewSet,
+    SystemProfileViewSet,
 )
 from der.views import (
     DERConfigurationViewSet,
@@ -27,6 +28,9 @@ v1_router.register(r"cost/scenario", ScenarioViewSet, basename="Scenario")
 v1_router.register(r"cost/rate_plan", RatePlanViewSet, basename="RatePlan")
 v1_router.register(
     r"cost/rate_collection", RateCollectionViewSet, basename="RateCollection"
+)
+v1_router.register(
+    r"cost/system_profile", SystemProfileViewSet, basename="SystemProfile"
 )
 v1_router.register(r"der/configuration", DERConfigurationViewSet)
 v1_router.register(

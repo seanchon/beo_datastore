@@ -98,8 +98,9 @@ class TestScenario(TestCase):
             meter_group=customer_population.customer_clusters.first(),
             rate_plan=RatePlan.objects.get(name__contains="EV"),
         )
-        scenario.ghg_rates.add(*GHGRate.objects.filter(name="Clean Net Short"))
-        scenario.caiso_rates.add(*CAISORate.objects.all())
+        scenario.ghg_rate = GHGRate.objects.first()
+        scenario.procurement_rate = CAISORate.objects.first()
+        scenario.save()
         run_scenario(scenario.id)
 
         # get updates made by the task
@@ -125,24 +126,15 @@ class TestScenario(TestCase):
                 "BillRevenuePreDER",
                 "BillRevenuePostDER",
                 "BillRevenueDelta",
-                "CleanNetShort2018PreDER",
-                "CleanNetShort2018PostDER",
-                "CleanNetShort2018Delta",
-                "CleanNetShort2022PreDER",
-                "CleanNetShort2022PostDER",
-                "CleanNetShort2022Delta",
-                "CleanNetShort2026PreDER",
-                "CleanNetShort2026PostDER",
-                "CleanNetShort2026Delta",
-                "CleanNetShort2030PreDER",
-                "CleanNetShort2030PostDER",
-                "CleanNetShort2030Delta",
+                "GHGPreDER",
+                "GHGPostDER",
+                "GHGDelta",
                 "ExpensePreDER",
                 "ExpensePostDER",
                 "ExpenseDelta",
-                "PRC_LMP2018PreDER",
-                "PRC_LMP2018PostDER",
-                "PRC_LMP2018Delta",
+                "ProcurementCostPreDER",
+                "ProcurementCostPostDER",
+                "ProcurementCostDelta",
                 "ProfitPreDER",
                 "ProfitPostDER",
                 "ProfitDelta",

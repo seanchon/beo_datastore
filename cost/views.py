@@ -19,7 +19,6 @@ from beo_datastore.libs.api.viewsets import (
     ListRetrieveViewSet,
 )
 from beo_datastore.libs.dataframe import download_dataframe
-from beo_datastore.libs.models import nested_getattr
 from beo_datastore.libs.bill import convert_rate_df_to_dict
 
 from cost.ghg.models import GHGRate
@@ -38,6 +37,7 @@ from .serializers import (
     RatePlanSerializer,
     RateCollectionSerializer,
     ScenarioSerializer,
+    SystemProfileSerializer,
 )
 from .tasks import run_scenario
 
@@ -80,10 +80,15 @@ class ScenarioViewSet(CreateListRetrieveUpdateDestroyViewSet):
                 ),
             ),
             coreapi.Field(
-                "rate_plan_id",
+                "cost_functions",
                 required=False,
                 location="body",
-                description=("RatePlan id to use for billing calculations."),
+                description=(
+                    "dictionary mapping a cost function-type to the ID of the "
+                    "cost function to apply. Expected keys are 'rate_plan', "
+                    "'ghg_rate', 'procurement_rate' and 'system_profile'. No "
+                    "key is required"
+                ),
             ),
             coreapi.Field(
                 "object_type",
@@ -150,9 +155,16 @@ class ScenarioViewSet(CreateListRetrieveUpdateDestroyViewSet):
     def create(self, request):
         require_request_data(request, ["name", "meter_group_ids", "ders"])
 
-        name = request.data["name"]
-        meter_group_ids = request.data["meter_group_ids"]
-        ders = request.data["ders"]
+        lse = request.user.profile.load_serving_entity
+        name, meter_group_ids, scenario_ids, ders, cost_functions = self._data(
+            [
+                "name",
+                "meter_group_ids",
+                "scenario_ids",
+                "ders",
+                "cost_functions",
+            ]
+        )
 
         with transaction.atomic():
             for meter_group_id in meter_group_ids:
@@ -165,22 +177,6 @@ class ScenarioViewSet(CreateListRetrieveUpdateDestroyViewSet):
                         raise serializers.ValidationError(
                             "MeterGroup does not exist."
                         )
-                    if "rate_plan_id" in request.data.keys():
-                        rate_plan = RatePlan.objects.get(
-                            id=request.data["rate_plan_id"]
-                        )
-                    else:
-                        rate_plan = RatePlan.get_linked_rate_plans(
-                            meter_group.load_serving_entity,
-                            meter_group.primary_linked_rate_plan_name,
-                        ).first()
-                        if not rate_plan:
-                            raise serializers.ValidationError(
-                                "Could not determine RatePlan for MeterGroup "
-                                "(name: {}, id: {}).".format(
-                                    meter_group.name, meter_group.id
-                                )
-                            )
                     try:
                         der_configuration = DERConfiguration.objects.get(
                             id=configuration_id
@@ -202,51 +198,15 @@ class ScenarioViewSet(CreateListRetrieveUpdateDestroyViewSet):
                         end_limit=pd.Timestamp.max.replace(microsecond=0),
                         der_configuration=der_configuration,
                         der_strategy=der_strategy,
+                        load_serving_entity=lse,
                         meter_group=meter_group,
-                        rate_plan=rate_plan,
                         name=name,
                     )
-                    scenario.ghg_rates.add(
-                        *GHGRate.objects.filter(
-                            name__contains="Clean Net Short"
-                        )
-                    )
-                    scenario.ghg_rates.add(
-                        *GHGRate.objects.filter(name__contains="CARB")
-                    )
-                    lse = request.user.profile.load_serving_entity
-                    # TODO: Account for CCA's with multiple system profiles
-                    system_profile = SystemProfile.objects.filter(
-                        load_serving_entity=lse
-                    ).last()
-                    if system_profile:
-                        scenario.system_profiles.add(system_profile)
 
-                    # assign CAISO rates
-                    caiso_rates = CAISORate.objects.filter(
-                        caiso_report__report_name="PRC_LMP",
-                        caiso_report__year__in=meter_group.years,
-                    )
-                    parent_utility = nested_getattr(
-                        meter_group, "load_serving_entity.parent_utility.name"
-                    )
-                    if parent_utility == "Pacific Gas & Electric Co":
-                        caiso_rates = [
-                            x
-                            for x in caiso_rates
-                            if x.caiso_report.query_params.get("node", None)
-                            == "TH_NP15_GEN-APND"
-                        ]
-                    elif parent_utility == "Southern California Edison Co":
-                        caiso_rates = [
-                            x
-                            for x in caiso_rates
-                            if x.caiso_report.query_params.get("node", None)
-                            == "TH_SP15_GEN-APND"
-                        ]
-                    scenario.caiso_rates.add(*caiso_rates)
+                    scenario.owners.add(*meter_group.owners.all())
+                    scenario.assign_cost_functions(cost_functions)
+                    run_scenario.delay(scenario.id)
 
-        run_scenario.delay(scenario.id)
         return Response(
             ScenarioSerializer(scenario, many=False).data,
             status=status.HTTP_201_CREATED,
@@ -488,3 +448,21 @@ class RateCollectionViewSet(
         if isinstance(request.data, QueryDict):
             request.data["rate_data"] = json.dumps(request.data["rate_data"])
         return super().create(request, **kwargs)
+
+
+class SystemProfileViewSet(ListRetrieveViewSet):
+    """
+    SystemProfile objects
+    """
+
+    model = SystemProfile
+    serializer_class = SystemProfileSerializer
+
+    def get_queryset(self):
+        """
+        Limit the user to the SystemProfile objects associated with their LSE
+        """
+        user = self.request.user
+        return SystemProfile.objects.filter(
+            load_serving_entity=user.profile.load_serving_entity
+        )
