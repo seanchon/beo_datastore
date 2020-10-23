@@ -29,11 +29,8 @@ from beo_datastore.libs.load.plot_intervalframe import (
 from beo_datastore.libs.procurement import ProcurementRateIntervalFrame
 from beo_datastore.settings import MEDIA_ROOT
 
-from reference.reference_model.models import (
-    CostCalculationMixin,
-    DERSimulation,
-    RateDataMixin,
-)
+from cost.mixins import CostCalculationMixin, RateDataMixin
+from reference.reference_model.models import DERSimulation
 from reference.auth_user.models import LoadServingEntity
 
 # File constants
@@ -60,19 +57,15 @@ class SystemProfile(IntervalFrameFileMixin, RateDataMixin, ValidationModel):
     # Required by IntervalFrameFileMixin.
     frame_file_class = SystemProfileIntervalFrame
 
+    # Required by RateDataMixin.
+    cost_calculation_model = AggregateResourceAdequacyCalculation
+
     class Meta:
         ordering = ["id"]
         unique_together = ["name", "load_serving_entity"]
 
     def __str__(self):
         return self.load_serving_entity.name + ": " + self.name
-
-    @property
-    def cost_calculation_model(self):
-        """
-        Required by RateDataMixin.
-        """
-        return AggregateResourceAdequacyCalculation
 
     @property
     def rate_data(self):
@@ -505,16 +498,12 @@ class CAISORate(RateDataMixin, ValidationModel):
         to=CAISOReport, related_name="caiso_rates", on_delete=models.CASCADE
     )
 
+    # Required by RateDataMixin.
+    cost_calculation_model = AggregateProcurementCostCalculation
+
     class Meta:
         ordering = ["id"]
         unique_together = ["filters", "caiso_report"]
-
-    @property
-    def cost_calculation_model(self):
-        """
-        Required by RateDataMixin.
-        """
-        return AggregateProcurementCostCalculation
 
     @property
     def rate_data(self):

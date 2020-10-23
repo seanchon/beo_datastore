@@ -12,11 +12,8 @@ from beo_datastore.libs.load.intervalframe import ValidationFrame288
 from beo_datastore.libs.models import ValidationModel
 from beo_datastore.libs.views import dataframe_to_html
 
-from reference.reference_model.models import (
-    CostCalculationMixin,
-    DERSimulation,
-    RateDataMixin,
-)
+from cost.mixins import CostCalculationMixin, RateDataMixin
+from reference.reference_model.models import DERSimulation
 from reference.auth_user.models import LoadServingEntity
 
 
@@ -43,6 +40,9 @@ class RatePlan(RateDataMixin, ValidationModel):
     ]
     sector = models.CharField(max_length=12, choices=SECTOR_OPTIONS)
 
+    # Required by RateDataMixin.
+    cost_calculation_model = AggregateBillCalculation
+
     class Meta:
         ordering = ["id"]
 
@@ -51,13 +51,6 @@ class RatePlan(RateDataMixin, ValidationModel):
 
     def __str__(self):
         return self.load_serving_entity.name + ": " + self.name
-
-    @property
-    def cost_calculation_model(self):
-        """
-        Required by RateDataMixin.
-        """
-        return AggregateBillCalculation
 
     @property
     def rate_data(self):
@@ -411,10 +404,7 @@ class StoredBillCalculation(CostCalculationMixin, ValidationModel):
         """
         return AggregateBillCalculation(
             agg_simulation=self.der_simulation.agg_simulation,
-            rate_plan=self.rate_plan,
-            date_ranges=self.date_ranges,
-            pre_bills=self.pre_bills,
-            post_bills=self.post_bills,
+            rate_data=self.rate_plan.openei_rate_plan,
         )
 
     @classmethod

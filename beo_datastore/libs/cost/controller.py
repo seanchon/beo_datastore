@@ -171,13 +171,10 @@ class AggregateBillCalculation(DERCostCalculation):
         date_ranges = []
         for month, year in intervalframe.distinct_month_years:
             if month == 12:
-                date_ranges.append(
-                    (datetime(year, month, 1), datetime(year + 1, 1, 1))
-                )
+                month_end_limit = datetime(year + 1, 1, 1)
             else:
-                date_ranges.append(
-                    (datetime(year, month, 1), datetime(year, month + 1, 1))
-                )
+                month_end_limit = datetime(year, month + 1, 1)
+            date_ranges.append((datetime(year, month, 1), month_end_limit))
 
         return date_ranges
 

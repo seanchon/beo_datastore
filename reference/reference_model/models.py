@@ -766,6 +766,7 @@ class StackedDERSimulation(object):
     """
 
     der_simulations = attr.ib(type=List[DERSimulation])
+    is_stacked = True
 
     @der_simulations.validator
     def _validate_der_simulations(self, attribute, value):
@@ -773,25 +774,18 @@ class StackedDERSimulation(object):
         Validate that der_simulations contains sequential DERSimulations.
         """
         if len(value) < 1:
-            raise LookupError("der_simulations cannot be empty.")
+            raise AttributeError("der_simulations cannot be empty.")
 
         for i, _ in enumerate(value[:-1]):
             current = value[i]
             next_ = value[i + 1]
 
             if current != next_.meter:
-                raise LookupError("DERSimulations are not sequential.")
+                raise AttributeError("DERSimulations are not sequential.")
 
     @property
     def id(self):
         return self.last_simulation.id
-
-    @property
-    def is_stacked(self) -> bool:
-        """
-        StackedDERSimulation is stacked.
-        """
-        return True
 
     @property
     def first_simulation(self):
@@ -871,76 +865,3 @@ class StackedDERSimulation(object):
         Return AggregateDERProduct equivalent of a StackedDERSimulation.
         """
         return AggregateDERProduct(der_products={self.id: self.simulation})
-
-
-class RateDataMixin(object):
-    """
-    Mixin for all DER rate models used to generate DER cost-calcuations.
-    """
-
-    @property
-    def cost_calculation_model(self):
-        """
-        DERCostCalculation model associated with rate.
-        """
-        raise NotImplementedError(
-            "cost_calculation_model must be defined in {}".format(
-                self.__class__
-            )
-        )
-
-    def rate_data(self):
-        """
-        Data structure containing rates (i.e. ValidationFrame288,
-        ValidationIntervalFrame, dictionary, etc.)
-        """
-        raise NotImplementedError(
-            "rate_data must be defined in {}".format(self.__class__)
-        )
-
-    def calculate_cost(self, der_simulation: DERSimulation, stacked: bool):
-        """
-        Perform DERCostCalculation.
-        """
-        if not isinstance(der_simulation, DERSimulation):
-            raise TypeError(
-                "{} must be a DERSimulation.".format(der_simulation)
-            )
-
-        if stacked:
-            effective_der_simulation = der_simulation.stacked_der_simulation
-        else:
-            effective_der_simulation = der_simulation
-
-        return self.cost_calculation_model(
-            agg_simulation=effective_der_simulation.agg_simulation,
-            rate_data=self.rate_data,
-        )
-
-
-class CostCalculationMixin(models.Model):
-    """
-    Mixin for all DER cost-calculation models.
-    """
-
-    stacked = models.BooleanField(default=True)
-
-    class Meta:
-        abstract = True
-
-    @property
-    def net_impact(self):
-        """
-        Return post-DER total minus pre-DER total.
-        """
-        return self.post_DER_total - self.pre_DER_total
-
-    @property
-    def effective_der_simulation(self):
-        """
-        DERSimulation used in cost calculation.
-        """
-        if self.stacked:
-            return self.der_simulation.stacked_der_simulation
-        else:
-            return self.der_simulation

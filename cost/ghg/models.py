@@ -10,12 +10,8 @@ from beo_datastore.libs.load.intervalframe_file import Frame288File
 from beo_datastore.libs.models import Frame288FileMixin, ValidationModel
 from beo_datastore.settings import MEDIA_ROOT
 
-from reference.reference_model.models import (
-    CostCalculationMixin,
-    DERSimulation,
-    RateDataMixin,
-    RateUnit,
-)
+from cost.mixins import CostCalculationMixin, RateDataMixin
+from reference.reference_model.models import DERSimulation, RateUnit
 
 
 class GHGRateFrame288(Frame288File):
@@ -42,6 +38,9 @@ class GHGRate(Frame288FileMixin, RateDataMixin, ValidationModel):
     # Required by Frame288FileMixin.
     frame_file_class = GHGRateFrame288
 
+    # Required by RateDataMixin.
+    cost_calculation_model = AggregateGHGCalculation
+
     class Meta:
         ordering = ["id"]
         unique_together = ("name", "effective")
@@ -53,13 +52,6 @@ class GHGRate(Frame288FileMixin, RateDataMixin, ValidationModel):
             )
         else:
             return "{} ({})".format(self.name, self.rate_unit)
-
-    @property
-    def cost_calculation_model(self):
-        """
-        Required by RateDataMixin.
-        """
-        return AggregateGHGCalculation
 
     @property
     def rate_data(self):
