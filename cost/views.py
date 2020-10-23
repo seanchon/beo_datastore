@@ -19,7 +19,10 @@ from beo_datastore.libs.api.viewsets import (
     ListRetrieveViewSet,
 )
 from beo_datastore.libs.dataframe import download_dataframe
-from beo_datastore.libs.bill import convert_rate_df_to_dict
+from beo_datastore.libs.bill import (
+    convert_rate_df_to_dict,
+    convert_rate_dict_to_df,
+)
 
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate, SystemProfile
@@ -400,6 +403,12 @@ class RatePlanViewSet(ListRetrieveDestroyViewSet, mixins.CreateModelMixin):
             load_serving_entity_id=self.request.user.profile.load_serving_entity_id
         )
 
+    def create(self, request, *args, **kwargs):
+        user = request.user
+        lse = user.profile.load_serving_entity_id
+        request.data["load_serving_entity"] = lse
+        return super().create(request, *args, **kwargs)
+
 
 class RateCollectionViewSet(
     ListRetrieveDestroyViewSet, mixins.CreateModelMixin
@@ -423,10 +432,15 @@ class RateCollectionViewSet(
         'effective_date' and 'utility_url' fields are filled with data
         from the 'rate_data' dictionary itself.
         """
-        rate_data_csv = request.data.pop("rate_data_csv", [None])[0]
+        rate_data_csv = request.data.get("rate_data_csv", None)
         if rate_data_csv is not None:
             df = pd.read_csv(rate_data_csv.file)
-            out_dict = convert_rate_df_to_dict(df)
+            try:
+                out_dict = convert_rate_df_to_dict(df)
+            except Exception as e:
+                raise serializers.ValidationError(
+                    f"{e.__class__.__name__}, {str(e)}"
+                )
             request.data["rate_data"] = out_dict
         elif "rate_data" not in request.data:
             raise serializers.ValidationError(
@@ -434,11 +448,12 @@ class RateCollectionViewSet(
             )
         file_date = request.data["rate_data"].get("effectiveDate", None)
         param_date = request.data.get("effective_date", None)
-        request.data["effective_date"] = (
-            datetime.fromtimestamp(int(file_date["$date"] / 1000)).date()
-            if param_date is None
-            else param_date
-        )
+        if file_date is not None:
+            request.data["effective_date"] = (
+                datetime.fromtimestamp(int(file_date["$date"] / 1000)).date()
+                if param_date is None
+                else param_date
+            )
         utility_url = request.data.get("utility_url", None)
         request.data["utility_url"] = (
             request.data["rate_data"].get("sourceReference", None)
@@ -448,6 +463,20 @@ class RateCollectionViewSet(
         if isinstance(request.data, QueryDict):
             request.data["rate_data"] = json.dumps(request.data["rate_data"])
         return super().create(request, **kwargs)
+
+    @action(methods=("get",), detail=True)
+    def download(self, request, pk, *args, **kwargs):
+        """
+        Downloads the CSV file representation of the `RateCollection`
+        """
+        rate_collection = self.get_queryset().get(id=pk)
+        df = convert_rate_dict_to_df(rate_collection.rate_data)
+        filename = "rate_collection-{}".format(
+            rate_collection.effective_date.strftime("%Y%m%d")
+        )
+        download_kwargs = {"index": False, "filename": filename}
+
+        return download_dataframe(df, **download_kwargs)
 
 
 class SystemProfileViewSet(ListRetrieveViewSet):

@@ -198,6 +198,7 @@ class LoadServingEntitySerializer(DynamicModelSerializer):
 class EffectiveDateComputedField(DynamicComputedField):
     def __init__(self, **kwargs):
         kwargs["field_type"] = datetime
+        kwargs["required"] = False
         super(EffectiveDateComputedField, self).__init__(**kwargs)
 
     def get_attribute(self, rate_plan):
