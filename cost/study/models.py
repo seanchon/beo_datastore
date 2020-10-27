@@ -12,13 +12,12 @@ from django.db import models
 from django.db.models.functions import Coalesce
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.der.builder import AggregateDERProduct, DERProduct
-from beo_datastore.libs.cost.controller import (
-    AggregateResourceAdequacyCalculation,
-)
-from beo_datastore.libs.load.dataframe import add_interval_dataframe
-from beo_datastore.libs.load.intervalframe import PowerIntervalFrame
-from beo_datastore.libs.load.intervalframe_file import PowerIntervalFrameFile
+from navigader_core.der.builder import AggregateDERProduct, DERProduct
+from navigader_core.cost.controller import AggregateResourceAdequacyCalculation
+from navigader_core.load.dataframe import add_interval_dataframe
+from navigader_core.load.intervalframe import PowerIntervalFrame
+
+from beo_datastore.libs.intervalframe_file import PowerIntervalFrameFile
 from beo_datastore.libs.models import IntervalFrameFileMixin, nested_getattr
 from beo_datastore.libs.views import dataframe_to_html
 from beo_datastore.settings import MEDIA_ROOT

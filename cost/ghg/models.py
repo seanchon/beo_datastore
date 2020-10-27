@@ -5,8 +5,9 @@ import re
 
 from django.db import models, transaction
 
-from beo_datastore.libs.cost.controller import AggregateGHGCalculation
-from beo_datastore.libs.load.intervalframe_file import Frame288File
+from navigader_core.cost.controller import AggregateGHGCalculation
+
+from beo_datastore.libs.intervalframe_file import Frame288File
 from beo_datastore.libs.models import Frame288FileMixin, ValidationModel
 from beo_datastore.settings import MEDIA_ROOT
 

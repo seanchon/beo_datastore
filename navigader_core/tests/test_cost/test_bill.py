@@ -1,18 +1,45 @@
 from datetime import datetime
+import os
 
 from django.test import TestCase
 
-from navigader_core.cost.bill import BillingCollection
-
-from beo_datastore.libs.fixtures import (
-    flush_intervalframe_files,
-    load_intervalframe_files,
+from navigader_core.cost.bill import (
+    BillingCollection,
+    OpenEIRateData,
+    OpenEIRatePlan,
 )
-
-from cost.utility_rate.models import RatePlan
-from load.customer.models import CustomerMeter
+from navigader_core.load.intervalframe import PowerIntervalFrame
 
 
+# meter data
+RESIDENTIAL_METER = "navigader_core/tests/test_cost/data/residential_meter.csv"
+COMMERCIAL_METER = "navigader_core/tests/test_cost/data/commercial_meter.csv"
+
+# OpenEI rates
+DATA_DIRECTORY = "navigader_core/tests/test_cost/data/"
+DEPARTING_RATES = [
+    "2014 Vintage PCIA & Franchise Fee: 2017-04-01.json",
+    "2014 Vintage PCIA & Franchise Fee: 2018-05-01.json",
+]
+DEPARTING_RATES = [os.path.join(DATA_DIRECTORY, x) for x in DEPARTING_RATES]
+DEEP_GREEN_RATES = [
+    "Deep Green (Residential): 2017-04-01.json",
+    "Deep Green (Residential): 2018-05-01.json",
+]
+DEEP_GREEN_RATES = [os.path.join(DATA_DIRECTORY, x) for x in DEEP_GREEN_RATES]
+E19_RATES = [
+    "E19, Medium General Service, Primary: 2017-04-01.json",
+    "E19, Medium General Service, Primary: 2018-04-01.json",
+    "E19, Medium General Service, Primary: 2019-07-01.json",
+]
+E19_RATES = [os.path.join(DATA_DIRECTORY, x) for x in E19_RATES]
+EV_RATES = [
+    "EV, Residential Rates for Electric Vehicle Owners: 2017-04-01.json",
+    "EV, Residential Rates for Electric Vehicle Owners: 2018-05-01.json",
+]
+EV_RATES = [os.path.join(DATA_DIRECTORY, x) for x in EV_RATES]
+
+# allowable error margins
 RESIDENTIAL_COUNT_ERROR_RATE = 0.005  # allow 0.5% count error rate
 RESIDENTIAL_CHARGE_ERROR_RATE = 0.02  # allow 2% charge error rate
 COMMERCIAL_COUNT_ERROR_RATE = 0.065  # allow 6.5% count error rate
@@ -24,6 +51,18 @@ def get_error_rate(expected, actual):
     Return difference of expected and actual as an error rate.
     """
     return abs(expected - actual) / expected
+
+
+def get_openei_rate_plan(rate_files) -> OpenEIRatePlan:
+    """
+    Return OpenEIRatePlan from a list of files.
+    """
+    rate_data_dict = {}
+    for file_path in rate_files:
+        openei_rate_data = OpenEIRateData.read_json(file_path=file_path)
+        rate_data_dict[openei_rate_data.effective] = openei_rate_data
+
+    return OpenEIRatePlan(rate_data_dict=rate_data_dict)
 
 
 class TestBill(TestCase):
@@ -115,8 +154,11 @@ class TestMCEResidentialBill(TestBill):
         Based on MCE Residential Rates for Electric Vehicle Owners for the 2018
         calendar year.
         """
-        load_intervalframe_files()
-        self.meter = CustomerMeter.objects.get(sa_id=8943913372)
+        residential_meter = PowerIntervalFrame.read_csv(
+            csv_location=RESIDENTIAL_METER,
+            index_column="start",
+            convert_to_datetime=True,
+        )
 
         date_ranges = [
             (datetime(2018, 1, 2), datetime(2018, 1, 31)),
@@ -132,33 +174,26 @@ class TestMCEResidentialBill(TestBill):
             (datetime(2018, 11, 1), datetime(2018, 12, 3)),
         ]
 
-        rate_plan = RatePlan.objects.get(
-            name="2014 Vintage PCIA & Franchise Fee"
-        )
-        self.departing_charges_bills = rate_plan.openei_rate_plan.generate_many_bills(
-            intervalframe=self.meter.intervalframe,
+        departing_rate_plan = get_openei_rate_plan(DEPARTING_RATES)
+        self.departing_charges_bills = departing_rate_plan.generate_many_bills(
+            intervalframe=residential_meter,
             date_ranges=date_ranges,
             multiprocess=True,
         )
 
-        rate_plan = RatePlan.objects.get(
-            name="EV, Residential Rates for Electric Vehicle Owners"
-        )
-        self.ev_bills = rate_plan.openei_rate_plan.generate_many_bills(
-            intervalframe=self.meter.intervalframe,
+        ev_rate_plan = get_openei_rate_plan(EV_RATES)
+        self.ev_bills = ev_rate_plan.generate_many_bills(
+            intervalframe=residential_meter,
             date_ranges=date_ranges,
             multiprocess=True,
         )
 
-        rate_plan = RatePlan.objects.get(name="Deep Green (Residential)")
-        self.deep_green_bills = rate_plan.openei_rate_plan.generate_many_bills(
-            intervalframe=self.meter.intervalframe,
+        deep_green_rate_plan = get_openei_rate_plan(DEEP_GREEN_RATES)
+        self.deep_green_bills = deep_green_rate_plan.generate_many_bills(
+            intervalframe=residential_meter,
             date_ranges=date_ranges,
             multiprocess=True,
         )
-
-    def tearDown(self):
-        flush_intervalframe_files()
 
     def test_kwh_counts(self):
         for start, expected_count in [
@@ -239,8 +274,11 @@ class TestMCECommercialBill(TestBill):
         Based on MCE Residential Rates for Electric Vehicle Owners for the 2018
         calendar year.
         """
-        load_intervalframe_files()
-        self.meter = CustomerMeter.objects.get(sa_id=7720534682)
+        commercial_meter = PowerIntervalFrame.read_csv(
+            csv_location=COMMERCIAL_METER,
+            index_column="start",
+            convert_to_datetime=True,
+        )
 
         date_ranges = [
             (datetime(2018, 11, 5), datetime(2018, 12, 5)),
@@ -255,17 +293,12 @@ class TestMCECommercialBill(TestBill):
             (datetime(2019, 8, 6), datetime(2019, 9, 6)),
         ]
 
-        rate_plan = RatePlan.objects.get(
-            name="E19, Medium General Service, Primary"
-        )
-        self.e19_bills = rate_plan.openei_rate_plan.generate_many_bills(
-            intervalframe=self.meter.intervalframe,
+        e19_rate_plan = get_openei_rate_plan(E19_RATES)
+        self.e19_bills = e19_rate_plan.generate_many_bills(
+            intervalframe=commercial_meter,
             date_ranges=date_ranges,
             multiprocess=True,
         )
-
-    def tearDown(self):
-        flush_intervalframe_files()
 
     def test_kwh_counts(self):
         # TODO: true up counts using TOU rules

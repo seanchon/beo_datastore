@@ -5,19 +5,18 @@ from unittest import mock
 
 from django.test import TestCase
 
-from beo_datastore.libs.cost.controller import (
-    AggregateResourceAdequacyCalculation,
-)
-from beo_datastore.libs.der.builder import AggregateDERProduct, DERProduct
-from beo_datastore.libs.der.solar import (
+from navigader_core.cost.controller import AggregateResourceAdequacyCalculation
+from navigader_core.der.builder import AggregateDERProduct, DERProduct
+from navigader_core.der.solar import (
     SolarPV as pySolarPV,
     SolarPVStrategy as pySolarPVStrategy,
 )
+from navigader_core.tests.mock_response import mocked_pvwatts_requests_get
+
 from beo_datastore.libs.fixtures import (
     flush_intervalframe_files,
     load_intervalframe_files,
 )
-from beo_datastore.libs.test_mock import mocked_pvwatts_requests_get
 
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate, SystemProfile

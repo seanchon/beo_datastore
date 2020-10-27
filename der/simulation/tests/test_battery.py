@@ -3,15 +3,16 @@ import pandas as pd
 
 from django.test import TestCase
 
-from beo_datastore.libs.der.schedule_utils import create_diurnal_schedule
-from beo_datastore.libs.der.battery import (
+from navigader_core.der.schedule_utils import create_diurnal_schedule
+from navigader_core.der.battery import (
     Battery as pyBattery,
     BatterySimulationBuilder,
     BatteryStrategy as pyBatteryStrategy,
 )
-from beo_datastore.libs.der.builder import DERSimulationDirector
+from navigader_core.der.builder import DERSimulationDirector
+from navigader_core.load.intervalframe import PowerIntervalFrame
+
 from beo_datastore.libs.fixtures import flush_intervalframe_files
-from beo_datastore.libs.load.intervalframe import PowerIntervalFrame
 
 from der.simulation.models import StoredBatterySimulation
 from load.customer.models import CustomerMeter, Channel

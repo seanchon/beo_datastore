@@ -9,17 +9,9 @@ from django.db import models, transaction
 from django.db.models import Count
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.load.clustering import KMeansLoadClustering
-from beo_datastore.libs.load.ingest import (
-    csv_split,
-    get_timedelta_from_time_strings,
-    get_timestamp_columns,
-    is_time_str,
-    shift_time_string,
-    reformat_item_17,
-)
-from beo_datastore.libs.load.intervalframe import PowerIntervalFrame
-from beo_datastore.libs.load.intervalframe_file import (
+from navigader_core.load.intervalframe import PowerIntervalFrame
+
+from beo_datastore.libs.intervalframe_file import (
     Frame288File,
     PowerIntervalFrameFile,
 )
@@ -28,15 +20,24 @@ from beo_datastore.libs.models import (
     Frame288FileMixin,
     IntervalFrameFileMixin,
 )
-from beo_datastore.libs.load.plot_intervalframe import (
+from beo_datastore.libs.plot_intervalframe import (
     plot_frame288,
     plot_intervalframe,
     plot_frame288_monthly_comparison,
 )
-from beo_datastore.libs.postgresql import PostgreSQL, format_bulk_insert
 from beo_datastore.libs.utils import bytes_to_str, file_md5sum
 from beo_datastore.settings import DATABASES, MEDIA_ROOT
 
+from load.libs.clustering import KMeansLoadClustering
+from load.libs.ingest import (
+    csv_split,
+    get_timedelta_from_time_strings,
+    get_timestamp_columns,
+    is_time_str,
+    shift_time_string,
+    reformat_item_17,
+)
+from load.libs.postgresql import PostgreSQL, format_bulk_insert
 from reference.reference_model.models import (
     DataUnit,
     DERSimulation,

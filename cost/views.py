@@ -18,14 +18,15 @@ from beo_datastore.libs.api.viewsets import (
     ListRetrieveDestroyViewSet,
     ListRetrieveViewSet,
 )
-from beo_datastore.libs.load.dataframe import download_dataframe
-from beo_datastore.libs.cost.bill import (
-    convert_rate_df_to_dict, convert_rate_dict_to_df
-)
+from beo_datastore.libs.dataframe import download_dataframe
 
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate, SystemProfile
 from cost.study.models import Scenario
+from cost.utility_rate.libs import (
+    convert_rate_df_to_dict,
+    convert_rate_dict_to_df,
+)
 from cost.utility_rate.models import RatePlan, RateCollection
 from reference.reference_model.models import (
     DERConfiguration,

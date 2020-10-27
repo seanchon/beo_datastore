@@ -1,14 +1,16 @@
-from datetime import datetime
 from jsonfield import JSONField
-from multiprocessing import Pool
 import pandas as pd
 
 from django.db import connection, models, transaction
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.cost.bill import OpenEIRateData, ValidationBill
-from beo_datastore.libs.cost.controller import AggregateBillCalculation
-from beo_datastore.libs.load.intervalframe import ValidationFrame288
+from navigader_core.cost.bill import (
+    OpenEIRateData,
+    OpenEIRatePlan,
+    ValidationBill,
+)
+from navigader_core.cost.controller import AggregateBillCalculation
+
 from beo_datastore.libs.models import ValidationModel
 from beo_datastore.libs.views import dataframe_to_html
 
@@ -54,105 +56,19 @@ class RatePlan(RateDataMixin, ValidationModel):
 
     @property
     def rate_data(self):
+        return self.openei_rate_plan
+
+    @property
+    def openei_rate_plan(self):
         """
         Required by RateDataMixin.
         """
-        # TODO: In order to break the controller.py dependency on a RatePlan,
-        # this should return a non-Django object (ex. dictionary of datetime
-        # keys and OpenEIRateData values).
-        return self
-
-    def get_latest_rate_collection(self, start):
-        """
-        Return latest RateCollection object with effective date less than or
-        equal to start.
-
-        :param start: datetime
-        :return: RateCollection
-        """
-        return self.rate_collections.filter(effective_date__lte=start).last()
-
-    def generate_many_bills(
-        self, intervalframe, date_ranges, multiprocess=False
-    ):
-        """
-        Generate many ValidationBills based on list of (start, end_limit)
-        date range tuples.
-
-        :param intervalframe: ValidationIntervalFrame
-        :param date_ranges: list of start, end_limit datetime tuples
-        :param multiprocess: True to run as a multiprocess job
-        """
-        if multiprocess:
-            with Pool() as pool:
-                bills = pool.starmap(
-                    ValidationBill,
-                    zip(
-                        [
-                            intervalframe.filter_by_datetime(start, end_limit)
-                            for start, end_limit in date_ranges
-                        ],
-                        [
-                            getattr(
-                                self.get_latest_rate_collection(start),
-                                "openei_rate_data",
-                                OpenEIRateData(rate_data={}),
-                            )
-                            for start, _ in date_ranges
-                        ],
-                    ),
-                )
-        else:
-            bills = []
-            for start, end_limit in date_ranges:
-                bills.append(
-                    ValidationBill(
-                        intervalframe=intervalframe.filter_by_datetime(
-                            start, end_limit
-                        ),
-                        openei_rate_data=getattr(
-                            self.get_latest_rate_collection(start),
-                            "openei_rate_data",
-                            OpenEIRateData(rate_data={}),
-                        ),
-                    )
-                )
-
-        # return bills in dict with start dates as indices
-        return {x[0][0]: x[1] for x in zip(date_ranges, bills)}
-
-    def get_rate_frame288_by_year(
-        self, year, rate_type, schedule_type, tier=0
-    ):
-        """
-        Return ValidationFrame288 of combined rates from associated
-        rate_collections.
-
-        :param year: int
-        :param rate_type: choice "energy" or "demand"
-        :param schedule_type: choice "weekday" or "weekend"
-        :param tier: choice of tier for tiered-rates (integer)
-        :return: ValidationFrame288
-        """
-        frame288_matrix = []
-        for month in range(1, 13):
-            rate_collection = self.get_latest_rate_collection(
-                start=datetime(year, month, 1)
-            )
-            if not rate_collection:
-                frame288_matrix.append([None] * 24)
-            else:
-                frame288_matrix.append(
-                    rate_collection.openei_rate_data.get_rate_frame288(
-                        rate_type=rate_type,
-                        schedule_type=schedule_type,
-                        tier=tier,
-                    )
-                    .dataframe[month]
-                    .values
-                )
-
-        return ValidationFrame288.convert_matrix_to_frame288(frame288_matrix)
+        return OpenEIRatePlan(
+            rate_data_dict={
+                x.effective_date: x.openei_rate_data
+                for x in self.rate_collections.all()
+            }
+        )
 
     @staticmethod
     def get_rate_plan_alias(rate_plan_name):
@@ -587,7 +503,7 @@ class BillComparison(ValidationModel):
             intervalframe=self.pre_der_intervalframe,
             openei_rate_data=(
                 getattr(
-                    self.bill_collection.rate_plan.get_latest_rate_collection(
+                    self.bill_collection.rate_plan.openei_rate_plan.get_latest_rate_data(
                         start=self.start
                     ),
                     "openei_rate_data",
@@ -612,7 +528,7 @@ class BillComparison(ValidationModel):
             intervalframe=self.post_der_intervalframe,
             openei_rate_data=(
                 getattr(
-                    self.bill_collection.rate_plan.get_latest_rate_collection(
+                    self.bill_collection.rate_plan.openei_rate_plan.get_latest_rate_data(
                         start=self.start
                     ),
                     "openei_rate_data",
