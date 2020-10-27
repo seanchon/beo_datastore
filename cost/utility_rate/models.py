@@ -6,17 +6,18 @@ import pandas as pd
 from django.db import connection, models, transaction
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.bill import OpenEIRateData, ValidationBill
-from beo_datastore.libs.controller import AggregateBillCalculation
-from beo_datastore.libs.intervalframe import ValidationFrame288
+from beo_datastore.libs.cost.bill import OpenEIRateData, ValidationBill
+from beo_datastore.libs.cost.controller import AggregateBillCalculation
+from beo_datastore.libs.load.intervalframe import ValidationFrame288
 from beo_datastore.libs.models import ValidationModel
 from beo_datastore.libs.views import dataframe_to_html
 
+from cost.mixins import CostCalculationMixin, RateDataMixin
 from reference.reference_model.models import DERSimulation
 from reference.auth_user.models import LoadServingEntity
 
 
-class RatePlan(ValidationModel):
+class RatePlan(RateDataMixin, ValidationModel):
     """
     A RatePlan is a container for related RateCollections.
     """
@@ -39,6 +40,9 @@ class RatePlan(ValidationModel):
     ]
     sector = models.CharField(max_length=12, choices=SECTOR_OPTIONS)
 
+    # Required by RateDataMixin.
+    cost_calculation_model = AggregateBillCalculation
+
     class Meta:
         ordering = ["id"]
 
@@ -47,6 +51,16 @@ class RatePlan(ValidationModel):
 
     def __str__(self):
         return self.load_serving_entity.name + ": " + self.name
+
+    @property
+    def rate_data(self):
+        """
+        Required by RateDataMixin.
+        """
+        # TODO: In order to break the controller.py dependency on a RatePlan,
+        # this should return a non-Django object (ex. dictionary of datetime
+        # keys and OpenEIRateData values).
+        return self
 
     def get_latest_rate_collection(self, start):
         """
@@ -321,7 +335,7 @@ class RateCollection(ValidationModel):
         )
 
 
-class StoredBillCalculation(ValidationModel):
+class StoredBillCalculation(CostCalculationMixin, ValidationModel):
     """
     Container for storing AggregateBillCalculation.
     """
@@ -341,14 +355,7 @@ class StoredBillCalculation(ValidationModel):
 
     class Meta:
         ordering = ["id"]
-        unique_together = ("der_simulation", "rate_plan")
-
-    @property
-    def net_impact(self):
-        """
-        Return total of all post-DER bill totals minus all pre-DER bill totals.
-        """
-        return self.post_DER_total - self.pre_DER_total
+        unique_together = ("der_simulation", "rate_plan", "stacked")
 
     @property
     def meter(self):
@@ -397,38 +404,11 @@ class StoredBillCalculation(ValidationModel):
         """
         return AggregateBillCalculation(
             agg_simulation=self.der_simulation.agg_simulation,
-            rate_plan=self.rate_plan,
-            date_ranges=self.date_ranges,
-            pre_bills=self.pre_bills,
-            post_bills=self.post_bills,
+            rate_data=self.rate_plan.openei_rate_plan,
         )
 
-    @staticmethod
-    def create_date_ranges(intervalframe):
-        """
-        Based on a ValidationIntervalFrame, create date ranges representing
-        the first and last day of every month detected.
-
-        :param intervalframe: ValidationIntervalFrame
-        :return: list of start, end_limit datetime tuples
-        """
-        date_ranges = []
-        for month, year in intervalframe.distinct_month_years:
-            if month == 12:
-                date_ranges.append(
-                    (datetime(year, month, 1), datetime(year + 1, 1, 1))
-                )
-            else:
-                date_ranges.append(
-                    (datetime(year, month, 1), datetime(year, month + 1, 1))
-                )
-
-        return date_ranges
-
     @classmethod
-    def get_or_create_from_objects(
-        cls, der_simulation, rate_plan, multiprocess=False
-    ):
+    def get_or_create_from_objects(cls, der_simulation, rate_plan, stacked):
         """
         Get existing or create new StoredBillCalculation from a
         DERSimulation and RatePlan.
@@ -439,29 +419,27 @@ class StoredBillCalculation(ValidationModel):
 
         :param der_simulation: DERSimulation
         :param rate_plan: RatePlan
-        :param multiprocess: True to multiprocess
+        :param stacked: True to used StackedDERSimulation, False to use
+            DERSimulation
         :return: (
             StoredBillCalculation,
             StoredBillCalculation created (True/False)
         )
         """
         with transaction.atomic():
-            agg_bill_calculation = AggregateBillCalculation.create(
-                agg_simulation=der_simulation.agg_simulation,
-                rate_plan=rate_plan,
-                date_ranges=cls.create_date_ranges(
-                    intervalframe=der_simulation.pre_der_intervalframe
-                ),
-                multiprocess=multiprocess,
+            agg_bill_calculation = rate_plan.calculate_cost(
+                der_simulation=der_simulation, stacked=stacked
             )
             bill_collection, new = cls.objects.get_or_create(
                 pre_DER_total=agg_bill_calculation.pre_DER_total,
                 post_DER_total=agg_bill_calculation.post_DER_total,
                 der_simulation=der_simulation,
                 rate_plan=rate_plan,
+                stacked=stacked,
             )
 
             if new:
+                objects = []
                 for start, end_limit in agg_bill_calculation.date_ranges:
                     pre_der_total = agg_bill_calculation.pre_bills[
                         der_simulation.id
@@ -469,18 +447,21 @@ class StoredBillCalculation(ValidationModel):
                     post_der_total = agg_bill_calculation.post_bills[
                         der_simulation.id
                     ][start].total
-                    BillComparison.objects.create(
-                        start=start,
-                        end_limit=end_limit,
-                        pre_DER_total=pre_der_total,
-                        post_DER_total=post_der_total,
-                        bill_collection=bill_collection,
+                    objects.append(
+                        BillComparison(
+                            start=start,
+                            end_limit=end_limit,
+                            pre_DER_total=pre_der_total,
+                            post_DER_total=post_der_total,
+                            bill_collection=bill_collection,
+                        )
                     )
+                BillComparison.objects.bulk_create(objects)
 
             return bill_collection, new
 
     @classmethod
-    def generate(cls, der_simulation_set, rate_plan, multiprocess=False):
+    def generate(cls, der_simulation_set, rate_plan, stacked):
         """
         Get or create many StoredBillCalculations at once. Pre-existing
         StoredBillCalculations are retrieved and non-existing
@@ -489,29 +470,34 @@ class StoredBillCalculation(ValidationModel):
         :param der_simulation_set: QuerySet or set of
             DERSimulations
         :param rate_plan: RatePlan
-        :param multiprocess: True to multiprocess
+        :param stacked: True to used StackedDERSimulation, False to use
+            DERSimulation
         :return: StoredBillCalculation QuerySet
         """
         with transaction.atomic():
             # get existing bill calculations
             stored_bill_calculations = cls.objects.filter(
-                der_simulation__in=der_simulation_set, rate_plan=rate_plan
+                der_simulation__in=der_simulation_set,
+                rate_plan=rate_plan,
+                stacked=stacked,
             )
 
             # create new bill calculations
-            existing_der_simulations = [
+            already_calculated = [
                 x.der_simulation for x in stored_bill_calculations
             ]
             for der_simulation in der_simulation_set:
-                if der_simulation not in existing_der_simulations:
+                if der_simulation not in already_calculated:
                     cls.get_or_create_from_objects(
                         der_simulation=der_simulation,
                         rate_plan=rate_plan,
-                        multiprocess=multiprocess,
+                        stacked=stacked,
                     )
 
             return cls.objects.filter(
-                der_simulation__in=der_simulation_set, rate_plan=rate_plan
+                der_simulation__in=der_simulation_set,
+                rate_plan=rate_plan,
+                stacked=stacked,
             )
 
     @staticmethod
@@ -571,13 +557,6 @@ class BillComparison(ValidationModel):
     class Meta:
         ordering = ["id"]
         unique_together = ("start", "end_limit", "bill_collection")
-
-    @property
-    def net_impact(self):
-        """
-        Return post-DER total minus pre-DER total.
-        """
-        return self.post_DER_total - self.pre_DER_total
 
     @cached_property
     def pre_der_intervalframe(self):

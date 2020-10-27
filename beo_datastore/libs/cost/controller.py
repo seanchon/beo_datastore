@@ -1,10 +1,10 @@
 import attr
 from cached_property import cached_property
-from datetime import timedelta
+from datetime import datetime, timedelta
 import pandas as pd
 
 from beo_datastore.libs.der.builder import AggregateDERProduct
-from beo_datastore.libs.intervalframe import (
+from beo_datastore.libs.load.intervalframe import (
     PowerIntervalFrame,
     ValidationFrame288,
 )
@@ -30,7 +30,7 @@ class DERCostCalculation(object):
     @property
     def pre_DER_total(self):
         """
-        Return the cost calculation of a pre-DER scenario.
+        The cost calculation of a pre-DER scenario.
         """
         raise NotImplementedError(
             "pre_DER_total must be set in {}".format(self.__class__)
@@ -39,7 +39,7 @@ class DERCostCalculation(object):
     @property
     def post_DER_total(self):
         """
-        Return the cost calculation of a post-DER scenario.
+        The cost calculation of a post-DER scenario.
         """
         raise NotImplementedError(
             "post_DER_total must be set in {}".format(self.__class__)
@@ -48,8 +48,8 @@ class DERCostCalculation(object):
     @property
     def net_impact(self):
         """
-        Return the cost calculation of a post-DER scenario minus the cost
-        calculation of a pre-DER scenario.
+        The cost calculation of a post-DER scenario minus the cost calculation
+        of a pre-DER scenario.
         """
         return self.post_DER_total - self.pre_DER_total
 
@@ -65,10 +65,11 @@ class AggregateBillCalculation(DERCostCalculation):
     # model and each simulation may be under a different RatePlan.
 
     agg_simulation = attr.ib(type=AggregateDERProduct)
-    rate_plan = attr.ib()
-    date_ranges = attr.ib(type=list)
-    pre_bills = attr.ib(type=dict)
-    post_bills = attr.ib(type=dict)
+    rate_data = attr.ib()
+
+    @property
+    def rate_plan(self):
+        return self.rate_data
 
     def __add__(self, other):
         """
@@ -88,6 +89,26 @@ class AggregateBillCalculation(DERCostCalculation):
             date_ranges=self.date_ranges,
             pre_bills={**self.pre_bills, **other.pre_bills},
             post_bills={**self.post_bills, **other.post_bills},
+        )
+
+    @cached_property
+    def date_ranges(self):
+        return self.create_date_ranges(
+            intervalframe=self.agg_simulation.pre_der_intervalframe
+        )
+
+    @cached_property
+    def pre_bills(self):
+        return self.generate_bills(
+            meters=self.agg_simulation.pre_der_results,
+            rate_plan=self.rate_plan,
+        )
+
+    @cached_property
+    def post_bills(self):
+        return self.generate_bills(
+            meters=self.agg_simulation.post_der_results,
+            rate_plan=self.rate_plan,
         )
 
     @cached_property
@@ -138,46 +159,42 @@ class AggregateBillCalculation(DERCostCalculation):
         """
         return self.post_DER_bill_totals - self.pre_DER_bill_totals
 
+    @staticmethod
+    def create_date_ranges(intervalframe):
+        """
+        Based on a ValidationIntervalFrame, create date ranges representing
+        the first and last day of every month detected.
+
+        :param intervalframe: ValidationIntervalFrame
+        :return: list of start, end_limit datetime tuples
+        """
+        date_ranges = []
+        for month, year in intervalframe.distinct_month_years:
+            if month == 12:
+                month_end_limit = datetime(year + 1, 1, 1)
+            else:
+                month_end_limit = datetime(year, month + 1, 1)
+            date_ranges.append((datetime(year, month, 1), month_end_limit))
+
+        return date_ranges
+
     @classmethod
-    def create(
-        cls, agg_simulation, rate_plan, date_ranges, multiprocess=False
-    ):
+    def create(cls, agg_simulation, rate_data):
         """
         Create pre-and-post-DER bills for all simulations.
 
         :param agg_simulation: AggregateDERProduct
         :param rate_plan: RatePlan object
-        :param date_ranges: list of start, end_limit datetime tuples
         :param multiprocess: True to multiprocess
         :return: AggregateBillCalculation
         """
-        pre_bills = cls.generate_bills(
-            meters=agg_simulation.pre_der_results,
-            rate_plan=rate_plan,
-            date_ranges=date_ranges,
-            multiprocess=multiprocess,
-        )
-        post_bills = cls.generate_bills(
-            meters=agg_simulation.post_der_results,
-            rate_plan=rate_plan,
-            date_ranges=date_ranges,
-            multiprocess=multiprocess,
-        )
-
-        return cls(
-            agg_simulation=agg_simulation,
-            rate_plan=rate_plan,
-            date_ranges=date_ranges,
-            pre_bills=pre_bills,
-            post_bills=post_bills,
-        )
+        return cls(agg_simulation=agg_simulation, rate_data=rate_data)
 
     @classmethod
-    def generate_bills(
-        cls, meters, rate_plan, date_ranges, multiprocess=False
-    ):
+    def generate_bills(cls, meters, rate_plan, multiprocess=False):
         simulation_bills = {}
         for meter, intervalframe in meters.items():
+            date_ranges = cls.create_date_ranges(intervalframe)
             results = rate_plan.generate_many_bills(
                 intervalframe=intervalframe,
                 date_ranges=date_ranges,
@@ -196,7 +213,12 @@ class AggregateGHGCalculation(DERCostCalculation):
     """
 
     agg_simulation = attr.ib(type=AggregateDERProduct)
-    ghg_frame288 = attr.ib(type=ValidationFrame288)
+    # GHG ValidationFrame288
+    rate_data = attr.ib(type=ValidationFrame288)
+
+    @property
+    def ghg_frame288(self):
+        return self.rate_data
 
     def __add__(self, other):
         """
@@ -211,7 +233,7 @@ class AggregateGHGCalculation(DERCostCalculation):
 
         return self.__class__(
             agg_simulation=self.agg_simulation + other.agg_simulation,
-            ghg_frame288=self.ghg_frame288,
+            rate_data=self.ghg_frame288,
         )
 
     @cached_property
@@ -248,28 +270,12 @@ class AggregateGHGCalculation(DERCostCalculation):
             * self.ghg_frame288
         )
 
-    @cached_property
-    def comparison_table(self):
-        """
-        Return table of monthly pre-DER and post-DER values.
-        """
-        df = pd.merge(
-            pd.DataFrame(self.pre_DER_ghg_frame288.dataframe.sum()),
-            pd.DataFrame(self.post_DER_ghg_frame288.dataframe.sum()),
-            how="inner",
-            left_index=True,
-            right_index=True,
-        )
-        return df.append(df.sum().rename("Total")).rename(
-            columns={"0_x": "before", "0_y": "after"}
-        )
-
     @classmethod
-    def create(cls, agg_simulation, ghg_frame288):
+    def create(cls, agg_simulation, rate_data):
         """
         Alias for __init__().
         """
-        return cls(agg_simulation=agg_simulation, ghg_frame288=ghg_frame288)
+        return cls(agg_simulation=agg_simulation, rate_data=rate_data)
 
 
 @attr.s(frozen=True)
@@ -280,7 +286,12 @@ class AggregateResourceAdequacyCalculation(DERCostCalculation):
     """
 
     agg_simulation = attr.ib(type=AggregateDERProduct)
-    system_profile_intervalframe = attr.ib(type=PowerIntervalFrame)
+    # system profile ValidationIntervalFrame
+    rate_data = attr.ib(type=PowerIntervalFrame)
+
+    @property
+    def system_profile_intervalframe(self):
+        return self.rate_data
 
     @cached_property
     def system_profile_year(self):
@@ -364,33 +375,12 @@ class AggregateResourceAdequacyCalculation(DERCostCalculation):
 
         return self.system_profile_intervalframe + intervalframe
 
-    @cached_property
-    def comparison_table(self):
-        """
-        Return table of monthly pre-DER and post-DER values.
-        """
-        pre_DER_max_288 = self.pre_DER_system_intervalframe.maximum_frame288
-        post_DER_max_288 = self.post_DER_system_intervalframe.maximum_frame288
-        df = pd.merge(
-            pd.DataFrame(pre_DER_max_288.dataframe.max()),
-            pd.DataFrame(post_DER_max_288.dataframe.max()),
-            how="inner",
-            left_index=True,
-            right_index=True,
-        )
-        return df.append(df.sum().rename("Total")).rename(
-            columns={"0_x": "before", "0_y": "after"}
-        )
-
     @classmethod
-    def create(cls, agg_simulation, system_profile_intervalframe):
+    def create(cls, agg_simulation, rate_data):
         """
         Alias for __init__().
         """
-        return cls(
-            agg_simulation=agg_simulation,
-            system_profile_intervalframe=system_profile_intervalframe,
-        )
+        return cls(agg_simulation=agg_simulation, rate_data=rate_data)
 
 
 @attr.s(frozen=True)
@@ -402,7 +392,12 @@ class AggregateProcurementCostCalculation(DERCostCalculation):
     """
 
     agg_simulation = attr.ib(type=AggregateDERProduct)
-    procurement_rate_intervalframe = attr.ib(type=ProcurementRateIntervalFrame)
+    # procurement rate ValidationIntervalFrame
+    rate_data = attr.ib(type=ProcurementRateIntervalFrame)
+
+    @property
+    def procurement_rate_intervalframe(self):
+        return self.rate_data
 
     @cached_property
     def pre_DER_total(self):
@@ -473,11 +468,8 @@ class AggregateProcurementCostCalculation(DERCostCalculation):
         return ProcurementCostIntervalFrame(dataframe=df)
 
     @classmethod
-    def create(cls, agg_simulation, procurement_rate_intervalframe):
+    def create(cls, agg_simulation, rate_data):
         """
         Alias for __init__().
         """
-        return cls(
-            agg_simulation=agg_simulation,
-            procurement_rate_intervalframe=procurement_rate_intervalframe,
-        )
+        return cls(agg_simulation=agg_simulation, rate_data=rate_data)

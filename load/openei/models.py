@@ -9,9 +9,9 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.dataframe import csv_url_to_dataframe
-from beo_datastore.libs.intervalframe import PowerIntervalFrame
-from beo_datastore.libs.intervalframe_file import PowerIntervalFrameFile
+from beo_datastore.libs.load.dataframe import csv_url_to_dataframe
+from beo_datastore.libs.load.intervalframe import PowerIntervalFrame
+from beo_datastore.libs.load.intervalframe_file import PowerIntervalFrameFile
 from beo_datastore.libs.models import IntervalFrameFileMixin
 from beo_datastore.settings import MEDIA_ROOT
 

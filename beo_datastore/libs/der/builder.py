@@ -8,7 +8,7 @@ from multiprocessing import Pool
 import pandas as pd
 from typing import Any
 
-from beo_datastore.libs.intervalframe import (
+from beo_datastore.libs.load.intervalframe import (
     PowerIntervalFrame,
     ValidationIntervalFrame,
 )

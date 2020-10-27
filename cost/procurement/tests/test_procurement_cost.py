@@ -5,14 +5,16 @@ import pandas as pd
 from django.test import TestCase
 
 from beo_datastore.libs.der.schedule_utils import create_diurnal_schedule
-from beo_datastore.libs.controller import AggregateProcurementCostCalculation
+from beo_datastore.libs.cost.controller import (
+    AggregateProcurementCostCalculation,
+)
 from beo_datastore.libs.der.battery import (
     Battery,
     BatterySimulationBuilder,
     BatteryStrategy,
 )
 from beo_datastore.libs.der.builder import DERSimulationDirector
-from beo_datastore.libs.intervalframe import (
+from beo_datastore.libs.load.intervalframe import (
     EnergyIntervalFrame,
     PowerIntervalFrame,
 )
@@ -121,8 +123,7 @@ class TestProcurementCost(TestCase):
         )
 
         procurement_cost_calculation = AggregateProcurementCostCalculation(
-            agg_simulation=agg_simulation,
-            procurement_rate_intervalframe=self.procurement_rate_15,
+            agg_simulation=agg_simulation, rate_data=self.procurement_rate_15
         )
 
         # sum total of procurement costs should be $1,164 * 4 = $4,656

@@ -6,11 +6,6 @@ from rest_framework.test import APITestCase
 
 from django.contrib.auth.models import User
 
-from der.simulation.models import (
-    SolarPVConfiguration,
-    SolarPVStrategy,
-    SolarPVSimulation,
-)
 from beo_datastore.libs.der.solar import (
     SolarPV as pySolarPV,
     SolarPVStrategy as pySolarPVStrategy,
@@ -20,6 +15,12 @@ from beo_datastore.libs.fixtures import (
     load_intervalframe_files,
 )
 from beo_datastore.libs.test_mock import mocked_pvwatts_requests_get
+
+from der.simulation.models import (
+    SolarPVConfiguration,
+    SolarPVStrategy,
+    SolarPVSimulation,
+)
 from load.customer.models import CustomerMeter, MeterGroup
 
 # SolarPV Configuration

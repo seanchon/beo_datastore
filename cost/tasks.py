@@ -28,7 +28,7 @@ def run_scenario(scenario_id):
     scenario.locked_unlocked_at = now()
     scenario.save()
 
-    for meter in scenario.meters.all():
+    for meter in scenario.meter_group.meters.all():
         run_simulation_and_cost.delay(
             scenario_id=scenario.id, meter_id=meter.id
         )

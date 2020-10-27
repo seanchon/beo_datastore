@@ -18,10 +18,9 @@ from beo_datastore.libs.api.viewsets import (
     ListRetrieveDestroyViewSet,
     ListRetrieveViewSet,
 )
-from beo_datastore.libs.dataframe import download_dataframe
-from beo_datastore.libs.bill import (
-    convert_rate_df_to_dict,
-    convert_rate_dict_to_df,
+from beo_datastore.libs.load.dataframe import download_dataframe
+from beo_datastore.libs.cost.bill import (
+    convert_rate_df_to_dict, convert_rate_dict_to_df
 )
 
 from cost.ghg.models import GHGRate

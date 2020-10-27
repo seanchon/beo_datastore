@@ -1,0 +1,10 @@
+[
+{
+  "model": "procurement.systemprofile",
+  "pk": 1,
+  "fields": {
+    "name": "MCE",
+    "load_serving_entity": 2
+  }
+}
+]

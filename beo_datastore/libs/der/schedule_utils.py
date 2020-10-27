@@ -10,8 +10,8 @@ from beo_datastore.libs.der.battery import (
     BatteryStrategy,
 )
 from beo_datastore.libs.der.builder import DERSimulationDirector
-from beo_datastore.libs.dataframe import get_unique_values
-from beo_datastore.libs.intervalframe import ValidationFrame288
+from beo_datastore.libs.load.dataframe import get_unique_values
+from beo_datastore.libs.load.intervalframe import ValidationFrame288
 
 
 def create_fixed_schedule(month_matrix: List[float]) -> ValidationFrame288:

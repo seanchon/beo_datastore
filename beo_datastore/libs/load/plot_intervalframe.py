@@ -2,7 +2,7 @@ from math import floor
 import matplotlib
 import matplotlib.pyplot as plt
 
-from beo_datastore.libs.intervalframe import ValidationFrame288
+from beo_datastore.libs.load.intervalframe import ValidationFrame288
 from beo_datastore.libs.views import plot_to_html
 
 # use "headless" matplotlib

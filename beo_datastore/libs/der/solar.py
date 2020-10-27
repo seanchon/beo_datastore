@@ -5,14 +5,14 @@ from functools import reduce
 import pandas as pd
 import requests
 
-from beo_datastore.libs.dataframe import resample_dataframe
+from beo_datastore.libs.load.dataframe import resample_dataframe
 from beo_datastore.libs.der.builder import (
     DER,
     DERProduct,
     DERSimulationBuilder,
     DERStrategy,
 )
-from beo_datastore.libs.intervalframe import PowerIntervalFrame
+from beo_datastore.libs.load.intervalframe import PowerIntervalFrame
 
 
 PVWATTS_URL = "https://developer.nrel.gov/api/pvwatts/v6.json"

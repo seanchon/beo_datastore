@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import re
 
-from beo_datastore.libs.dataframe import get_dataframe_period
+from beo_datastore.libs.load.dataframe import get_dataframe_period
 
 
 # BEO source file located at https://tvrp.app.box.com/file/420277168014

@@ -11,7 +11,7 @@ from beo_datastore.libs.der.builder import (
     DERSimulationSequenceBuilder,
     DERStrategy,
 )
-from beo_datastore.libs.intervalframe import ValidationFrame288
+from beo_datastore.libs.load.intervalframe import ValidationFrame288
 from beo_datastore.libs.utils import timedelta_to_hours
 
 

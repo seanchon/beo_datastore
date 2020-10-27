@@ -4,7 +4,7 @@ from functools import reduce
 import numpy as np
 import pandas as pd
 
-from beo_datastore.libs.dataframe import (
+from beo_datastore.libs.load.dataframe import (
     add_interval_dataframe,
     csv_url_to_dataframe,
     downsample_dataframe,

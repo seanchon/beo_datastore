@@ -13,11 +13,13 @@ from django.db.models.functions import Coalesce
 from django.utils.functional import cached_property
 
 from beo_datastore.libs.der.builder import AggregateDERProduct, DERProduct
-from beo_datastore.libs.controller import AggregateResourceAdequacyCalculation
-from beo_datastore.libs.dataframe import add_interval_dataframe
-from beo_datastore.libs.intervalframe import PowerIntervalFrame
-from beo_datastore.libs.intervalframe_file import PowerIntervalFrameFile
-from beo_datastore.libs.models import IntervalFrameFileMixin
+from beo_datastore.libs.cost.controller import (
+    AggregateResourceAdequacyCalculation,
+)
+from beo_datastore.libs.load.dataframe import add_interval_dataframe
+from beo_datastore.libs.load.intervalframe import PowerIntervalFrame
+from beo_datastore.libs.load.intervalframe_file import PowerIntervalFrameFile
+from beo_datastore.libs.models import IntervalFrameFileMixin, nested_getattr
 from beo_datastore.libs.views import dataframe_to_html
 from beo_datastore.settings import MEDIA_ROOT
 
@@ -115,6 +117,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         blank=True,
         null=True,
     )
+    stacked = models.BooleanField(default=True)
     _report = JSONField(blank=True, null=True, default={})
     _report_summary = JSONField(blank=True, null=True, default={})
 
@@ -193,7 +196,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         Number of expected DERSimulation objects with regards to any applied
         filter_by_query() or filter_by_transform() operations.
         """
-        return self.meters.count()
+        return self.meter_group.meters.count()
 
     @property
     def der_simulation_count(self):
@@ -274,7 +277,10 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         PowerIntervalFrame representing the associated MeterGroup's
         meter_intervalframe.
         """
-        return self.meter_group.meter_intervalframe
+        if self.stacked and isinstance(self.meter_group, Scenario):
+            return self.meter_group.pre_der_intervalframe
+        else:
+            return self.meter_group.meter_intervalframe
 
     @property
     def der_intervalframe(self):
@@ -306,13 +312,6 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         return MeterGroup.objects.filter(id=self.meter_group.id)
 
     @property
-    def meters(self):
-        """
-        Alias for the associated meter group's meters
-        """
-        return self.meter_group.meters
-
-    @property
     def ders(self):
         """
         Return list of dicts corresponding to the DERConfiguration objects and
@@ -333,13 +332,21 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
             }
         ]
 
+    @property
+    def meters(self):
+        """
+        Since a Scenario is also a MeterGroup, it's meters should be the same
+        as its der_simulations for subsequent Scenarios.
+        """
+        return self.der_simulations
+
     @cached_property
     def der_simulations(self):
         """
         Associated DERSimulation queryset.
         """
         return DERSimulation.objects.filter(
-            meter__in=self.meters.all(),
+            meter__in=self.meter_group.meters.all(),
             start=self.start,
             end_limit=self.end_limit,
             der_configuration=self.der_configuration,
@@ -578,7 +585,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         # compute RA on all meters combined
         return AggregateResourceAdequacyCalculation(
             agg_simulation=self.agg_simulation,
-            system_profile_intervalframe=self.system_profile.intervalframe,
+            rate_data=self.system_profile.intervalframe,
         )
 
     @cached_property
@@ -609,7 +616,9 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         return StoredBillCalculation.objects.select_related(
             "der_simulation__meter"
         ).filter(
-            der_simulation__in=self.der_simulations, rate_plan=self.rate_plan
+            der_simulation__in=self.der_simulations,
+            rate_plan=self.rate_plan,
+            stacked=self.stacked,
         )
 
     @property
@@ -620,7 +629,9 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         return StoredGHGCalculation.objects.select_related(
             "der_simulation__meter"
         ).filter(
-            der_simulation__in=self.der_simulations, ghg_rate=self.ghg_rate,
+            der_simulation__in=self.der_simulations,
+            ghg_rate=self.ghg_rate,
+            stacked=self.stacked,
         )
 
     @property
@@ -633,6 +644,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         ).filter(
             der_simulation__in=self.der_simulations,
             system_profile=self.system_profile,
+            stacked=self.stacked,
         )
 
     @property
@@ -645,6 +657,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         ).filter(
             der_simulation__in=self.der_simulations,
             caiso_rate=self.procurement_rate,
+            stacked=self.stacked,
         )
 
     @property
@@ -652,7 +665,12 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         """
         Return pandas DataFrame with meter SA IDs and usage deltas.
         """
-        return DERSimulation.get_report(self.der_simulations)
+        if self.stacked:
+            return DERSimulation.get_report(
+                (x.stacked_der_simulation for x in self.der_simulations)
+            )
+        else:
+            return DERSimulation.get_report(self.der_simulations)
 
     @cached_property
     def revenue_report(self):
@@ -687,7 +705,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         }
 
         df_rows = []
-        for (meter_id,) in self.meters.values_list("id"):
+        for meter_id in self.meter_group.meters.values_list("id", flat=True):
             ra_expense_missing = meter_id not in ra_expenses
             procurement_expense_missing = meter_id not in procurement_expenses
 
@@ -768,7 +786,9 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         Return pandas DataFrame with Meter SA IDs and RatePlans.
         """
         return Meter.get_report(
-            Meter.objects.filter(id__in=self.meters.values_list("id")),
+            Meter.objects.filter(
+                id__in=self.meter_group.meters.values_list("id")
+            ),
             column_map={"sa_id": "SA ID", "rate_plan_name": "MeterRatePlan"},
         )
 
@@ -801,31 +821,34 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
             start=self.start,
             end_limit=self.end_limit,
             meter_set={meter},
-            multiprocess=False,
         )
 
         if self.rate_plan:
             StoredBillCalculation.generate(
                 der_simulation_set=der_simulation_set,
-                rate_plan=self.rate_plan,  # TODO: link to meter
-                multiprocess=False,
+                rate_plan=self.rate_plan,
+                stacked=self.stacked,
             )
 
         if self.ghg_rate:
             StoredGHGCalculation.generate(
-                der_simulation_set=der_simulation_set, ghg_rate=self.ghg_rate
+                der_simulation_set=der_simulation_set,
+                ghg_rate=self.ghg_rate,
+                stacked=self.stacked,
             )
 
         if self.system_profile:
             StoredResourceAdequacyCalculation.generate(
                 der_simulation_set=der_simulation_set,
                 system_profile=self.system_profile,
+                stacked=self.stacked,
             )
 
         if self.procurement_rate:
             StoredProcurementCostCalculation.generate(
                 der_simulation_set=der_simulation_set,
                 caiso_rate=self.procurement_rate,
+                stacked=self.stacked,
             )
 
     def run(self):
@@ -838,7 +861,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
 
         :param multiprocess: True to multiprocess
         """
-        for meter in self.meters.all():
+        for meter in self.meter_group.meters.all():
             self.run_single_meter_simulation_and_cost(meter=meter)
 
     def get_aggregate_der_intervalframe(self):
@@ -846,9 +869,17 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         Return dynamically calculated PowerIntervalFrame representing aggregate
         readings of DERSimulations within a Scenario.
         """
+        if self.stacked:
+            frame_attr = "stacked_der_simulation.der_intervalframe"
+        else:
+            frame_attr = "der_intervalframe"
+
         return reduce(
             lambda x, y: x + y,
-            (x.der_intervalframe for x in self.der_simulations.all()),
+            (
+                nested_getattr(x, frame_attr)
+                for x in self.der_simulations.all()
+            ),
             PowerIntervalFrame(),
         )
 

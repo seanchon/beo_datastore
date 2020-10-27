@@ -1,7 +1,7 @@
 import pandas as pd
 from sklearn.cluster import KMeans
 
-from beo_datastore.libs.intervalframe import ValidationFrame288
+from beo_datastore.libs.load.intervalframe import ValidationFrame288
 
 
 class KMeansLoadClustering(object):

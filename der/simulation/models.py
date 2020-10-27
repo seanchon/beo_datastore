@@ -32,16 +32,16 @@ from beo_datastore.libs.der.solar import (
     SolarPVSimulationBuilder,
     SolarPVStrategy as pySolarPVStrategy,
 )
-from beo_datastore.libs.intervalframe_file import (
+from beo_datastore.libs.load.intervalframe_file import (
     DataFrameFile,
     Frame288File,
     PowerIntervalFrame,
     PowerIntervalFrameFile,
 )
 from beo_datastore.libs.models import ValidationModel, Frame288FileMixin
-from beo_datastore.libs.plot_intervalframe import plot_intervalframe
+from beo_datastore.libs.load.plot_intervalframe import plot_intervalframe
 from beo_datastore.settings import MEDIA_ROOT
-from beo_datastore.libs.plot_intervalframe import (
+from beo_datastore.libs.load.plot_intervalframe import (
     plot_frame288,
     plot_frame288_monthly_comparison,
 )
@@ -287,7 +287,7 @@ class BatteryConfiguration(DERConfiguration):
         )
 
     @classmethod
-    def get_or_create_from_object(cls, battery):
+    def get_or_create_from_object(cls, battery: pyBattery):
         """
         Get or create BatteryConfiguration from pyBattery.
 

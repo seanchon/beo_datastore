@@ -4,8 +4,8 @@ import pandas as pd
 from unittest import TestCase
 
 from beo_datastore.libs.der.schedule_utils import create_diurnal_schedule
-from beo_datastore.libs.dataframe import get_dataframe_max_difference
-from beo_datastore.libs.intervalframe import (
+from beo_datastore.libs.load.dataframe import get_dataframe_max_difference
+from beo_datastore.libs.load.intervalframe import (
     PowerIntervalFrame,
     ValidationFrame288,
 )
@@ -180,10 +180,10 @@ class TestEVSE(TestCase):
         )
 
         self.assertEqual(
-            mixed_fuel_15.resample_intervalframe(one_hour), mixed_fuel_60,
+            mixed_fuel_15.resample_intervalframe(one_hour), mixed_fuel_60
         )
         self.assertEqual(
-            mixed_fuel_60.resample_intervalframe(quarter_hour), mixed_fuel_15,
+            mixed_fuel_60.resample_intervalframe(quarter_hour), mixed_fuel_15
         )
 
     def test_get_power(self):

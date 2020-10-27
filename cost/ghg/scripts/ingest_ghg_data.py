@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import re
 
-from beo_datastore.libs.dataframe import read_csv
+from beo_datastore.libs.load.dataframe import read_csv
 from beo_datastore.settings import BASE_DIR
 
 from cost.ghg.models import GHGRate

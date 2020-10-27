@@ -14,5 +14,5 @@ class GHGRateAdmin(admin.ModelAdmin):
 
 @admin.register(StoredGHGCalculation)
 class StoredGHGCalculationAdmin(admin.ModelAdmin):
-    readonly_fields = ["net_impact", "comparision_html_table"]
+    readonly_fields = ["pre_DER_total", "post_DER_total", "net_impact"]
     search_fields = ["id", "battery_simulation__id", "ghg_rate__id"]

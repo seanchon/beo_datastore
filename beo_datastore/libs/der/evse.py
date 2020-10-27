@@ -10,7 +10,7 @@ from beo_datastore.libs.der.builder import (
     DERSimulationSequenceBuilder,
     DERStrategy,
 )
-from beo_datastore.libs.intervalframe import (
+from beo_datastore.libs.load.intervalframe import (
     PowerIntervalFrame,
     ValidationFrame288,
 )

@@ -7,8 +7,18 @@ from beo_datastore.settings import MEDIA_ROOT
 from beo_datastore.libs.utils import mkdir_p
 
 from cost.ghg.models import GHGRate, GHGRateFrame288
-from cost.procurement.models import CAISOReport, CAISOReportDataFrame
-from load.customer.models import Channel, ChannelIntervalFrame
+from cost.procurement.models import (
+    CAISOReport,
+    CAISOReportDataFrame,
+    SystemProfile,
+    SystemProfileIntervalFrame,
+)
+from load.customer.models import (
+    Channel,
+    ChannelIntervalFrame,
+    OriginFile,
+    OriginFileIntervalFrame,
+)
 from load.openei.models import ReferenceMeter, ReferenceMeterIntervalFrame
 
 
@@ -35,8 +45,14 @@ def load_intervalframe_files():
     for (reference_model, frame_model, fixture_dir) in [
         (GHGRate, GHGRateFrame288, "cost/ghg/fixtures/"),
         (Channel, ChannelIntervalFrame, "load/customer/fixtures/"),
+        (OriginFile, OriginFileIntervalFrame, "load/customer/fixtures/"),
         (ReferenceMeter, ReferenceMeterIntervalFrame, "load/openei/fixtures/"),
         (CAISOReport, CAISOReportDataFrame, "cost/procurement/fixtures/"),
+        (
+            SystemProfile,
+            SystemProfileIntervalFrame,
+            "cost/procurement/fixtures/",
+        ),
     ]:
         for object in reference_model.objects.all():
             mkdir_p(frame_model.file_directory)
