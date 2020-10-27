@@ -118,16 +118,6 @@ A custom test-runner has been implemented to run all celery tasks synchronously 
 TEST_RUNNER = "beo_datastore.libs.test_runner.CeleryTestSuiteRunner"
 ```
 
-# DEMO NOTEBOOK
-
-To get a feel for the underlying data, a Jupyter Notebook can be launched which contains demo scripts. These scripts can be modified and run against data after it is loaded, which is covered in [LOADING DATA](#loading-data).
-
-```
-python manage.py shell_plus --notebook
-```
-
-After launching the Jupyter Notebook application, navigate to the Notebook application at http://localhost:8888/notebooks/. Opening the demo directory will display some demo notebooks.
-
 # LOADING DATA
 
 To add robust datasets, the following scripts can be run.

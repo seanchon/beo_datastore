@@ -1,14 +1,20 @@
-from datetime import datetime
+from datetime import date, datetime
 import attr
 from functools import reduce
+from itertools import repeat
+import json
+from multiprocessing import Pool
+import os
 import pandas as pd
 import re
+from typing import Dict, List, Union, Tuple
 import warnings
 
 from beo_datastore.libs.load.dataframe import get_unique_values
 from beo_datastore.libs.load.intervalframe import (
     ValidationDataFrame,
     ValidationFrame288,
+    ValidationIntervalFrame,
     PowerIntervalFrame,
 )
 from beo_datastore.libs.units import DataUnitEnum, RateUnitEnum
@@ -220,6 +226,16 @@ class OpenEIRateData(object):
     """
 
     rate_data = attr.ib(type=dict, repr=False)
+
+    @property
+    def name(self) -> str:
+        return self.rate_data.get("rateName", "")
+
+    @property
+    def effective(self) -> date:
+        return datetime.fromtimestamp(
+            self.rate_data["effectiveDate"]["$date"] / 1000
+        ).date()
 
     @property
     def fixed_rate_keys(self):
@@ -488,6 +504,26 @@ class OpenEIRateData(object):
                 tou_ids, [get_rate(tou_id=x, tier=tier) for x in tou_ids]
             )
         )
+
+    def to_json(self, folder: str) -> str:
+        """
+        Write self.rate_data to file.
+        """
+        filename = self.name + ": " + str(self.effective) + ".json"
+        destination = os.path.join(os.path.abspath(folder), filename)
+
+        with open(destination, "w", encoding="utf-8") as f:
+            json.dump(self.rate_data, f, ensure_ascii=False, indent=4)
+
+        return destination
+
+    @classmethod
+    def read_json(cls, file_path: str):
+        """
+        Read JSON file into OpenEIRateData object.
+        """
+        with open(file_path, "r") as f:
+            return cls(rate_data=json.load(f))
 
 
 @attr.s()
@@ -1057,7 +1093,7 @@ class BillingCollection(object):
         ).fillna("")
 
     @property
-    def intervalframe(self):
+    def intervalframe(self) -> PowerIntervalFrame:
         """
         Return PowerIntervalFrame representing meter readings from all bills.
         """
@@ -1075,10 +1111,180 @@ class BillingCollection(object):
         return [x.openei_rate_data.rate_data for x in self.bills]
 
     @staticmethod
-    def validate_bills(bills):
+    def validate_bills(bills) -> None:
         """
         Validates all bills are ValidationBills.
         """
         for bill in bills:
             if not isinstance(bill, ValidationBill):
                 raise TypeError("{} must be a ValidationBill".format(bill))
+
+
+@attr.s(frozen=True)
+class OpenEIRatePlan(object):
+    """
+    Container class for storing a number of OpenEIRateData objects organized
+    by effective start date.
+    """
+
+    rate_data_dict = attr.ib(type=dict)
+
+    @rate_data_dict.validator
+    def _validate_rating(self, attribute, value):
+        """
+        Validate rate_data_dict contains datetime objects as keys and
+        OpenEIRateData objects as values.
+        """
+        for date_, openei_rate_data in value.items():
+            if not isinstance(date_, date):
+                raise TypeError("All keys must be date objects.")
+            if not isinstance(openei_rate_data, OpenEIRateData):
+                raise TypeError("All values must be OpenEIRateData objects.")
+
+    def get_latest_effective_date(
+        self, start: Union[date, datetime] = date.max
+    ) -> date:
+        if isinstance(start, datetime):
+            start_date = start.date()
+        else:
+            start_date = start
+
+        earlier_dates = [
+            x for x in self.rate_data_dict.keys() if x <= start_date
+        ]
+        if earlier_dates:
+            return max(earlier_dates)
+        else:
+            return LookupError(
+                "No dates found earlier than {}".format(start_date)
+            )
+
+    def get_latest_rate_data(
+        self, start: Union[date, datetime] = date.max
+    ) -> OpenEIRateData:
+        if isinstance(start, datetime):
+            start_date = start.date()
+        else:
+            start_date = start
+
+        return self.rate_data_dict[self.get_latest_effective_date(start_date)]
+
+    @staticmethod
+    def create_date_ranges(
+        intervalframe: ValidationIntervalFrame
+    ) -> List[Tuple[datetime, datetime]]:
+        """
+        Based on a ValidationIntervalFrame, create date ranges representing
+        the first and last day of every month detected.
+
+        :param intervalframe: ValidationIntervalFrame
+        :return: list of start, end_limit datetime tuples
+        """
+        date_ranges = []
+        for month, year in intervalframe.distinct_month_years:
+            if month == 12:
+                date_ranges.append(
+                    (datetime(year, month, 1), datetime(year + 1, 1, 1))
+                )
+            else:
+                date_ranges.append(
+                    (datetime(year, month, 1), datetime(year, month + 1, 1))
+                )
+
+        return date_ranges
+
+    def get_rate_frame288_by_year(
+        self, year: int, rate_type: str, schedule_type: str, tier: int = 0
+    ):
+        """
+        Return ValidationFrame288 of combined rates from associated
+        rate_collections.
+
+        :param year: int
+        :param rate_type: choice "energy" or "demand"
+        :param schedule_type: choice "weekday" or "weekend"
+        :param tier: choice of tier for tiered-rates (integer)
+        :return: ValidationFrame288
+        """
+        frame288_matrix = []
+        for month in range(1, 13):
+            try:
+                openei_rate_data = self.get_latest_rate_data(
+                    start=datetime(year, month, 1)
+                )
+                frame288_matrix.append(
+                    openei_rate_data.get_rate_frame288(
+                        rate_type=rate_type,
+                        schedule_type=schedule_type,
+                        tier=tier,
+                    )
+                    .dataframe[month]
+                    .values
+                )
+            except LookupError:
+                frame288_matrix.append([None] * 24)
+
+        return ValidationFrame288.convert_matrix_to_frame288(frame288_matrix)
+
+    def generate_bill(
+        self, intervalframe: PowerIntervalFrame, start: date, end_limit: date
+    ) -> ValidationBill:
+        # TODO: Account for bill split due to new rate schedule inside bill
+        rate_data = self.get_latest_rate_data(start)
+        return ValidationBill(
+            intervalframe=intervalframe.filter_by_datetime(
+                start=start, end_limit=end_limit
+            ),
+            openei_rate_data=rate_data,
+        )
+
+    def generate_many_bills_multiprocess(
+        self,
+        intervalframe: PowerIntervalFrame,
+        date_ranges: List[Tuple[date, date]],
+    ) -> Dict[date, ValidationBill]:
+        with Pool() as pool:
+            bills = pool.starmap(
+                self.generate_bill,
+                zip(
+                    repeat(intervalframe),
+                    (x[0] for x in date_ranges),
+                    (x[1] for x in date_ranges),
+                ),
+            )
+
+        # return bills in dict with start dates as indices
+        return {x[0][0]: x[1] for x in zip(date_ranges, bills)}
+
+    def generate_many_bills_single_process(
+        self,
+        intervalframe: PowerIntervalFrame,
+        date_ranges: List[Tuple[date, date]],
+    ) -> Dict[date, ValidationBill]:
+        bills = []
+        for start, end_limit in date_ranges:
+            bills.append(
+                self.generate_bill(
+                    intervalframe=intervalframe,
+                    start=start,
+                    end_limit=end_limit,
+                )
+            )
+
+        # return bills in dict with start dates as indices
+        return {x[0][0]: x[1] for x in zip(date_ranges, bills)}
+
+    def generate_many_bills(
+        self,
+        intervalframe: PowerIntervalFrame,
+        date_ranges: List[Tuple[date, date]],
+        multiprocess: bool = False,
+    ) -> Dict[date, ValidationBill]:
+        if multiprocess:
+            return self.generate_many_bills_multiprocess(
+                intervalframe=intervalframe, date_ranges=date_ranges
+            )
+        else:
+            return self.generate_many_bills_single_process(
+                intervalframe=intervalframe, date_ranges=date_ranges
+            )

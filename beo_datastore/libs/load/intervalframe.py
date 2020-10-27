@@ -320,7 +320,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         ]
 
     @classmethod
-    def csv_file_to_intervalframe(
+    def read_csv(
         cls,
         csv_location,
         index_column=None,
@@ -347,7 +347,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         return cls(dataframe=dataframe.sort_index(), *args, **kwargs)
 
     @classmethod
-    def csv_url_to_intervalframe(
+    def read_csv_url(
         cls,
         csv_url,
         index_column=None,

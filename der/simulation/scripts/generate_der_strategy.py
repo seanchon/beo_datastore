@@ -117,7 +117,7 @@ def generate_bill_reduction_battery_strategy(
     battery_strategy = BatteryStrategy.generate(
         name=name,
         description="\n".join([charge_description, discharge_description]),
-        frame288=rate_plan.get_rate_frame288_by_year(
+        frame288=rate_plan.openei_rate_plan.get_rate_frame288_by_year(
             latest_year, "energy", "weekday"
         ),
         charge_aggresiveness=charge_aggresiveness,
