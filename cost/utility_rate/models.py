@@ -4,12 +4,13 @@ import pandas as pd
 from django.db import connection, models, transaction
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.cost.bill import (
+from navigader_core.cost.bill import (
     OpenEIRateData,
     OpenEIRatePlan,
     ValidationBill,
 )
-from beo_datastore.libs.cost.controller import AggregateBillCalculation
+from navigader_core.cost.controller import AggregateBillCalculation
+
 from beo_datastore.libs.models import ValidationModel
 from beo_datastore.libs.views import dataframe_to_html
 

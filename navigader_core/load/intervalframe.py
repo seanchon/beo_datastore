@@ -4,7 +4,7 @@ from functools import reduce
 import numpy as np
 import pandas as pd
 
-from beo_datastore.libs.load.dataframe import (
+from navigader_core.load.dataframe import (
     add_interval_dataframe,
     csv_url_to_dataframe,
     downsample_dataframe,
@@ -14,7 +14,6 @@ from beo_datastore.libs.load.dataframe import (
     get_dataframe_period,
     merge_dataframe,
     set_dataframe_index,
-    read_csv,
     upsample_dataframe,
     resample_dataframe,
 )
@@ -338,7 +337,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         :param convert_to_datetime: convert index_column to datetime if True
         :return: pandas DataFrame
         """
-        dataframe = read_csv(csv_location)
+        dataframe = pd.read_csv(csv_location)
         if index_column:
             dataframe = set_dataframe_index(
                 dataframe, index_column, convert_to_datetime

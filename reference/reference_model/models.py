@@ -11,7 +11,7 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.der.builder import (
+from navigader_core.der.builder import (
     AggregateDERProduct,
     DER as pyDER,
     DERProduct,
@@ -19,17 +19,18 @@ from beo_datastore.libs.der.builder import (
     DERSimulationDirector,
     DERStrategy as pyDERStrategy,
 )
-from beo_datastore.libs.load.intervalframe import (
+from navigader_core.load.intervalframe import (
     PowerIntervalFrame,
     ValidationIntervalFrame,
 )
+
 from beo_datastore.libs.models import (
     IntervalFrameFileMixin,
     PolymorphicValidationModel,
     TaskStatusModelMixin,
     ValidationModel,
 )
-from beo_datastore.libs.load.plot_intervalframe import (
+from beo_datastore.libs.plot_intervalframe import (
     plot_intervalframe,
     plot_frame288_monthly_comparison,
 )

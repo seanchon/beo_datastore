@@ -7,11 +7,11 @@ from django.db.models import Count
 from django.utils.timezone import now
 
 from beo_datastore.celery import app
-from beo_datastore.libs.load.ingest import reformat_item_17
 from beo_datastore.libs.utils import chunks
 from beo_datastore.settings import ADMINS, APP_URL
 
 from load.customer.models import CustomerMeter, CustomerPopulation, OriginFile
+from load.libs.ingest import reformat_item_17
 from reference.reference_model.models import MeterGroup
 
 

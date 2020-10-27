@@ -4,13 +4,13 @@ import pandas as pd
 
 from unittest import mock, TestCase
 
-from beo_datastore.libs.load.intervalframe import PowerIntervalFrame
-from beo_datastore.libs.der.solar import (
+from navigader_core.load.intervalframe import PowerIntervalFrame
+from navigader_core.der.solar import (
     SolarPV,
     SolarPVSimulationBuilder,
     SolarPVStrategy,
 )
-from beo_datastore.libs.test_mock import mocked_pvwatts_requests_get
+from navigader_core.tests.mock_response import mocked_pvwatts_requests_get
 
 # SolarPV Configuration
 ARRAY_TYPE = 0

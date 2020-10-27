@@ -2,7 +2,8 @@ from datetime import datetime
 
 from django.test import TestCase
 
-from beo_datastore.libs.cost.bill import BillingCollection
+from navigader_core.cost.bill import BillingCollection
+
 from beo_datastore.libs.fixtures import (
     flush_intervalframe_files,
     load_intervalframe_files,

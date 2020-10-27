@@ -4,7 +4,7 @@ import pandas as pd
 
 from django.utils.functional import cached_property
 
-from beo_datastore.libs.load.intervalframe import (
+from navigader_core.load.intervalframe import (
     EnergyIntervalFrame,
     PowerIntervalFrame,
     ValidationIntervalFrame,

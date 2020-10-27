@@ -5,13 +5,13 @@ from multiprocessing import Pool
 import numpy as np
 from typing import List
 
-from beo_datastore.libs.der.battery import (
+from navigader_core.der.battery import (
     BatterySimulationBuilder,
     BatteryStrategy,
 )
-from beo_datastore.libs.der.builder import DERSimulationDirector
-from beo_datastore.libs.load.dataframe import get_unique_values
-from beo_datastore.libs.load.intervalframe import ValidationFrame288
+from navigader_core.der.builder import DERSimulationDirector
+from navigader_core.load.dataframe import get_unique_values
+from navigader_core.load.intervalframe import ValidationFrame288
 
 
 def create_fixed_schedule(month_matrix: List[float]) -> ValidationFrame288:

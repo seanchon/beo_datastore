@@ -3,13 +3,13 @@ import pandas as pd
 
 from unittest import TestCase
 
-from beo_datastore.libs.der.schedule_utils import create_diurnal_schedule
-from beo_datastore.libs.load.dataframe import get_dataframe_max_difference
-from beo_datastore.libs.load.intervalframe import (
+from navigader_core.der.schedule_utils import create_diurnal_schedule
+from navigader_core.load.dataframe import get_dataframe_max_difference
+from navigader_core.load.intervalframe import (
     PowerIntervalFrame,
     ValidationFrame288,
 )
-from beo_datastore.libs.der.evse import (
+from navigader_core.der.evse import (
     EVSE,
     EVSESimulationBuilder,
     EVSEStrategy,

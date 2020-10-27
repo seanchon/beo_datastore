@@ -1,16 +1,14 @@
 import numpy as np
 import os
 
-from beo_datastore.libs.load.dataframe import (
-    convert_columns_type,
-    read_parquet,
-)
-from beo_datastore.libs.load.intervalframe import (
+from navigader_core.load.intervalframe import (
     ValidationDataFrame,
     ValidationFrame288,
     PowerIntervalFrame,
     ArbitraryDataFrame,
 )
+
+from beo_datastore.libs.dataframe import convert_columns_type, read_parquet
 from beo_datastore.libs.utils import mkdir_p
 
 

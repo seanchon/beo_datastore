@@ -5,13 +5,13 @@ from datetime import datetime, timedelta
 import pandas as pd
 from typing import Any, Dict, List, Tuple
 
-from beo_datastore.libs.cost.bill import OpenEIRatePlan, ValidationBill
-from beo_datastore.libs.der.builder import AggregateDERProduct
-from beo_datastore.libs.load.intervalframe import (
+from navigader_core.cost.bill import OpenEIRatePlan, ValidationBill
+from navigader_core.der.builder import AggregateDERProduct
+from navigader_core.load.intervalframe import (
     PowerIntervalFrame,
     ValidationFrame288,
 )
-from beo_datastore.libs.procurement import (
+from navigader_core.cost.procurement import (
     ProcurementCostIntervalFrame,
     ProcurementRateIntervalFrame,
 )

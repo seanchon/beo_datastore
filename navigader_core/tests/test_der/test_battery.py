@@ -2,14 +2,14 @@ from datetime import datetime, timedelta
 import pandas as pd
 from unittest import TestCase
 
-from beo_datastore.libs.der.schedule_utils import create_diurnal_schedule
-from beo_datastore.libs.der.battery import (
+from navigader_core.der.schedule_utils import create_diurnal_schedule
+from navigader_core.der.battery import (
     Battery,
     BatterySimulationBuilder,
     BatteryStrategy,
 )
-from beo_datastore.libs.der.builder import DERSimulationDirector
-from beo_datastore.libs.load.intervalframe import PowerIntervalFrame
+from navigader_core.der.builder import DERSimulationDirector
+from navigader_core.load.intervalframe import PowerIntervalFrame
 
 
 class TestBattery(TestCase):

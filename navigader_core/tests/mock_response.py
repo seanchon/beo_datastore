@@ -1,11 +1,10 @@
 import json
 import os
 
-from beo_datastore.libs.der.solar import PVWATTS_URL
-from beo_datastore.settings import BASE_DIR
+from navigader_core.der.solar import PVWATTS_URL
 
 PVWATTS_FILE = os.path.join(
-    BASE_DIR, "beo_datastore", "libs", "der", "tests", "files", "pvwatts.json"
+    "navigader_core", "tests", "test_der", "files", "pvwatts.json"
 )
 
 

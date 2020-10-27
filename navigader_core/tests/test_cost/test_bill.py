@@ -3,20 +3,20 @@ import os
 
 from django.test import TestCase
 
-from beo_datastore.libs.cost.bill import (
+from navigader_core.cost.bill import (
     BillingCollection,
     OpenEIRateData,
     OpenEIRatePlan,
 )
-from beo_datastore.libs.load.intervalframe import PowerIntervalFrame
+from navigader_core.load.intervalframe import PowerIntervalFrame
 
 
 # meter data
-RESIDENTIAL_METER = "beo_datastore/libs/cost/tests/data/residential_meter.csv"
-COMMERCIAL_METER = "beo_datastore/libs/cost/tests/data/commercial_meter.csv"
+RESIDENTIAL_METER = "navigader_core/tests/test_cost/data/residential_meter.csv"
+COMMERCIAL_METER = "navigader_core/tests/test_cost/data/commercial_meter.csv"
 
 # OpenEI rates
-DATA_DIRECTORY = "beo_datastore/libs/cost/tests/data/"
+DATA_DIRECTORY = "navigader_core/tests/test_cost/data/"
 DEPARTING_RATES = [
     "2014 Vintage PCIA & Franchise Fee: 2017-04-01.json",
     "2014 Vintage PCIA & Franchise Fee: 2018-05-01.json",

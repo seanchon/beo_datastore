@@ -4,21 +4,19 @@ import pandas as pd
 
 from django.test import TestCase
 
-from beo_datastore.libs.der.schedule_utils import create_diurnal_schedule
-from beo_datastore.libs.cost.controller import (
-    AggregateProcurementCostCalculation,
-)
-from beo_datastore.libs.der.battery import (
+from navigader_core.der.schedule_utils import create_diurnal_schedule
+from navigader_core.cost.controller import AggregateProcurementCostCalculation
+from navigader_core.der.battery import (
     Battery,
     BatterySimulationBuilder,
     BatteryStrategy,
 )
-from beo_datastore.libs.der.builder import DERSimulationDirector
-from beo_datastore.libs.load.intervalframe import (
+from navigader_core.der.builder import DERSimulationDirector
+from navigader_core.load.intervalframe import (
     EnergyIntervalFrame,
     PowerIntervalFrame,
 )
-from beo_datastore.libs.procurement import (
+from navigader_core.cost.procurement import (
     ProcurementCostIntervalFrame,
     ProcurementRateIntervalFrame,
 )
