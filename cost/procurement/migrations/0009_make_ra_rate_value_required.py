@@ -7,13 +7,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('procurement', '0008_add_ra_rate_default_6kW'),
+        ("procurement", "0008_add_ra_rate_default_6kW"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='systemprofile',
-            name='resource_adequacy_rate',
-            field=models.FloatField(validators=[django.core.validators.MinValueValidator(0.0)]),
+            model_name="systemprofile",
+            name="resource_adequacy_rate",
+            field=models.FloatField(
+                validators=[django.core.validators.MinValueValidator(0.0)]
+            ),
         ),
     ]

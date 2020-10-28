@@ -12,7 +12,6 @@ from pyoasis.report import OASISReport
 from pyoasis.utils import create_oasis_url, download_files
 from pytz import timezone
 
-from beo_datastore.libs.api.serializers import AbstractGetDataMixin
 from beo_datastore.libs.intervalframe_file import (
     ArbitraryDataFrameFile,
     PowerIntervalFrameFile,
@@ -42,10 +41,6 @@ class SystemProfileIntervalFrame(PowerIntervalFrameFile):
 
     # directory for parquet file storage
     file_directory = os.path.join(MEDIA_ROOT, "system_profiles")
-
-
-class GetSystemProfileDataMixin(AbstractGetDataMixin):
-    intervalframe_name = "intervalframe"
 
 
 class SystemProfile(IntervalFrameFileMixin, RateDataMixin, ValidationModel):
