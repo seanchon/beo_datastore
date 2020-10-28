@@ -487,6 +487,20 @@ class SystemProfileViewSet(ListRetrieveViewSet):
     model = SystemProfile
     serializer_class = SystemProfileSerializer
 
+    schema = AutoSchema(
+        manual_fields=[
+            coreapi.Field(
+                "data_types",
+                required=False,
+                location="query",
+                description=(
+                    "One or many data types to return. Choices are 'default', "
+                    "'total', 'average', 'maximum', 'minimum', and 'count'."
+                ),
+            )
+        ]
+    )
+
     def get_queryset(self):
         """
         Limit the user to the SystemProfile objects associated with their LSE

@@ -10,6 +10,7 @@ from beo_datastore.libs.api.serializers import (
     AbstractGetDataMixin,
     get_context_request_param,
 )
+from beo_datastore.libs.api.viewsets import ListRetrieveDestroyViewSet
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate, SystemProfile
 from cost.study.models import Scenario
@@ -236,11 +237,22 @@ class RatePlanSerializer(DynamicModelSerializer):
         )
 
 
-class SystemProfileSerializer(DynamicModelSerializer):
+class GetSystemProfileDataMixin(AbstractGetDataMixin):
+    intervalframe_name = "intervalframe"
+
+
+class SystemProfileSerializer(GetSystemProfileDataMixin, ListRetrieveDestroyViewSet):
+    data = serializers.SerializerMethodField()
     load_serving_entity = DynamicRelationField(
         LoadServingEntitySerializer, deferred=True, embed=True
     )
 
     class Meta:
         model = SystemProfile
-        fields = ("id", "name", "load_serving_entity")
+        fields = (
+            "id",
+            "name",
+            "load_serving_entity",
+            "resource_adequacy_rate",
+            "data",
+        )
