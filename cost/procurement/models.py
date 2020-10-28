@@ -67,7 +67,7 @@ class SystemProfile(IntervalFrameFileMixin, RateDataMixin, ValidationModel):
         on_delete=models.PROTECT,
     )
     resource_adequacy_rate = models.FloatField(
-        validators=[MinValueValidator(1.0)],  # kW
+        validators=[MinValueValidator(0.0)],
     )
 
     # Required by IntervalFrameFileMixin.
