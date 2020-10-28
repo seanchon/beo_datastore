@@ -4,7 +4,8 @@
   "pk": 1,
   "fields": {
     "name": "MCE",
-    "load_serving_entity": 2
+    "load_serving_entity": 2,
+    "resource_adequacy_rate": 6.0
   }
 }
 ]

@@ -1,24 +1,18 @@
+import os
+import uuid
 from datetime import datetime, timedelta
 from functools import reduce
-from jsonfield import JSONField
-import os
+
 import pandas as pd
+from django.core.validators import MinValueValidator
+from django.db import models, transaction
+from django.utils.functional import cached_property
+from jsonfield import JSONField
 from pyoasis.report import OASISReport
 from pyoasis.utils import create_oasis_url, download_files
 from pytz import timezone
-import uuid
 
-from django.db import models, transaction
-from django.utils.functional import cached_property
-
-from navigader_core.cost.controller import (
-    AggregateProcurementCostCalculation,
-    AggregateResourceAdequacyCalculation,
-)
-from navigader_core.cost.procurement import ProcurementRateIntervalFrame
-from navigader_core.load.dataframe import get_dataframe_period
-from navigader_core.load.intervalframe import ValidationFrame288
-
+from beo_datastore.libs.api.serializers import AbstractGetDataMixin
 from beo_datastore.libs.intervalframe_file import (
     ArbitraryDataFrameFile,
     PowerIntervalFrameFile,
@@ -29,13 +23,16 @@ from beo_datastore.libs.plot_intervalframe import (
     plot_intervalframe,
 )
 from beo_datastore.settings import MEDIA_ROOT
-
 from cost.mixins import CostCalculationMixin, RateDataMixin
-from reference.reference_model.models import DERSimulation
+from navigader_core.cost.controller import (
+    AggregateProcurementCostCalculation,
+    AggregateResourceAdequacyCalculation,
+)
+from navigader_core.cost.procurement import ProcurementRateIntervalFrame
+from navigader_core.load.dataframe import get_dataframe_period
+from navigader_core.load.intervalframe import ValidationFrame288
 from reference.auth_user.models import LoadServingEntity
-
-# File constants
-RA_DOLLARS_PER_KW = 6
+from reference.reference_model.models import DERSimulation
 
 
 class SystemProfileIntervalFrame(PowerIntervalFrameFile):
@@ -47,12 +44,30 @@ class SystemProfileIntervalFrame(PowerIntervalFrameFile):
     file_directory = os.path.join(MEDIA_ROOT, "system_profiles")
 
 
+class GetSystemProfileDataMixin(AbstractGetDataMixin):
+    intervalframe_name = "intervalframe"
+
+
 class SystemProfile(IntervalFrameFileMixin, RateDataMixin, ValidationModel):
+    """
+    SystemProfile is aggregated meter intervals for `all`
+    of a CCA customers that represents an entire territory.
+        E.g. all customers in Contra Costa County.
+
+    SystemProfile is primarily used to calculate RA cost.
+
+    We cannot derive these information since we don't have complete CCA customers list in a territory.
+    This information is expected to be provided from CCAs.
+    """
+
     name = models.CharField(max_length=32)
     load_serving_entity = models.ForeignKey(
         to=LoadServingEntity,
         related_name="system_profiles",
         on_delete=models.PROTECT,
+    )
+    resource_adequacy_rate = models.FloatField(
+        validators=[MinValueValidator(1.0)],  # kW
     )
 
     # Required by IntervalFrameFileMixin.
@@ -63,7 +78,11 @@ class SystemProfile(IntervalFrameFileMixin, RateDataMixin, ValidationModel):
 
     class Meta:
         ordering = ["id"]
-        unique_together = ["name", "load_serving_entity"]
+        unique_together = [
+            "name",
+            "load_serving_entity",
+            "resource_adequacy_rate",
+        ]
 
     def __str__(self):
         return self.load_serving_entity.name + ": " + self.name
@@ -136,14 +155,14 @@ class StoredResourceAdequacyCalculation(CostCalculationMixin, ValidationModel):
         """
         Return pre-DER total kW multiplied by $/kW RA equivalency
         """
-        return self.pre_DER_total * RA_DOLLARS_PER_KW
+        return self.pre_DER_total * self.system_profile.resource_adequacy_rate
 
     @property
     def post_der_total_cost(self):
         """
         Return post-DER total kW multiplied by $/kW RA equivalency
         """
-        return self.post_DER_total * RA_DOLLARS_PER_KW
+        return self.post_DER_total * self.system_profile.resource_adequacy_rate
 
     @property
     def net_impact_cost(self):
