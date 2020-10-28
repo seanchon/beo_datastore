@@ -10,16 +10,16 @@ Base data has been populated in the codebase and can be loaded using the followi
 python manage.py runscript beo_datastore.scripts.load_data
 ```
 
-Optional test data including sample meters and utility rates can be added with the following flag.
+Optional data including sample meters and utility rates can be added with the following flag:
 
 ```
-python manage.py runscript beo_datastore.scripts.load_data --script-args test
+python manage.py runscript beo_datastore.scripts.load_data --script-args seed
 ```
 
-OpenEI data, which is required for some demo notebooks, can be loaded with the following flag.
+OpenEI data can be loaded with the following flag:
 
 ```
-python manage.py runscript beo_datastore.scripts.load_data --script-args demo
+python manage.py runscript beo_datastore.scripts.load_data --script-args openei
 ```
 
 ## Electricity Load Data

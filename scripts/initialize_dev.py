@@ -26,56 +26,57 @@ def parse_arguments():
         )
     )
     parser.add_argument(
-        "-f",
-        "--full",
-        action="store_true",
-        dest="full",
-        help="recreate database",
+        "--reset", action="store_true", dest="reset", help="recreate database",
     )
     parser.add_argument(
-        "-t",
-        "--test-data",
+        "--flush",
         action="store_true",
-        dest="test_data",
-        help="import test data",
+        dest="flush",
+        help="empties but does not delete database",
     )
     parser.add_argument(
-        "-d",
-        "--demo-data",
+        "--seed", action="store_true", dest="seed", help="seed database",
+    )
+    parser.add_argument(
+        "--openei",
         action="store_true",
-        dest="demo_data",
-        help="import demo data",
+        dest="open_ei",
+        help="import OpenEI data",
     )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
-
     args = parse_arguments()
 
-    # reset database
-    if args.full:
-        call_command("reset_db", "-c")
-    else:
+    # Drops and recreates the database, closing any active database sessions
+    # prior to doing so.
+    if args.reset:
+        call_command("reset_db", "--close-sessions")
+    # Empties the database tables but does not drop the database. This will
+    # keep the current migration status
+    elif args.flush:
         call_command("flush")
 
-    # apply migrations
+    # Runs the migrations. If the database has not been reset this has no effect
     call_command("migrate")
 
-    # load seed data
-    if args.test_data:
+    # Loads seed data
+    if args.seed:
         call_command(
             "runscript",
             "beo_datastore.scripts.load_data",
             "--script-args",
-            "test",
+            "seed",
         )
-    elif args.demo_data:
+    # Loads OpenEI data
+    elif args.open_ei:
         call_command(
             "runscript",
             "beo_datastore.scripts.load_data",
             "--script-args",
-            "demo",
+            "openei",
         )
+    # Loads basic data
     else:
         call_command("runscript", "beo_datastore.scripts.load_data")

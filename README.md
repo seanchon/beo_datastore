@@ -54,23 +54,20 @@ source <env_name>/bin/activate
 
 ### INITIALIZING DEV ENVIRONMENT
 
-A script is available to initialize a dev environment, which will destroy all existing data and populate data from scratch.
+A script is available to initialize a dev environment:
 
 ```
-python scripts/initialize_dev.py --full
+python scripts/initialize_dev.py
 ```
 
-Optional test data including sample meters and utility rates can be added with the following flag.
+Several options can be provided to this script to customize the initial environment state:
 
-```
-python scripts/initialize_dev.py --full --test
-```
-
-Optional reference building and rate data from OpenEI to be used with demo scripts can be added with the following flag.
-
-```
-python scripts/initialize_dev.py --full --demo
-```
+| Option   | Description                                                                                                                                                                                                                                             |
+|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `reset`  | Drops and recreates the database. After the database has been reset, the migrations will be re-applied.                                                                                                                                                 |
+| `flush`  | Empties the database, but does not delete it. This will keep the current migration status. Used in combination with other flags this can be a quick way to reset a local environment to a useful default state. Has no effect when used with `--reset`. |
+| `seed`   | Seeds the database with starting data, including sample meters and utility rates.                                                                                                                                                                       |
+| `openei` | Seeds the database with all the same data provided with the `--seed` option, and additionally includes some reference building and rate data from OpenEI. Has no effect when used with `--seed`.                                                        |
 
 ### LOADING TEST DATA
 

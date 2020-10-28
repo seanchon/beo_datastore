@@ -82,11 +82,6 @@ class TestScenario(TestCase):
         2. Create and choose battery and strategy (DER)
         3. Create and choose cost functions (cost)
         4. Run scenario.
-
-    This test ensures that following demo scripts are functional.
-        - demo/1_create_kmeans_clusters.ipynb
-        - demo/2_create_battery_strategy.ipynb
-        - demo/3_multi_scenario_optimization.ipynb
     """
 
     fixtures = [
@@ -127,7 +122,10 @@ class TestScenario(TestCase):
         )
 
         # Create BatteryConfiguration and BatteryStrategy
-        self.battery_configuration, _ = BatteryConfiguration.objects.get_or_create(
+        (
+            self.battery_configuration,
+            _,
+        ) = BatteryConfiguration.objects.get_or_create(
             rating=5, discharge_duration_hours=2, efficiency=0.9
         )
         self.battery_strategy = generate_ra_reduction_battery_strategy(
@@ -138,7 +136,10 @@ class TestScenario(TestCase):
         )
 
         # Create SolarPVConfiguration and SolarPVStrategy
-        self.solar_pv_configuration, _ = SolarPVConfiguration.get_or_create_from_object(
+        (
+            self.solar_pv_configuration,
+            _,
+        ) = SolarPVConfiguration.get_or_create_from_object(
             solar_pv=pySolarPV(
                 api_key="ABCDEFG",
                 array_type=ARRAY_TYPE,

@@ -14,9 +14,9 @@ def run(*args):
     """
     load_base_fixtures()
     if len(args) > 0:
-        if args[0] == "test":
+        if args[0] == "seed":
             load_test_fixtures()
-        elif args[0] == "demo":
+        elif args[0] == "openei":
             load_test_fixtures()
             call_command(
                 "runscript",
