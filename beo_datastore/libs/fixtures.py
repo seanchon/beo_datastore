@@ -34,7 +34,12 @@ def load_test_fixtures():
     Loads test fixtures in defined order.
     """
     call_command(
-        "loaddata", "customer", "openei", "utility_rate", "caiso_rate"
+        "loaddata",
+        "customer",
+        "openei",
+        "utility_rate",
+        "caiso_rate",
+        "system_profile",
     )
 
 
