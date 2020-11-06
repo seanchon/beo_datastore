@@ -1,25 +1,25 @@
-import coreapi
-from functools import reduce
-import pandas as pd
 import json
 from datetime import datetime
+from functools import reduce
 
+import coreapi
+import numpy as np
+import pandas as pd
 from django.db import transaction
 from django.http.request import QueryDict
-
-from rest_framework import serializers, status, mixins
+from rest_framework import mixins, serializers, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
 
 from beo_datastore.libs.api.serializers import require_request_data
 from beo_datastore.libs.api.viewsets import (
+    CreateListRetrieveDestroyViewSet,
     CreateListRetrieveUpdateDestroyViewSet,
     ListRetrieveDestroyViewSet,
     ListRetrieveViewSet,
 )
 from beo_datastore.libs.dataframe import download_dataframe
-
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate, SystemProfile
 from cost.study.models import Scenario
@@ -27,22 +27,25 @@ from cost.utility_rate.libs import (
     convert_rate_df_to_dict,
     convert_rate_dict_to_df,
 )
-from cost.utility_rate.models import RatePlan, RateCollection
+from cost.utility_rate.models import RateCollection, RatePlan
 from reference.reference_model.models import (
     DERConfiguration,
     DERStrategy,
     MeterGroup,
 )
-
 from .serializers import (
     CAISORateSerializer,
     GHGRateSerializer,
-    RatePlanSerializer,
     RateCollectionSerializer,
+    RatePlanSerializer,
     ScenarioSerializer,
     SystemProfileSerializer,
 )
 from .tasks import run_scenario
+
+# Constants for time in seconds
+QUARTER_HOUR = 900
+HOUR = 3600
 
 
 class ScenarioViewSet(CreateListRetrieveUpdateDestroyViewSet):
@@ -479,11 +482,7 @@ class RateCollectionViewSet(
         return download_dataframe(df, **download_kwargs)
 
 
-class SystemProfileViewSet(ListRetrieveViewSet):
-    """
-    SystemProfile objects
-    """
-
+class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
     model = SystemProfile
     serializer_class = SystemProfileSerializer
 
@@ -497,7 +496,19 @@ class SystemProfileViewSet(ListRetrieveViewSet):
                     "One or many data types to return. Choices are 'default', "
                     "'total', 'average', 'maximum', 'minimum', and 'count'."
                 ),
-            )
+            ),
+            coreapi.Field(
+                "file",
+                required=True,
+                location="body",
+                description="CSV file containing a calender year LSE System Profile intervals.",
+            ),
+            coreapi.Field(
+                "filename",
+                required=False,
+                location="body",
+                description="File name.",
+            ),
         ]
     )
 
@@ -508,4 +519,107 @@ class SystemProfileViewSet(ListRetrieveViewSet):
         user = self.request.user
         return SystemProfile.objects.filter(
             load_serving_entity=user.profile.load_serving_entity
+        )
+
+    def create(self, request, *args, **kwargs):
+        """
+        Handle upload for a system profile annual interval in CSV
+        and ingest as a new SystemProfile instance.
+        """
+        require_request_data(request, ["file", "resource_adequacy_rate"])
+
+        file = request.data["file"]
+        name = request.data.get(
+            "name"
+        )  # Optional field for new SystemProfile instance name.
+        load_serving_entity = request.user.profile.load_serving_entity
+        resource_adequacy_rate = request.data["resource_adequacy_rate"]
+
+        df = pd.read_csv(file)
+        # Clean redundant empty rows or columns if any.
+        df.dropna(axis=0, how="all", inplace=True)
+        df.dropna(axis=1, how="all", inplace=True)
+
+        # Infer interval, e.g.15m or Hour from the file.
+        timestamp_column = df.columns[0]
+        indices = pd.DatetimeIndex(df[timestamp_column])
+        intervals = set(np.diff(indices))
+
+        INVALID_TIMESTAMPS_MESSAGE = (
+            "Duplicates, inconsistent or missing interval timestamps."
+        )
+
+        if len(intervals) != 1:
+            raise serializers.ValidationError()
+
+        interval_obj = intervals.pop()
+        interval = int(interval_obj // 1e9)
+        if interval not in [QUARTER_HOUR, HOUR]:
+            raise serializers.ValidationError(
+                f"Expected intervals are 15 minutes or hourly; '{interval}' second not expected."
+            )
+        # Validate upload file covers an entire calendar year
+        year = indices[0].year
+        start_year = pd.Timestamp(year, 1, 1, 0, 0, 0)
+        end_year_limit = pd.Timestamp(year + 1, 1, 1, 0, 0, 0)
+        if not (
+            indices[0] == start_year + interval_obj
+            and indices[-1] == end_year_limit
+        ):
+            raise serializers.ValidationError(
+                "File must contain a calender year (Jan-1st to Dec-31st) intervals.",
+            )
+
+        # CCAs identify each interval by end-interval datetime, but in our
+        # modelings (BEO Project) intervals identified with start datetime.
+        # Relabel intervals with their start-datetime instead of end-interval datetime.
+        indices = indices - pd.to_timedelta(interval, unit="second")
+
+        try:
+            df.set_index(
+                keys=indices,
+                verify_integrity=True,
+                drop=True,
+                inplace=True,
+            )
+        except Exception as e:
+            raise serializers.ValidationError(INVALID_TIMESTAMPS_MESSAGE, e)
+        df.drop(columns=timestamp_column, inplace=True)
+        df.index.rename("interval_start", inplace=True)
+
+        # Convert energy or power readings from one of the expected
+        # headers/units  kW, kWh, MW, MWH, GW, or GWH into `Power in kW`.
+        print(df)
+        value = df.columns[0]
+        unit = value.upper()
+        interval_per_hour = interval / HOUR
+        if "KWH" in unit:
+            df[value] *= interval_per_hour
+        elif "KW" in unit:
+            pass
+        elif "MWH" in unit:
+            df[value] *= interval_per_hour * 1e3
+        elif "MW" in unit:
+            df[value] *= 1e3
+        elif "GWH" in unit:
+            df[value] *= interval_per_hour * 1e6
+        elif "GW" in unit:
+            df[value] *= 1e6
+        else:
+            raise serializers.ValidationError(
+                f"'{value}' is not an expected unit for aggregated energy or power values. "
+                f"Expected unit is to be of kW, kWh, MW, MWH, GW, or GWH."
+            )
+        df.rename(columns={value: "kw"}, inplace=True)
+        print(df)
+        systemprofile = SystemProfile.create(
+            dataframe=df,
+            name=name or file.name,
+            load_serving_entity=load_serving_entity,
+            resource_adequacy_rate=resource_adequacy_rate,
+        )
+        systemprofile.save()
+
+        return Response(
+            status=status.HTTP_201_CREATED,
         )
