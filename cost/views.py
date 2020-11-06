@@ -528,12 +528,10 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
         """
         require_request_data(request, ["file", "resource_adequacy_rate"])
 
-        file = request.data["file"]
-        name = request.data.get(
-            "name"
-        )  # Optional field for new SystemProfile instance name.
+        [file, name, resource_adequacy_rate] = self._data(
+            ["file", "name", "resource_adequacy_rate"]
+        )
         load_serving_entity = request.user.profile.load_serving_entity
-        resource_adequacy_rate = request.data["resource_adequacy_rate"]
 
         df = pd.read_csv(file)
         # Clean redundant empty rows or columns if any.
