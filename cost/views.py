@@ -548,7 +548,10 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
         )
 
         if len(intervals) != 1:
-            raise serializers.ValidationError()
+            raise serializers.ValidationError(
+                "Timestamp intervals are inconsistent. Found the following "
+                f"intervals: {intervals}"
+            )
 
         interval_obj = intervals.pop()
         interval = int(interval_obj // 1e9)
