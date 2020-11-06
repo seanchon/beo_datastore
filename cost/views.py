@@ -557,7 +557,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
         interval = int(interval_obj // 1e9)
         if interval not in [QUARTER_HOUR, HOUR]:
             raise serializers.ValidationError(
-                f"Expected intervals are 15 minutes or hourly; '{interval}' second not expected."
+                f"Expected intervals are 15 minutes or hourly; '{interval}' seconds not expected."
             )
         # Validate upload file covers an entire calendar year
         year = indices[0].year
