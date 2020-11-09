@@ -57,18 +57,23 @@ def csv_url_to_dataframe(url):
     return pd.read_csv(io.StringIO(csv.decode("utf-8")))
 
 
-def get_dataframe_period(dataframe, n=96) -> timedelta:
+def get_dataframe_period(dataframe, by_column=None, n=96) -> timedelta:
     """
-    Return dataframe period as a timedelta object.
+    Return dataframe period as a timedelta object,
+    with the index by default or with a column if provided.
 
     :param dataframe: pandas DataFrame with DatetimeIndex
+    :param by_column: if provided, use this column for timestamps
     :param n: run on first n lines to reduce computation
     :return: timedelta
     """
     if n:
         dataframe = dataframe.head(n=n)
 
-    # get most common (mode) delta in seconds
+    if by_column is not None:
+        indices = pd.DatetimeIndex(dataframe[by_column])
+        dataframe.set_index(indices, inplace=True)
+
     results = stats.mode(np.diff(dataframe.index.values)).mode.tolist()
     results = [x / 1000000000 for x in results]
 
