@@ -247,8 +247,6 @@ class SystemProfileSerializer(
     load_serving_entity = DynamicRelationField(
         LoadServingEntitySerializer, deferred=True, embed=True
     )
-    # filename = serializers.CharField(max_length=100)
-    # file = serializers.FileField(required=False)
 
     class Meta:
         model = SystemProfile
@@ -258,6 +256,4 @@ class SystemProfileSerializer(
             "load_serving_entity",
             "resource_adequacy_rate",
             "data",
-            # "filename",
-            # "file",
         )
