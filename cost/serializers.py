@@ -29,12 +29,18 @@ class ScenarioSerializer(MeterGroupSerializer):
     meter_group = DynamicRelationField(MeterGroupSerializer, deferred=True)
     report = serializers.SerializerMethodField()
     report_summary = serializers.SerializerMethodField()
+    der_configuration = DynamicRelationField(
+        DERConfigurationSerializer, deferred=True
+    )
+    der_strategy = DynamicRelationField(DERStrategySerializer, deferred=True)
 
     class Meta:
         model = Scenario
         fields = MeterGroupSerializer.Meta.fields + (
+            "der_configuration",
             "der_simulation_count",
             "der_simulations",
+            "der_strategy",
             "ders",
             "expected_der_simulation_count",
             "meter_group",
@@ -47,6 +53,9 @@ class ScenarioSerializer(MeterGroupSerializer):
             "meter_group",
             "report",
             "report_summary",
+            # sorting fields
+            "der_configuration",
+            "der_strategy",
         )
 
     def get_ders(self, obj):
