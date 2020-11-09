@@ -28,6 +28,7 @@ from cost.utility_rate.libs import (
     convert_rate_dict_to_df,
 )
 from cost.utility_rate.models import RateCollection, RatePlan
+from navigader_core.load.dataframe import get_dataframe_period
 from reference.reference_model.models import (
     DERConfiguration,
     DERStrategy,
@@ -486,31 +487,55 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
     model = SystemProfile
     serializer_class = SystemProfileSerializer
 
-    schema = AutoSchema(
-        manual_fields=[
-            coreapi.Field(
-                "data_types",
-                required=False,
-                location="query",
-                description=(
-                    "One or many data types to return. Choices are 'default', "
-                    "'total', 'average', 'maximum', 'minimum', and 'count'."
-                ),
-            ),
-            coreapi.Field(
-                "file",
-                required=True,
-                location="body",
-                description="CSV file containing a calender year LSE System Profile intervals.",
-            ),
-            coreapi.Field(
-                "filename",
-                required=False,
-                location="body",
-                description="File name.",
-            ),
-        ]
-    )
+    class CustomSystemProfileSchema(AutoSchema):
+        manual_fields = []
+
+        def get_manual_fields(self, path: str, method: str):
+            custom_fields = []
+            if method.upper() == "GET":
+                custom_fields = [
+                    coreapi.Field(
+                        "data_types",
+                        required=False,
+                        location="query",
+                        description=(
+                            "One or many data types to return. Choices are 'default', "
+                            "'total', 'average', 'maximum', 'minimum', and 'count'."
+                        ),
+                    ),
+                ]
+            if method.upper() == "POST":
+                custom_fields = [
+                    coreapi.Field(
+                        "file",
+                        required=True,
+                        location="body",
+                        description=(
+                            "CSV file that contains a load serving entity system-profile intervals. "
+                            "1st column header is arbitrary. "
+                            "1st column is to be timestamps with consistent 15 or 60 minutes intervals. "
+                            "2nd column header must be one of: kW, kWh, MW, MWh, GW, or GWh. "
+                            "2nd column is to be numeric readings values for each timestamp."
+                        ),
+                    ),
+                    coreapi.Field(
+                        "name",
+                        required=False,
+                        location="body",
+                        description=(
+                            "System profile `name`. If not provided filename will be used instead."
+                        ),
+                    ),
+                    coreapi.Field(
+                        "resource_adequacy_rate",
+                        required=True,
+                        location="body",
+                        description="Numeric value for Resource adequacy.",
+                    ),
+                ]
+            return self._manual_fields + custom_fields
+
+    schema = CustomSystemProfileSchema()
 
     def get_queryset(self):
         """
@@ -538,37 +563,35 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
         df.dropna(axis=0, how="all", inplace=True)
         df.dropna(axis=1, how="all", inplace=True)
 
-        # Infer interval, e.g.15m or Hour from the file.
+        # Ensure intervals are consistent.
         timestamp_column = df.columns[0]
         indices = pd.DatetimeIndex(df[timestamp_column])
         intervals = set(np.diff(indices))
-
-        INVALID_TIMESTAMPS_MESSAGE = (
-            "Duplicates, inconsistent or missing interval timestamps."
-        )
-
         if len(intervals) != 1:
             raise serializers.ValidationError(
                 "Timestamp intervals are inconsistent. Found the following "
                 f"intervals: {intervals}"
             )
 
-        interval_obj = intervals.pop()
-        interval = int(interval_obj // 1e9)
+        interval: int = get_dataframe_period(
+            df, by_column=timestamp_column, n=None
+        ).seconds
+
         if interval not in [QUARTER_HOUR, HOUR]:
             raise serializers.ValidationError(
-                f"Expected intervals are 15 minutes or hourly; '{interval}' seconds not expected."
+                f"Expected intervals are either 15 or 60 minutes. "
+                f"Found '{interval/60}' minutes."
             )
-        # Validate upload file covers an entire calendar year
-        year = indices[0].year
-        start_year = pd.Timestamp(year, 1, 1, 0, 0, 0)
-        end_year_limit = pd.Timestamp(year + 1, 1, 1, 0, 0, 0)
-        if not (
-            indices[0] == start_year + interval_obj
-            and indices[-1] == end_year_limit
-        ):
+
+        # Validate that upload file contains interval readings `up to` 366 days
+        first_interval: pd.Timestamp = indices[0]
+        last_interval: pd.Timestamp = indices[-1]
+
+        span_days = (last_interval - first_interval).days
+        if span_days > 366:
             raise serializers.ValidationError(
-                "File must contain a calender year (Jan-1st to Dec-31st) intervals.",
+                "Currently each system-profile data span is limited up to 366 days. "
+                f"There is {span_days} days between {first_interval} and {last_interval}."
             )
 
         # CCAs identify each interval by end-interval datetime, but in our
@@ -584,16 +607,17 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
                 inplace=True,
             )
         except Exception as e:
-            raise serializers.ValidationError(INVALID_TIMESTAMPS_MESSAGE, e)
+            raise serializers.ValidationError(
+                "Duplicates, inconsistent or missing interval timestamps. ", e
+            )
         df.drop(columns=timestamp_column, inplace=True)
         df.index.rename("interval_start", inplace=True)
 
         # Convert energy or power readings from one of the expected
         # headers/units  kW, kWh, MW, MWH, GW, or GWH into `Power in kW`.
-        print(df)
         value = df.columns[0]
         unit = value.upper()
-        interval_per_hour = interval / HOUR
+        interval_per_hour = HOUR / interval
         if "KWH" in unit:
             df[value] *= interval_per_hour
         elif "KW" in unit:
@@ -608,19 +632,19 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
             df[value] *= 1e6
         else:
             raise serializers.ValidationError(
-                f"'{value}' is not an expected unit for aggregated energy or power values. "
+                f"'{unit}' is not an expected unit for aggregated energy or power values. "
                 f"Expected unit is to be of kW, kWh, MW, MWH, GW, or GWH."
             )
         df.rename(columns={value: "kw"}, inplace=True)
-        print(df)
-        systemprofile = SystemProfile.create(
+
+        new = SystemProfile.create(
             dataframe=df,
-            name=name or file.name,
+            name=name or file.name.split(".")[0],
             load_serving_entity=load_serving_entity,
             resource_adequacy_rate=resource_adequacy_rate,
         )
-        systemprofile.save()
 
         return Response(
+            self.serializer_class(new).data,
             status=status.HTTP_201_CREATED,
         )
