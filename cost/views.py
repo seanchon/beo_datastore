@@ -591,7 +591,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
         if span_days > 366:
             raise serializers.ValidationError(
                 "Currently each system-profile data span is limited up to 366 days. "
-                f"There is {span_days} days between {first_interval} and {last_interval}."
+                f"There are {span_days} days between {first_interval} and {last_interval}."
             )
 
         # CCAs identify each interval by end-interval datetime, but in our
