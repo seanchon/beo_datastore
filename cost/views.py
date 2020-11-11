@@ -633,7 +633,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
         else:
             raise serializers.ValidationError(
                 f"'{unit}' is not an expected unit for aggregated energy or power values. "
-                f"Expected unit is to be of kW, kWh, MW, MWH, GW, or GWH."
+                f"Unit should be one of kW, kWh, MW, MWH, GW, or GWH."
             )
         df.rename(columns={value: "kw"}, inplace=True)
 
