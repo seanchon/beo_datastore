@@ -530,7 +530,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
                         "resource_adequacy_rate",
                         required=True,
                         location="body",
-                        description="Numeric value for Resource adequacy.",
+                        description="$/kW value used in RA cost calculations",
                     ),
                 ]
             return self._manual_fields + custom_fields
