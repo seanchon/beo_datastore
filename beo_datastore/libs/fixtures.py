@@ -1,68 +1,94 @@
+import inspect
 import os
 from shutil import rmtree
+from typing import List
 
+import django.apps
+from django.conf import settings
 from django.core.management import call_command
 
 from beo_datastore.settings import MEDIA_ROOT
+from beo_datastore.libs.intervalframe_file import DataFrameFile
 from beo_datastore.libs.utils import mkdir_p
 
-from cost.ghg.models import GHGRate, GHGRateFrame288
-from cost.procurement.models import (
-    CAISOReport,
-    CAISOReportDataFrame,
-    SystemProfile,
-    SystemProfileIntervalFrame,
-)
-from load.customer.models import (
-    Channel,
-    ChannelIntervalFrame,
-    OriginFile,
-    OriginFileIntervalFrame,
-)
-from load.openei.models import ReferenceMeter, ReferenceMeterIntervalFrame
+
+def load_base_fixtures_and_intervalframes():
+    """
+    Loads base fixtures and intervalframes.
+    """
+    load_fixtures_and_intervalframes("reference_model")
 
 
-def load_base_fixtures():
+def load_all_fixtures_and_intervalframes():
     """
-    Loads base fixtures in defined order.
+    Loads all fixtures and intervalframes.
     """
-    call_command("loaddata", "reference_model", "ghg")
+    fixture_names = [
+        os.path.splitext(os.path.basename(x))[0]
+        for x in get_application_fixtures(".json")
+    ]
+    load_fixtures_and_intervalframes(*fixture_names)
 
 
-def load_test_fixtures():
+def load_fixtures_and_intervalframes(*fixture_names: List) -> None:
     """
-    Loads test fixtures in defined order.
+    Load all JSON and parquet fixtures in fixture_names.
+
+    Example:
+        load_fixtures("customer", "openei", "utility_rate", "caiso_rate")
     """
-    call_command(
-        "loaddata", "customer", "openei", "utility_rate", "caiso_rate"
-    )
+    call_command("loaddata", *fixture_names)
+    load_intervalframe_files()
+
+
+def get_dataframe_file_models():
+    """
+    Return all Django models which have associated DataFrames stored to file.
+    """
+    return [
+        x
+        for x in django.apps.apps.get_models()
+        if hasattr(x, "frame_file_class")
+        and inspect.isclass(x.frame_file_class)
+        and issubclass(x.frame_file_class, DataFrameFile)
+    ]
+
+
+def get_application_fixtures(extension: str) -> List:
+    """
+    Return the paths of all files in a subdirectory of a "fixtures/" directoy
+    with a particular extension.
+    """
+    application_fixtures = []
+    for root, dirs, files in os.walk(settings.BASE_DIR):
+        if "fixtures" in root:
+            for file in files:
+                if file.endswith(extension):
+                    application_fixtures.append(os.path.join(root, file))
+
+    return application_fixtures
 
 
 def load_intervalframe_files():
     """
-    Loads parquet fixtures to MEDIA_ROOT.
+    Scans all Django objects that should have associated DataFrames and loads
+    parquet fixtures to MEDIA_ROOT.
     """
-    for (reference_model, frame_model, fixture_dir) in [
-        (GHGRate, GHGRateFrame288, "cost/ghg/fixtures/"),
-        (Channel, ChannelIntervalFrame, "load/customer/fixtures/"),
-        (OriginFile, OriginFileIntervalFrame, "load/customer/fixtures/"),
-        (ReferenceMeter, ReferenceMeterIntervalFrame, "load/openei/fixtures/"),
-        (CAISOReport, CAISOReportDataFrame, "cost/procurement/fixtures/"),
-        (
-            SystemProfile,
-            SystemProfileIntervalFrame,
-            "cost/procurement/fixtures/",
-        ),
-    ]:
+    parquet_fixtures = get_application_fixtures(".parquet")
+
+    for reference_model in get_dataframe_file_models():
+        frame_model = reference_model.frame_file_class
+        mkdir_p(frame_model.file_directory)
         for object in reference_model.objects.all():
-            mkdir_p(frame_model.file_directory)
-            intervalframe_file = os.path.join(
-                fixture_dir, frame_model.get_filename(object)
-            )
-            object.frame = frame_model.get_frame_from_file(
-                reference_object=object, file_path=intervalframe_file
-            )
-            object.save()
+            filename = frame_model.get_filename(object)
+            matching_files = [
+                fixture for fixture in parquet_fixtures if filename in fixture
+            ]
+            if matching_files:
+                object.frame = frame_model.get_frame_from_file(
+                    reference_object=object, file_path=matching_files[0]
+                )
+                object.save()
 
 
 def flush_intervalframe_files():
