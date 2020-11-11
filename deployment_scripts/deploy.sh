@@ -16,7 +16,7 @@ echo "Running command: ${command[@]}"
 ${command[@]}
 
 echo "Creating tag ${environment} in git."
-git tag -d "$environment";
-git push origin --delete "$environment";
-git tag -a "$environment" -m "Deployed to $environment."
+cur_date=$(date -u +%d.%m.%y-%H,%M);
+export TAG_NAME="deployments/$environment/$cur_date";
+git tag -a "$TAG_NAME" -m "Deployed to $environment on $cur_date."
 git push origin --tags;
