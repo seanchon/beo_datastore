@@ -236,13 +236,10 @@ class RatePlanSerializer(DynamicModelSerializer):
         )
 
 
-class GetSystemProfileDataMixin(AbstractGetDataMixin):
-    intervalframe_name = "intervalframe"
-
-
 class SystemProfileSerializer(
-    GetSystemProfileDataMixin, DynamicModelSerializer
+    AbstractGetDataMixin, DynamicModelSerializer
 ):
+    intervalframe_name = "intervalframe"
     data = serializers.SerializerMethodField()
     load_serving_entity = DynamicRelationField(
         LoadServingEntitySerializer, deferred=True, embed=True

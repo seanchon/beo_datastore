@@ -530,7 +530,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
                         "resource_adequacy_rate",
                         required=True,
                         location="body",
-                        description="Numeric value for Resource adequacy.",
+                        description="$/kW value used in RA cost calculations",
                     ),
                 ]
             return self._manual_fields + custom_fields
@@ -591,7 +591,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
         if span_days > 366:
             raise serializers.ValidationError(
                 "Currently each system-profile data span is limited up to 366 days. "
-                f"There is {span_days} days between {first_interval} and {last_interval}."
+                f"There are {span_days} days between {first_interval} and {last_interval}."
             )
 
         # CCAs identify each interval by end-interval datetime, but in our
@@ -633,7 +633,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
         else:
             raise serializers.ValidationError(
                 f"'{unit}' is not an expected unit for aggregated energy or power values. "
-                f"Expected unit is to be of kW, kWh, MW, MWH, GW, or GWH."
+                f"Unit should be one of kW, kWh, MW, MWH, GW, or GWH."
             )
         df.rename(columns={value: "kw"}, inplace=True)
 
