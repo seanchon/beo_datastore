@@ -16,7 +16,11 @@ from beo_datastore.libs.intervalframe_file import (
     ArbitraryDataFrameFile,
     PowerIntervalFrameFile,
 )
-from beo_datastore.libs.models import IntervalFrameFileMixin, ValidationModel
+from beo_datastore.libs.models import (
+    IntervalFrameFileMixin,
+    TimeStampMixin,
+    ValidationModel,
+)
 from beo_datastore.libs.plot_intervalframe import (
     plot_frame288,
     plot_intervalframe,
@@ -43,7 +47,12 @@ class SystemProfileIntervalFrame(PowerIntervalFrameFile):
     file_directory = os.path.join(MEDIA_ROOT, "system_profiles")
 
 
-class SystemProfile(IntervalFrameFileMixin, RateDataMixin, ValidationModel):
+class SystemProfile(
+    IntervalFrameFileMixin,
+    RateDataMixin,
+    TimeStampMixin,
+    ValidationModel,
+):
     """
     SystemProfile is aggregated meter intervals for `all`
     of a CCA customers that represents an entire territory.
@@ -55,7 +64,7 @@ class SystemProfile(IntervalFrameFileMixin, RateDataMixin, ValidationModel):
     This information is expected to be provided from CCAs.
     """
 
-    name = models.CharField(max_length=32)
+    name = models.CharField(max_length=255)
     load_serving_entity = models.ForeignKey(
         to=LoadServingEntity,
         related_name="system_profiles",
@@ -72,7 +81,7 @@ class SystemProfile(IntervalFrameFileMixin, RateDataMixin, ValidationModel):
     cost_calculation_model = AggregateResourceAdequacyCalculation
 
     class Meta:
-        ordering = ["id"]
+        ordering = ["-updated_at"]
         unique_together = [
             "name",
             "load_serving_entity",

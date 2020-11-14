@@ -1,12 +1,11 @@
 from contextlib import contextmanager
 from functools import reduce
 
-from polymorphic.models import PolymorphicModel
-
 from django.apps import apps
 from django.db import models, transaction
 from django.utils.functional import cached_property
 from django.utils.timezone import now
+from polymorphic.models import PolymorphicModel
 
 from beo_datastore.libs.views import dataframe_to_html
 
@@ -210,6 +209,20 @@ class TaskStatusModelMixin(models.Model):
             self.completed = False
             self.completed_incompleted_at = now()
             self.save()
+
+
+class TimeStampMixin(models.Model):
+    """
+    Add timestamp fields for when a model instance first created and last modified.
+    """
+
+    class Meta:
+        abstract = True
+
+    created_at = models.DateTimeField(
+        auto_now_add=True, editable=False, blank=True
+    )
+    updated_at = models.DateTimeField(auto_now=True, editable=True, blank=True)
 
 
 class ValidationModel(AutoReprMixin, models.Model):
