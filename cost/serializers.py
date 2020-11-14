@@ -236,9 +236,7 @@ class RatePlanSerializer(DynamicModelSerializer):
         )
 
 
-class SystemProfileSerializer(
-    AbstractGetDataMixin, DynamicModelSerializer
-):
+class SystemProfileSerializer(AbstractGetDataMixin, DynamicModelSerializer):
     intervalframe_name = "intervalframe"
     data = serializers.SerializerMethodField()
     load_serving_entity = DynamicRelationField(
@@ -248,7 +246,7 @@ class SystemProfileSerializer(
     class Meta:
         model = SystemProfile
         fields = (
-            "id",
+            "uuid",
             "name",
             "load_serving_entity",
             "resource_adequacy_rate",

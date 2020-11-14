@@ -64,6 +64,9 @@ class SystemProfile(
     This information is expected to be provided from CCAs.
     """
 
+    uuid = models.UUIDField(
+        db_index=True, default=uuid.uuid4, editable=False, unique=True
+    )
     name = models.CharField(max_length=255)
     load_serving_entity = models.ForeignKey(
         to=LoadServingEntity,

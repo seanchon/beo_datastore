@@ -486,6 +486,7 @@ class RateCollectionViewSet(
 class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
     model = SystemProfile
     serializer_class = SystemProfileSerializer
+    lookup_field = "uuid"
 
     class CustomSystemProfileSchema(AutoSchema):
         manual_fields = []
@@ -637,14 +638,23 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
             )
         df.rename(columns={value: "kw"}, inplace=True)
 
-        new = SystemProfile.create(
-            dataframe=df,
-            name=name or file.name.split(".")[0],
-            load_serving_entity=load_serving_entity,
-            resource_adequacy_rate=resource_adequacy_rate,
-        )
+        name = name or file.name.split(".")[0]
+        try:
+            system_profile, created = SystemProfile.get_or_create(
+                dataframe=df,
+                name=name,
+                load_serving_entity=load_serving_entity,
+                resource_adequacy_rate=resource_adequacy_rate,
+            )
+        except serializers.ValidationError as e:
+            raise serializers.ValidationError(detail=e.message_dict)
+
+        if not created:
+            raise serializers.ValidationError(
+                "SystemProfile with provided parameters already exists!"
+            )
 
         return Response(
-            self.serializer_class(new).data,
+            self.serializer_class(system_profile, many=False).data,
             status=status.HTTP_201_CREATED,
         )
