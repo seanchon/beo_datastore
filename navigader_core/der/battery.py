@@ -38,7 +38,7 @@ class Battery(DER):
         Validate rating is 0 or greater.
         """
         if value < 0:
-            raise ValueError("rating must be 0 or greater.")
+            self.raise_validation_error(attribute, "Must be 0 or greater")
 
     @discharge_duration.validator
     def _validate_discharge_duration(self, attribute, value):
@@ -46,9 +46,7 @@ class Battery(DER):
         Validate discharge_duration is 0 or greater.
         """
         if value < timedelta(0):
-            raise ValueError(
-                "discharge_duration must be timedelta(0) or greater."
-            )
+            self.raise_validation_error(attribute, "Must be 0 or greater")
 
     @efficiency.validator
     def _validate_efficiency(self, attribute, value):
@@ -56,7 +54,7 @@ class Battery(DER):
         Validate efficiency is between 0 and 1.
         """
         if not (0 < value <= 1):
-            raise ValueError("efficiency must be between 0 and 1.")
+            self.raise_validation_error(attribute, "Must be between 0 and 1")
 
     def _validate_power(self, power: float) -> None:
         """

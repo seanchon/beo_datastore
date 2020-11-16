@@ -15,6 +15,7 @@ from der.simulation.models import (
     BatteryConfiguration,
     BatteryStrategy,
     EVSEConfiguration,
+    EVSEStrategy,
     SolarPVConfiguration,
     SolarPVStrategy,
     StoredBatterySimulation,
@@ -24,6 +25,7 @@ from der.simulation.scripts.generate_der_strategy import (
     generate_ghg_reduction_battery_strategy,
 )
 from load.customer.models import CustomerMeter
+from reference.auth_user.models import LoadServingEntity
 from reference.reference_model.models import Meter, MeterGroup
 
 
@@ -44,7 +46,9 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
         # create fake API user
         faker = Factory.create()
         self.user = User.objects.create(
-            username=faker.user_name(), email=faker.email(), is_superuser=False
+            username=faker.user_name(),
+            email=faker.email(domain="mcecleanenergy.org"),
+            is_superuser=False,
         )
 
         # test following endpoints using BasicAuthenticationTestMixin
@@ -128,15 +132,22 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
         )
 
         data = response.data["der_strategy"]["data"]
-        self.assertIn("parameters", data)
-        self.assertEqual(data["parameters"], parameters)
+        self.assertEqual(data, parameters)
 
     def test_solar_configuration_serializer(self):
         """
         Tests that the SolarPVConfigurationSerializer returns solar-specific
         fields
         """
-        parameters = {"serviceable_load_ratio": 0.85}
+        parameters = {
+            "address": "94107",
+            "array_type": 0,
+            "azimuth": 180,
+            "tilt": 7,
+            "losses": 5,
+            "system_capacity": 50,
+        }
+
         configuration, _ = SolarPVConfiguration.objects.get_or_create(
             parameters=parameters, stored_response={"foo": "bar"}
         )
@@ -148,7 +159,7 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
         )
 
         data = response.data["der_configuration"]["data"]
-        self.assertEqual(data["parameters"], parameters)
+        self.assertEqual(data, parameters)
 
     def test_evse_strategy_serializer(self):
         """
@@ -203,6 +214,100 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
                 "ev_count": 15,
                 "evse_count": 5,
             },
+        )
+
+    def test_configuration_filtering(self):
+        """
+        Tests that DERConfigurationViewSet can filter by DER type and LSE
+        """
+        evse_attrs = {
+            "ev_mpkwh": 15,
+            "ev_mpg_eq": 20,
+            "ev_capacity": 300,
+            "ev_efficiency": 0.87,
+            "evse_rating": 30.0,
+            "ev_count": 15,
+            "evse_count": 5,
+        }
+
+        mce = LoadServingEntity.objects.get(name__icontains="MCE")
+        pge = LoadServingEntity.objects.get(name__icontains="Pacific Gas")
+
+        # One configuration with no LSE (available to everyone)
+        EVSEConfiguration.objects.get_or_create(**evse_attrs)
+
+        # One configuration associated with MCE
+        EVSEConfiguration.objects.get_or_create(
+            **evse_attrs, load_serving_entity=mce
+        )
+
+        # One configuration associated with PG&E. This should not be accessible
+        # to the MCE user.
+        configuration_in_pge, _ = EVSEConfiguration.objects.get_or_create(
+            **evse_attrs, load_serving_entity=pge
+        )
+
+        self.client.force_authenticate(user=self.user)
+
+        # 3 configurations, 2 EVSE, 1 battery
+        response = self.client.get("/v1/der/configuration/", format="json")
+        self.assertEqual(response.data["count"], 3)
+
+        # 2 EVSE configurations
+        response = self.client.get(
+            "/v1/der/configuration/?der_type=EVSE", format="json"
+        )
+        self.assertEqual(response.data["count"], 2)
+        self.assertNotIn(
+            str(configuration_in_pge.id),
+            (
+                obj["id"]
+                for obj in response.data["results"]["der_configurations"]
+            ),
+        )
+
+    def test_strategy_filtering(self):
+        """
+        Tests that DERStrategyViewSet can filter by DER type and LSE
+        """
+        mce = LoadServingEntity.objects.get(name__icontains="MCE")
+        pge = LoadServingEntity.objects.get(name__icontains="Pacific Gas")
+
+        evse_attrs = {
+            "charge_during_day": True,
+            "charge_off_nem": True,
+            "description": "Test EVSE strategy",
+            "drive_in_hour": 8,
+            "drive_home_hour": 17,
+            "distance": 15,
+            "name": "Test EVSE strategy",
+        }
+
+        # One strategy with no LSE (available to everyone) and one associated
+        # with MCE
+        EVSEStrategy.generate(**evse_attrs)
+        EVSEStrategy.generate(**evse_attrs, load_serving_entity=mce)
+
+        # One strategy associated with PG&E. This should not be accessible to
+        # the MCE user.
+        strategy_in_pge = EVSEStrategy.generate(
+            **evse_attrs, load_serving_entity=pge
+        )
+
+        self.client.force_authenticate(user=self.user)
+
+        # 3 strategies, 2 EVSE, 1 battery
+        response = self.client.get("/v1/der/strategy/", format="json")
+        self.assertEqual(response.data["count"], 3)
+
+        # 2 EVSE strategies
+        response = self.client.get(
+            "/v1/der/strategy/?der_type=EVSE", format="json"
+        )
+        self.assertEqual(response.data["count"], 2)
+        self.assertNotIn(
+            str(strategy_in_pge.id),
+            (obj["id"] for obj in response.data["results"]["der_strategies"]),
         )
 
     def tearDown(self):

@@ -1,6 +1,10 @@
 from datetime import date
 
+from cost.ghg.models import GHGRate
+from cost.procurement.models import SystemProfile
+from cost.utility_rate.models import RatePlan
 from der.simulation.models import BatteryStrategy, EVSEStrategy
+from reference.auth_user.models import LoadServingEntity
 
 
 GRID_CHARGE = "Battery is allowed to charge from the grid."
@@ -9,7 +13,7 @@ GRID_DISCHARGE = "Battery can discharge to the grid."
 LOAD_DISCHARGE = "Battery can only discharge to offset meter's load."
 
 
-def create_detailed_battery_description(battery_strategy):
+def create_detailed_battery_description(battery_strategy: BatteryStrategy):
     """
     Create a detailed text description of charge/discharge BatterySchedule.
 
@@ -77,8 +81,41 @@ def create_detailed_battery_description(battery_strategy):
     return details
 
 
+def set_battery_strategy_description(
+    strategy: BatteryStrategy,
+    user_description: str,
+    charge_grid: bool,
+    discharge_grid: bool,
+):
+    """
+    Sets a battery strategy's description, provided with a user-provided
+    description and some basic info about the battery's charging source and
+    discharging strategy.
+
+    :param strategy: the BatteryStrategy object
+    :param user_description: a user-provided description
+    :param charge_grid: True if the battery can charge from the grid
+    :param discharge_grid: True if the battery can discharge to the grid
+    """
+    charge_description = GRID_CHARGE if charge_grid else NEM_CHARGE
+    discharge_description = GRID_DISCHARGE if discharge_grid else LOAD_DISCHARGE
+    default_description = (
+        "\n".join([charge_description, discharge_description])
+        + "\n\n"
+        + create_detailed_battery_description(strategy)
+    )
+
+    strategy.description = user_description or default_description
+    strategy.save()
+
+
 def generate_bill_reduction_battery_strategy(
-    name, charge_grid, discharge_grid, rate_plan
+    name: str,
+    charge_grid: bool,
+    discharge_grid: bool,
+    rate_plan: RatePlan,
+    description: str = None,
+    load_serving_entity: LoadServingEntity = None,
 ):
     """
     Generate a BatteryStrategy with the intention of reducing a customer bill
@@ -91,17 +128,10 @@ def generate_bill_reduction_battery_strategy(
     :param discharge_grid: True to allow discharging to the grid, False to
         allow discharge of customer load only.
     :param rate_plan: RatePlan
+    :param description: description of the strategy
+    :param load_serving_entity: the LSE to assign the BatteryStrategy to
     :return: BatteryStrategy
     """
-    name = name + " (charge from grid: {}, discharge to grid: {})".format(
-        str(bool(charge_grid)), str(bool(discharge_grid))
-    )
-
-    charge_description = GRID_CHARGE if charge_grid else NEM_CHARGE
-    discharge_description = (
-        GRID_DISCHARGE if discharge_grid else LOAD_DISCHARGE
-    )
-
     charge_threshold = None if charge_grid else 0
     discharge_threshold = None if discharge_grid else 0
 
@@ -113,33 +143,35 @@ def generate_bill_reduction_battery_strategy(
 
     # grid: charge during least expensive TOU period
     # NEM: charge from all but worst TOU period
-    charge_aggresiveness = 1 if charge_grid else -1
+    charge_aggressiveness = 1 if charge_grid else -1
     battery_strategy = BatteryStrategy.generate(
         name=name,
-        description="\n".join([charge_description, discharge_description]),
         frame288=rate_plan.openei_rate_plan.get_rate_frame288_by_year(
             latest_year, "energy", "weekday"
         ),
-        charge_aggresiveness=charge_aggresiveness,
-        discharge_aggresiveness=1,  # discharge during most expensive TOU period
+        charge_aggressiveness=charge_aggressiveness,
+        discharge_aggressiveness=1,  # discharge during most expensive TOU period
         charge_threshold=charge_threshold,
         discharge_threshold=discharge_threshold,
         objective="reduce_bill",
+        load_serving_entity=load_serving_entity,
     )
 
     # update description
-    battery_strategy.description = (
-        battery_strategy.description
-        + "\n\n"
-        + create_detailed_battery_description(battery_strategy)
+    set_battery_strategy_description(
+        battery_strategy, description, charge_grid, discharge_grid
     )
-    battery_strategy.save()
 
     return battery_strategy
 
 
 def generate_ghg_reduction_battery_strategy(
-    name, charge_grid, discharge_grid, ghg_rate
+    name: str,
+    charge_grid: bool,
+    discharge_grid: bool,
+    ghg_rate: GHGRate,
+    description: str = None,
+    load_serving_entity: LoadServingEntity = None,
 ):
     """
     Generate a BatteryStrategy with the intention of reducing GHG based on
@@ -152,44 +184,39 @@ def generate_ghg_reduction_battery_strategy(
     :param discharge_grid: True to allow discharging to the grid, False to
         allow discharge of customer load only.
     :param ghg_rate: GHGRate
+    :param description: description of the strategy
+    :param load_serving_entity: the LSE to assign the BatteryStrategy to
     :return: BatteryStrategy
     """
-    name = name + " (charge from grid: {}, discharge to grid: {})".format(
-        str(bool(charge_grid)), str(bool(discharge_grid))
-    )
-
-    charge_description = GRID_CHARGE if charge_grid else NEM_CHARGE
-    discharge_description = (
-        GRID_DISCHARGE if discharge_grid else LOAD_DISCHARGE
-    )
-
     charge_threshold = None if charge_grid else 0
     discharge_threshold = None if discharge_grid else 0
 
     battery_strategy = BatteryStrategy.generate(
         name=name,
-        description="\n".join([charge_description, discharge_description]),
         frame288=ghg_rate.frame288,
-        charge_aggresiveness=12,  # charge during 12 lowest GHG hours
-        discharge_aggresiveness=8,  # discharge during 8 highest GHG hours
+        charge_aggressiveness=12,  # charge during 12 lowest GHG hours
+        discharge_aggressiveness=8,  # discharge during 8 highest GHG hours
         charge_threshold=charge_threshold,
         discharge_threshold=discharge_threshold,
         objective="reduce_ghg",
+        load_serving_entity=load_serving_entity,
     )
 
     # update description
-    battery_strategy.description = (
-        battery_strategy.description
-        + "\n\n"
-        + create_detailed_battery_description(battery_strategy)
+    set_battery_strategy_description(
+        battery_strategy, description, charge_grid, discharge_grid
     )
-    battery_strategy.save()
 
     return battery_strategy
 
 
 def generate_ra_reduction_battery_strategy(
-    name, charge_grid, discharge_grid, system_profile
+    name: str,
+    charge_grid: bool,
+    discharge_grid: bool,
+    system_profile: SystemProfile,
+    description: str = None,
+    load_serving_entity: LoadServingEntity = None,
 ):
     """
     Generate a BatteryStrategy with the intention of reducting a CCA's system
@@ -202,41 +229,31 @@ def generate_ra_reduction_battery_strategy(
     :param discharge_grid: True to allow discharging to the grid, False to
         allow discharge of customer load only.
     :param system_profile: SystemProfile
+    :param description: description of the strategy
+    :param load_serving_entity: the LSE to assign the BatteryStrategy to
     :return: BatteryStrategy
     """
-    name = name + " (charge from grid: {}, discharge to grid: {})".format(
-        str(bool(charge_grid)), str(bool(discharge_grid))
-    )
-
-    charge_description = GRID_CHARGE if charge_grid else NEM_CHARGE
-    discharge_description = (
-        GRID_DISCHARGE if discharge_grid else LOAD_DISCHARGE
-    )
-
     charge_threshold = None if charge_grid else 0
     discharge_threshold = None if discharge_grid else 0
 
     # grid: charge during lowest 18 system profile hours
     # NEM: charge from all but worst 1 system profile hour
-    charge_aggresiveness = 18 if charge_grid else -1
+    charge_aggressiveness = 18 if charge_grid else -1
     battery_strategy = BatteryStrategy.generate(
         name=name,
-        description="\n".join([charge_description, discharge_description]),
         frame288=system_profile.intervalframe.maximum_frame288,
-        charge_aggresiveness=charge_aggresiveness,
-        discharge_aggresiveness=1,  # discharge during 1 highest RA hour
+        charge_aggressiveness=charge_aggressiveness,
+        discharge_aggressiveness=1,  # discharge during 1 highest RA hour
         charge_threshold=charge_threshold,
         discharge_threshold=discharge_threshold,
         objective="reduce_cca_finance",
+        load_serving_entity=load_serving_entity,
     )
 
     # update description
-    battery_strategy.description = (
-        battery_strategy.description
-        + "\n\n"
-        + create_detailed_battery_description(battery_strategy)
+    set_battery_strategy_description(
+        battery_strategy, description, charge_grid, discharge_grid
     )
-    battery_strategy.save()
 
     return battery_strategy
 
@@ -247,12 +264,14 @@ def generate_commuter_evse_strategy(
     drive_home_hour: int,
     distance: float,
     name: str,
+    user_description: str = None,
+    load_serving_entity: LoadServingEntity = None,
 ):
     """
     Generate a BatteryStrategy with the intention of reducting a CCA's system
     peak using a system profile maximum in a 288 format. Overwrites name and
     """
-    description = (
+    description = user_description or (
         "Commuters drive {distance} miles to work at {drive_in_time}, and "
         "drive {distance} miles home at {drive_out_time}. Their vehicles are "
         "charged while at work.".format(
@@ -262,17 +281,16 @@ def generate_commuter_evse_strategy(
         )
     )
 
-    evse_strategy = EVSEStrategy.generate(
+    return EVSEStrategy.generate(
         charge_during_day=True,
         charge_off_nem=charge_off_nem,
         description=description,
         distance=distance,
         drive_home_hour=drive_home_hour,
         drive_in_hour=drive_in_hour,
+        load_serving_entity=load_serving_entity,
         name=name,
     )
-
-    return evse_strategy
 
 
 def format_hour(hour: int) -> str:

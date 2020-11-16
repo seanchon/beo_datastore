@@ -48,37 +48,51 @@ class EVSE(DER):
     @ev_mpkwh.validator
     def _validate_ev_mpkwh(self, attribute, value):
         if value <= 0:
-            raise ValueError("ev_mpkwh must be greater than zero.")
+            raise self.raise_validation_error(
+                attribute, "Must be greater than zero"
+            )
 
     @ev_mpg_eq.validator
     def _validate_ev_mpg_eq(self, attribute, value):
         if value <= 0:
-            raise ValueError("ev_mpg_eq must be greater than zero.")
+            raise self.raise_validation_error(
+                attribute, "Must be greater than zero"
+            )
 
     @ev_capacity.validator
     def _validate_ev_capacity(self, attribute, value):
         if value <= 0:
-            raise ValueError("ev_capacity must be greater than zero.")
+            raise self.raise_validation_error(
+                attribute, "Must be greater than zero"
+            )
 
     @ev_efficiency.validator
     def _validate_ev_efficiency(self, attribute, value):
         if not (0 < value <= 1):
-            raise ValueError("ev_efficiency must be between 0 and 1.")
+            raise self.raise_validation_error(
+                attribute, "Must be between 0 and 1"
+            )
 
     @evse_rating.validator
     def _validate_evse_rating(self, attribute, value):
         if value <= 0:
-            raise ValueError("evse_rating must be greater than zero.")
+            raise self.raise_validation_error(
+                attribute, "Must be greater than zero"
+            )
 
     @ev_count.validator
     def _validate_ev_count(self, attribute, value):
         if value <= 0:
-            raise ValueError("ev_count must be greater than zero.")
+            raise self.raise_validation_error(
+                attribute, "Must be greater than zero"
+            )
 
     @evse_count.validator
     def _validate_evse_count(self, attribute, value):
         if value <= 0:
-            raise ValueError("evse_count must be greater than zero.")
+            raise self.raise_validation_error(
+                attribute, "Must be greater than zero"
+            )
 
     @property
     def ev_total_capacity(self) -> float:

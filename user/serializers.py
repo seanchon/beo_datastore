@@ -43,8 +43,6 @@ class RegisterSerializer(RestAuthRegisterSerializer):
             domain_str = email.split("@")[-1].lower()
             EmailDomain.objects.get(domain="@" + domain_str)
         except ObjectDoesNotExist:
-            raise serializers.ValidationError(
-                "Email domain is not recognized."
-            )
+            raise serializers.ValidationError("Email domain is not recognized.")
 
         return email

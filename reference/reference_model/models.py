@@ -34,6 +34,7 @@ from beo_datastore.libs.plot_intervalframe import (
     plot_intervalframe,
     plot_frame288_monthly_comparison,
 )
+from reference.auth_user.models import LoadServingEntity
 
 
 class BuildingType(ValidationModel):
@@ -323,6 +324,13 @@ class DERConfiguration(PolymorphicValidationModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=128, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    load_serving_entity = models.ForeignKey(
+        to=LoadServingEntity,
+        related_name="der_configurations",
+        on_delete=models.PROTECT,
+        blank=True,
+        null=True,
+    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -365,6 +373,13 @@ class DERStrategy(PolymorphicValidationModel):
     objective = models.CharField(
         max_length=18,
         choices=[(item.name, item.value) for item in Objective],
+        blank=True,
+        null=True,
+    )
+    load_serving_entity = models.ForeignKey(
+        to=LoadServingEntity,
+        related_name="der_strategies",
+        on_delete=models.PROTECT,
         blank=True,
         null=True,
     )

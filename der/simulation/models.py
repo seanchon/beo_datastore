@@ -45,8 +45,9 @@ from beo_datastore.libs.plot_intervalframe import (
     plot_frame288_monthly_comparison,
     plot_intervalframe,
 )
-from beo_datastore.settings import MEDIA_ROOT
+from beo_datastore.settings import MEDIA_ROOT, PVWATTS_API_KEY
 
+from reference.auth_user.models import LoadServingEntity
 from reference.reference_model.models import (
     DERConfiguration,
     DERSimulation,
@@ -129,7 +130,6 @@ class BatteryStrategy(DERStrategy):
 
     class Meta:
         ordering = ["id"]
-        unique_together = ("charge_schedule", "discharge_schedule")
         verbose_name_plural = "battery strategies"
 
     def __str__(self):
@@ -167,14 +167,15 @@ class BatteryStrategy(DERStrategy):
     def generate(
         cls,
         name,
-        description,
         frame288,
-        charge_aggresiveness,
-        discharge_aggresiveness,
+        charge_aggressiveness,
+        discharge_aggressiveness,
         objective,
+        description=None,
         minimize=True,
         charge_threshold=None,
         discharge_threshold=None,
+        load_serving_entity: LoadServingEntity = None,
     ):
         """
         Based on an input ValidationFrame288 representing part of a cost
@@ -185,23 +186,25 @@ class BatteryStrategy(DERStrategy):
         :param name: name of ValidationFrame288 (ex. "E-19 Energy
             Demand Rates", "A-10 Energy Weekend Rates", etc.)
         :param frame288: ValidationFrame288
-        :param charge_aggresiveness: aggresiveness of charge schedule, the
+        :param charge_aggressiveness: aggresiveness of charge schedule, the
             higher the value, the more the strategy tries to charge (int)
-        :param discharge_aggresiveness: aggresiveness of discharge schedule,
+        :param discharge_aggressiveness: aggresiveness of discharge schedule,
             the higher the value, the more the strategy tries to discharge (int)
-        :param: objective: the DERStrategy objective
+        :param objective: the DERStrategy objective
+        :param description: the DERStrategy description
         :param minimize: when True attempts to minimize the cost function, when
             False attempts to maximize the cost function
         :param charge_threshold: a threshold at which when a meter reading is
             below, a battery attepts to charge
         :param discharge_threshold: a threshold at which when a meter reading
             is above, attempts to discharge
+        :param load_serving_entity: the LSE to assign the BatteryStrategy to
         :return: BatteryStrategy
         """
         charge_schedule, _ = DERSchedule.get_or_create_from_frame288(
             optimize_battery_schedule(
                 frame288=frame288,
-                level=charge_aggresiveness,
+                level=charge_aggressiveness,
                 charge=True,
                 minimize=minimize,
                 threshold=charge_threshold,
@@ -211,22 +214,23 @@ class BatteryStrategy(DERStrategy):
         discharge_schedule, _ = DERSchedule.get_or_create_from_frame288(
             optimize_battery_schedule(
                 frame288=frame288,
-                level=discharge_aggresiveness,
+                level=discharge_aggressiveness,
                 charge=False,
                 minimize=minimize,
                 threshold=discharge_threshold,
             )
         )
 
-        object, _ = cls.objects.get_or_create(
+        strategy, _ = cls.objects.get_or_create(
             charge_schedule=charge_schedule,
             description=description,
             discharge_schedule=discharge_schedule,
             name=name,
             objective=objective,
+            load_serving_entity=load_serving_entity,
         )
 
-        return object
+        return strategy
 
 
 class BatteryConfiguration(DERConfiguration):
@@ -249,7 +253,6 @@ class BatteryConfiguration(DERConfiguration):
 
     class Meta:
         ordering = ["id"]
-        unique_together = ("rating", "discharge_duration_hours", "efficiency")
 
     @property
     def detailed_name(self):
@@ -302,9 +305,9 @@ class BatteryConfiguration(DERConfiguration):
             efficiency=battery.efficiency,
         )
         if objects:
-            return (objects.first(), False)
+            return objects.first(), False
         else:
-            return (cls.create_from_battery(battery), True)
+            return cls.create_from_battery(battery), True
 
 
 class EVSEStrategy(DERStrategy):
@@ -328,7 +331,6 @@ class EVSEStrategy(DERStrategy):
 
     class Meta:
         ordering = ["id"]
-        unique_together = ("charge_schedule", "drive_schedule")
         verbose_name_plural = "EVSE strategies"
 
     @property
@@ -370,6 +372,7 @@ class EVSEStrategy(DERStrategy):
         distance: float,
         name: str,
         objective=None,
+        load_serving_entity: LoadServingEntity = None,
     ):
         """
         Creates an `EVSEStrategy` given a name, description, the drive times and
@@ -384,6 +387,7 @@ class EVSEStrategy(DERStrategy):
         :param distance: the number of miles the drivers commute one-way
         :param name: name of the strategy
         :param objective: the DERStrategy objective
+        :param load_serving_entity: the LSE to assign the EVSEStrategy to
         """
         charge_limit = 0 if charge_off_nem else float("inf")
         no_charge = float("-inf")
@@ -413,6 +417,7 @@ class EVSEStrategy(DERStrategy):
             drive_schedule=drive_schedule,
             name=name,
             objective=objective,
+            load_serving_entity=load_serving_entity,
         )
 
         return obj
@@ -454,15 +459,6 @@ class EVSEConfiguration(DERConfiguration):
 
     class Meta:
         ordering = ["id"]
-        unique_together = (
-            "ev_mpkwh",
-            "ev_mpg_eq",
-            "ev_capacity",
-            "ev_efficiency",
-            "evse_rating",
-            "ev_count",
-            "evse_count",
-        )
         verbose_name_plural = "EVSE configurations"
 
     @property
@@ -696,6 +692,48 @@ class SolarPVConfiguration(DERConfiguration):
         return cls.objects.get_or_create(
             parameters=parameters, stored_response=response
         )
+
+    @classmethod
+    def get_or_create_from_attrs(
+        cls,
+        address: str,
+        array_type: int,
+        azimuth: float,
+        losses: float,
+        name: str,
+        system_capacity: float,
+        tilt: float,
+        load_serving_entity: LoadServingEntity = None,
+    ):
+        """
+        Takes a subset of the PVWatts API parameters to create a SolarPV
+        object and use that to create a new SolarConfiguration. See the PVWatts
+        API documentation for an explanation of these parameters, or the
+        SolarPV class for our application-specific constraints to those
+        parameters
+        """
+        # Fix "module_type" to 0 ("Standard" type) and "timeframe" to "hourly"
+        configuration, created = cls.get_or_create_from_object(
+            pySolarPV(
+                address=address,
+                api_key=PVWATTS_API_KEY,
+                array_type=array_type,
+                azimuth=azimuth,
+                losses=losses,
+                module_type=0,
+                system_capacity=system_capacity,
+                tilt=tilt,
+                timeframe="hourly",
+            )
+        )
+
+        # Do not overwrite the name and LSE of a pre-existing configuration
+        if created:
+            configuration.load_serving_entity = load_serving_entity
+            configuration.name = name
+            configuration.save()
+
+        return configuration, created
 
 
 class SolarPVStrategy(DERStrategy):

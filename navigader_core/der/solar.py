@@ -48,7 +48,7 @@ class SolarPV(DER):
         Validate array_type is 0, 1, 2, 3, or 4.
         """
         if value not in [0, 1, 2, 3, 4]:
-            raise ValueError("array_type must be 0, 1, 2, 3, or 4.")
+            self.raise_validation_error(attribute, "Must be 0, 1, 2, 3, or 4")
 
     @azimuth.validator
     def _validate_azimuth(self, attribute, value):
@@ -56,7 +56,7 @@ class SolarPV(DER):
         Validate azimuth is between 0 and 360.
         """
         if not (0 <= value < 360):
-            raise ValueError("azimuth must be between 0 and 360.")
+            self.raise_validation_error(attribute, "Must be between 0 and 360")
 
     @losses.validator
     def _validate_losses(self, attribute, value):
@@ -64,7 +64,7 @@ class SolarPV(DER):
         Validate losses is between -5 and 99.
         """
         if not (-5 <= value < 99):
-            raise ValueError("losses must be between -5 and 99.")
+            self.raise_validation_error(attribute, "Must be between -5 and 99")
 
     @module_type.validator
     def _validate_module_type(self, attribute, value):
@@ -72,7 +72,7 @@ class SolarPV(DER):
         Validate module_type is 0, 1, or 2.
         """
         if value not in [0, 1, 2]:
-            raise ValueError("array_type must be 0, 1, or 2.")
+            self.raise_validation_error(attribute, "Must be 0, 1 or 2")
 
     @tilt.validator
     def _validate_tilt(self, attribute, value):
@@ -80,7 +80,7 @@ class SolarPV(DER):
         Validate tilt is between 0 and 90.
         """
         if not (0 <= value <= 90):
-            raise ValueError("tilt must be between 0 and 90.")
+            self.raise_validation_error(attribute, "Must be between 0 and 90")
 
     @system_capacity.validator
     def _validate_system_capacity(self, attribute, value):
@@ -88,8 +88,8 @@ class SolarPV(DER):
         Validate system capcity is between 0.05 and 500000.
         """
         if not (0.05 <= value <= 500000):
-            raise ValueError(
-                "system_capacity must be between 0.05 and 500000."
+            self.raise_validation_error(
+                attribute, "Must be between 0.05 and 500000"
             )
 
     @property
@@ -123,9 +123,9 @@ class SolarPV(DER):
             "{}-01-01".format(year), periods=8760, freq="H"
         )
         solar_readings = self.pvwatts_response["outputs"]["ac"]
-        dataframe = pd.DataFrame(
-            zip(datetime_index, solar_readings)
-        ).set_index(0)
+        dataframe = pd.DataFrame(zip(datetime_index, solar_readings)).set_index(
+            0
+        )
         # convert W to kW and reverse polarity of readings
         dataframe = dataframe / -1000
         dataframe = dataframe.rename(columns={1: "kw"})
@@ -195,14 +195,14 @@ class SolarPVStrategy(DERStrategy):
     """
 
     serviceable_load_ratio = attr.ib(type=float)
-    
-    @serviceable_load_ratio.validator	
-    def _validate_serviceable_load_ratio(self, attribute, value):	
-        """	
-        Validate serviceable_load_ratio is between 0 and 1.	
-        """	
-        if value <= 0:	
-            raise ValueError("serviceable_load_ratio must be greater than zero")
+
+    @serviceable_load_ratio.validator
+    def _validate_serviceable_load_ratio(self, attribute, value):
+        """
+        Validate serviceable_load_ratio is between 0 and 1.
+        """
+        if value <= 0:
+            self.raise_validation_error(attribute, "Must be greater than zero")
 
     @staticmethod
     def get_annual_load(intervalframe: PowerIntervalFrame) -> float:

@@ -46,11 +46,26 @@ class EVSEConfigurationSerializer(DynamicModelSerializer):
 
 
 class SolarPVConfigurationSerializer(DynamicModelSerializer):
-    parameters = serializers.JSONField()
+    address = serializers.CharField(source="parameters.address")
+    array_type = serializers.IntegerField(source="parameters.array_type")
+    azimuth = serializers.FloatField(source="parameters.azimuth")
+    tilt = serializers.FloatField(source="parameters.tilt")
+    losses = serializers.FloatField(source="parameters.losses")
+    system_capacity = serializers.FloatField(
+        source="parameters.system_capacity"
+    )
 
     class Meta:
         model = SolarPVConfiguration
-        fields = ("parameters",)
+        fields = (
+            "address",
+            "address",
+            "array_type",
+            "azimuth",
+            "tilt",
+            "losses",
+            "system_capacity",
+        )
 
 
 class DERConfigurationSerializer(DynamicModelSerializer):
@@ -124,11 +139,13 @@ class EVSEStrategySerializer(DynamicModelSerializer):
 
 
 class SolarPVStrategySerializer(DynamicModelSerializer):
-    parameters = serializers.JSONField()
+    serviceable_load_ratio = serializers.FloatField(
+        source="parameters.serviceable_load_ratio"
+    )
 
     class Meta:
         model = SolarPVStrategy
-        fields = ("parameters",)
+        fields = ("serviceable_load_ratio",)
 
 
 class DERStrategySerializer(DynamicModelSerializer):

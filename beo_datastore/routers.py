@@ -32,11 +32,13 @@ v1_router.register(
 v1_router.register(
     r"cost/system_profile", SystemProfileViewSet, basename="SystemProfile"
 )
-v1_router.register(r"der/configuration", DERConfigurationViewSet)
+v1_router.register(
+    r"der/configuration", DERConfigurationViewSet, basename="DERConfiguration"
+)
 v1_router.register(
     r"der/simulation", DERSimulationViewSet, basename="DERSimulation"
 )
-v1_router.register(r"der/strategy", DERStrategyViewSet)
+v1_router.register(r"der/strategy", DERStrategyViewSet, basename="DERStrategy")
 v1_router.register(r"load/cluster", CustomerClusterViewSet)
 v1_router.register(r"load/origin_file", OriginFileViewSet)
 v1_router.register(r"load/meter", MeterViewSet, basename="Meter")

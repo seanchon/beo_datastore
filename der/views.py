@@ -1,9 +1,33 @@
 import coreapi
+from django.core.exceptions import ValidationError
+from django.db.models import Q
+from rest_framework import serializers, status
+from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
 
+from beo_datastore.libs.api.serializers import require_request_data
 from beo_datastore.libs.api.viewsets import ListRetrieveViewSet
+from cost.ghg.models import GHGRate
+from cost.procurement.models import SystemProfile
+from cost.utility_rate.models import RatePlan
+from der.simulation.scripts.generate_der_strategy import (
+    generate_ra_reduction_battery_strategy,
+    generate_bill_reduction_battery_strategy,
+    generate_ghg_reduction_battery_strategy,
+    generate_commuter_evse_strategy,
+)
 
-from der.simulation.models import DERConfiguration, DERStrategy, DERSimulation
+from der.simulation.models import (
+    DERConfiguration,
+    DERStrategy,
+    DERSimulation,
+    BatteryConfiguration,
+    BatteryStrategy,
+    EVSEConfiguration,
+    EVSEStrategy,
+    SolarPVConfiguration,
+    SolarPVStrategy,
+)
 
 from .serializers import (
     DERConfigurationSerializer,
@@ -17,7 +41,7 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
     DER configurations used in DER simulations.
     """
 
-    queryset = DERConfiguration.objects.all()
+    model = DERConfiguration
     serializer_class = DERConfigurationSerializer
 
     schema = AutoSchema(
@@ -30,6 +54,159 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
             )
         ]
     )
+
+    def get_queryset(self, queryset=None):
+        """
+        Enables filtering by DER type
+        """
+        der_type = self._param("der_type")
+
+        if der_type == "Battery":
+            model = BatteryConfiguration
+        elif der_type == "EVSE":
+            model = EVSEConfiguration
+        elif der_type == "SolarPV":
+            model = SolarPVConfiguration
+        else:
+            model = DERConfiguration
+
+        # Only filter for configurations within the user's LSE. A configuration
+        # missing an LSE is visible to everyone.
+        lse = self.request.user.profile.load_serving_entity
+        return model.objects.filter(
+            Q(load_serving_entity__isnull=True) | Q(load_serving_entity=lse)
+        )
+
+    def create(self, request):
+        require_request_data(request, ["der_type"])
+        [der_type] = self._data(["der_type"])
+
+        try:
+            if der_type == "Battery":
+                configuration, created = self.create_battery_configuration(
+                    request
+                )
+            elif der_type == "EVSE":
+                configuration, created = self.create_evse_configuration(request)
+            elif der_type == "SolarPV":
+                configuration, created = self.create_solar_configuration(
+                    request
+                )
+            else:
+                raise serializers.ValidationError(
+                    f"der_type parameter has unrecognized type: {der_type}"
+                )
+        except ValidationError as e:
+            raise serializers.ValidationError(detail=e.message_dict)
+
+        if not created:
+            raise serializers.ValidationError(
+                "BatteryConfiguration with provided parameters already exists!"
+            )
+
+        return Response(
+            DERConfigurationSerializer(configuration, many=False).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def create_battery_configuration(self, request):
+        """
+        Creates a BatteryConfiguration
+        """
+        configuration_attrs = [
+            "discharge_duration_hours",
+            "efficiency",
+            "name",
+            "rating",
+        ]
+
+        require_request_data(request, configuration_attrs)
+        discharge_duration_hours, efficiency, name, rating = self._data(
+            configuration_attrs
+        )
+
+        return BatteryConfiguration.objects.get_or_create(
+            discharge_duration_hours=discharge_duration_hours,
+            efficiency=efficiency,
+            load_serving_entity=request.user.profile.load_serving_entity,
+            name=name,
+            rating=rating,
+        )
+
+    def create_evse_configuration(self, request):
+        """
+        Creates a EVSEConfiguration
+        """
+        configuration_attrs = [
+            "ev_capacity",
+            "ev_count",
+            "ev_efficiency",
+            "ev_mpg_eq",
+            "ev_mpkwh",
+            "evse_count",
+            "evse_rating",
+            "name",
+        ]
+
+        require_request_data(request, configuration_attrs)
+        (
+            ev_capacity,
+            ev_count,
+            ev_efficiency,
+            ev_mpg_eq,
+            ev_mpkwh,
+            evse_count,
+            evse_rating,
+            name,
+        ) = self._data(configuration_attrs)
+
+        return EVSEConfiguration.objects.get_or_create(
+            name=name,
+            ev_capacity=ev_capacity,
+            ev_count=ev_count,
+            ev_efficiency=ev_efficiency,
+            ev_mpg_eq=ev_mpg_eq,
+            ev_mpkwh=ev_mpkwh,
+            evse_count=evse_count,
+            evse_rating=evse_rating,
+            load_serving_entity=request.user.profile.load_serving_entity,
+        )
+
+    def create_solar_configuration(self, request):
+        """
+        Creates a SolarConfiguration
+        """
+        configuration_attrs = [
+            "address",
+            "array_type",
+            "azimuth",
+            "losses",
+            "name",
+            "system_capacity",
+            "tilt",
+        ]
+
+        require_request_data(request, configuration_attrs)
+        (
+            address,
+            array_type,
+            azimuth,
+            losses,
+            name,
+            system_capacity,
+            tilt,
+        ) = self._data(configuration_attrs)
+
+        return SolarPVConfiguration.get_or_create_from_attrs(
+            address=address,
+            array_type=array_type,
+            azimuth=azimuth,
+            load_serving_entity=request.user.profile.load_serving_entity,
+            losses=losses,
+            name=name,
+            system_capacity=system_capacity,
+            tilt=tilt,
+        )
 
 
 class DERSimulationViewSet(ListRetrieveViewSet):
@@ -100,7 +277,7 @@ class DERStrategyViewSet(ListRetrieveViewSet):
     DER strategies used in DER simulations.
     """
 
-    queryset = DERStrategy.objects.all()
+    model = DERStrategy
     serializer_class = DERStrategySerializer
 
     schema = AutoSchema(
@@ -113,3 +290,152 @@ class DERStrategyViewSet(ListRetrieveViewSet):
             )
         ]
     )
+
+    def get_queryset(self, queryset=None):
+        """
+        Enables filtering by DER type
+        """
+        der_type = self._param("der_type")
+
+        if der_type == "Battery":
+            model = BatteryStrategy
+        elif der_type == "EVSE":
+            model = EVSEStrategy
+        elif der_type == "SolarPV":
+            model = SolarPVStrategy
+        else:
+            model = DERStrategy
+
+        # Only filter for strategies within the user's LSE. A strategy missing
+        # an LSE is visible to everyone.
+        lse = self.request.user.profile.load_serving_entity
+        return model.objects.filter(
+            Q(load_serving_entity__isnull=True) | Q(load_serving_entity=lse)
+        )
+
+    def create(self, request):
+        require_request_data(request, ["name", "der_type"])
+        [der_type] = self._data(["der_type"])
+
+        try:
+            if der_type == "Battery":
+                strategy = self.create_battery_strategy(request)
+            elif der_type == "EVSE":
+                strategy = self.create_evse_strategy(request)
+            elif der_type == "SolarPV":
+                strategy = self.create_solar_strategy(request)
+            else:
+                raise serializers.ValidationError(
+                    detail=f"der_type parameter has unrecognized value: {der_type}"
+                )
+        except ValidationError as e:
+            raise serializers.ValidationError(detail=e.message_dict)
+
+        return Response(
+            DERStrategySerializer(strategy, many=False).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def create_battery_strategy(self, request):
+        """
+        Creates a BatteryStrategy
+        """
+        strategy_attrs = [
+            "name",
+            "charge_from_grid",
+            "discharge_to_grid",
+            "cost_function",
+        ]
+
+        require_request_data(request, strategy_attrs)
+        name, charge_grid, discharge_grid, cost_fn, description = self._data(
+            strategy_attrs + ["description"]
+        )
+
+        strategy_generation_args = {
+            "charge_grid": charge_grid,
+            "description": description,
+            "discharge_grid": discharge_grid,
+            "load_serving_entity": request.user.profile.load_serving_entity,
+            "name": name,
+        }
+
+        # The cost function should come with an `object_type` and an `id` field
+        cost_fn_type = cost_fn.get("object_type")
+        cost_fn_id = cost_fn.get("id")
+
+        if cost_fn_type == "RatePlan":
+            return generate_bill_reduction_battery_strategy(
+                **strategy_generation_args,
+                rate_plan=RatePlan.objects.get(id=cost_fn_id),
+            )
+        elif cost_fn_type == "SystemProfile":
+            return generate_ra_reduction_battery_strategy(
+                **strategy_generation_args,
+                system_profile=SystemProfile.objects.get(id=cost_fn_id),
+            )
+        elif cost_fn_type == "GHGRate":
+            return generate_ghg_reduction_battery_strategy(
+                **strategy_generation_args,
+                ghg_rate=GHGRate.objects.get(id=cost_fn_id),
+            )
+        else:
+            raise serializers.ValidationError(
+                f"cost_function parameter has unrecognized type: {cost_fn_type}"
+            )
+
+    def create_evse_strategy(self, request):
+        """
+        Creates a EVSEStrategy
+        """
+        strategy_attrs = [
+            "charge_off_nem",
+            "distance",
+            "drive_home_hour",
+            "drive_in_hour",
+            "name",
+        ]
+
+        require_request_data(request, strategy_attrs)
+        (
+            charge_off_nem,
+            distance,
+            drive_home_hour,
+            drive_in_hour,
+            name,
+            description,
+        ) = self._data(strategy_attrs + ["description"])
+
+        return generate_commuter_evse_strategy(
+            charge_off_nem=charge_off_nem,
+            distance=distance,
+            drive_home_hour=drive_home_hour,
+            drive_in_hour=drive_in_hour,
+            load_serving_entity=request.user.profile.load_serving_entity,
+            name=name,
+            user_description=description,
+        )
+
+    def create_solar_strategy(self, request):
+        """
+        Creates a SolarStrategy
+        """
+        strategy_attrs = ["name", "serviceable_load_ratio"]
+        require_request_data(request, strategy_attrs)
+        name, serviceable_load_ratio, description = self._data(
+            strategy_attrs + ["description"]
+        )
+
+        solar_strategy, created = SolarPVStrategy.objects.get_or_create(
+            description=description,
+            name=name,
+            load_serving_entity=request.user.profile.load_serving_entity,
+            parameters={"serviceable_load_ratio": serviceable_load_ratio},
+        )
+
+        if not created:
+            raise serializers.ValidationError(
+                "SolarConfiguration with provided parameters already exists!"
+            )
+
+        return solar_strategy

@@ -144,9 +144,7 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
     },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"
-    },
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"
     },
@@ -209,6 +207,9 @@ MEDIA_ROOT = MEDIA_URL = os.path.join(
 AWS_MEDIA_BUCKET_NAME = os.environ.get("AWS_MEDIA_BUCKET_NAME", "")
 if AWS_MEDIA_BUCKET_NAME:
     DEFAULT_FILE_STORAGE = "beo_datastore.libs.storages.MediaStorage"
+
+# Third-party APIs
+PVWATTS_API_KEY = os.environ.get("PVWATTS_API_KEY")
 
 # Override Swagger's 'Django Login' Button to use DRF login page
 LOGIN_URL = "rest_framework:login"

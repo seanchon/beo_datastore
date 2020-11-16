@@ -3,6 +3,7 @@ import attr
 from cached_property import cached_property
 from collections import OrderedDict
 from datetime import datetime, timedelta
+from django.core.exceptions import ValidationError
 from functools import reduce
 from multiprocessing import Pool
 import pandas as pd
@@ -14,7 +15,17 @@ from navigader_core.load.intervalframe import (
 )
 
 
-class DER(ABC):
+class ValidationErrorMixin:
+    """
+    Mixin for the DER classes to raise Django ValidationErrors when a
+    `_validate_xyz` method fails.
+    """
+
+    def raise_validation_error(self, attribute, message):
+        raise ValidationError(dict([(attribute.name, message)]))
+
+
+class DER(ABC, ValidationErrorMixin):
     """
     The physical characteristics of a Distributed Energy Resource (DER). This
     class contains the attributes of a DER at creation and any associated
@@ -24,7 +35,7 @@ class DER(ABC):
     pass
 
 
-class DERStrategy(ABC):
+class DERStrategy(ABC, ValidationErrorMixin):
     """
     The behavioral characteristics of a DER. This is a property that
     describes how the DER is used, typically on an hour-by-hour basis.
@@ -152,12 +163,12 @@ class DERProduct(ABC):
         :param aggfunc: aggregation function
         :return: pandas DataFrame
         """
-        before = self.pre_der_intervalframe.compute_frame288(
-            aggfunc
-        ).dataframe[month]
-        after = self.post_der_intervalframe.compute_frame288(
-            aggfunc
-        ).dataframe[month]
+        before = self.pre_der_intervalframe.compute_frame288(aggfunc).dataframe[
+            month
+        ]
+        after = self.post_der_intervalframe.compute_frame288(aggfunc).dataframe[
+            month
+        ]
 
         before_column = "{}_x".format(month)
         after_column = "{}_y".format(month)
