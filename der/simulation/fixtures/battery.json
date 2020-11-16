@@ -1,0 +1,218 @@
+[
+{
+  "model": "reference_model.derstrategy",
+  "pk": "1429bf1a-f9bf-4797-87e6-4ea832a866df",
+  "fields": {
+    "polymorphic_ctype": [
+      "simulation",
+      "batterystrategy"
+    ],
+    "name": "CNS 2022 (charge from grid: False, discharge to grid: True)",
+    "description": "Battery is only allowed to charge from NEM exports.\nBattery can discharge to the grid.\n\nJanuary\nCharge (NEM Only): 2:00, 3:00, 4:00, 5:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00\nDischarge (Export OK): 6:00, 16:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00\n\nFebruary\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 17:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 7:00, 8:00, 16:00, 17:00, 18:00, 19:00, 20:00, 21:00\n\nMarch\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 21:00, 22:00\nDischarge (Export OK): 4:00, 5:00, 6:00, 17:00, 18:00, 19:00, 20:00, 23:00\n\nApril\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 3:00, 4:00, 5:00, 17:00, 18:00, 19:00, 20:00, 23:00\n\nMay\nCharge (NEM Only): 1:00, 2:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 21:00, 22:00\nDischarge (Export OK): 0:00, 3:00, 4:00, 5:00, 18:00, 19:00, 20:00, 23:00\n\nJune\nCharge (NEM Only): 4:00, 6:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 0:00, 1:00, 2:00, 3:00, 5:00, 7:00, 19:00, 20:00\n\nJuly\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 17:00, 23:00\nDischarge (Export OK): 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00\n\nAugust\nCharge (NEM Only): 3:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00\nDischarge (Export OK): 16:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00, 23:00\n\nSeptember\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 7:00, 13:00, 14:00, 15:00, 16:00, 23:00\nDischarge (Export OK): 8:00, 9:00, 10:00, 11:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00\n\nOctober\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 6:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 22:00, 23:00\nDischarge (Export OK): 7:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00, 21:00\n\nNovember\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 23:00\nDischarge (Export OK): 7:00, 16:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00\n\nDecember\nCharge (NEM Only): 0:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 23:00\nDischarge (Export OK): 0:00, 1:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00\n\n",
+    "created_at": "2020-10-29T18:39:41.629",
+    "objective": "reduce_ghg"
+  }
+},
+{
+  "model": "reference_model.derstrategy",
+  "pk": "206f34ee-7d43-44ca-b6ca-0b3a07cbaa37",
+  "fields": {
+    "polymorphic_ctype": [
+      "simulation",
+      "batterystrategy"
+    ],
+    "name": "Fake MCE 2018 (charge from grid: True, discharge to grid: False)",
+    "description": "Battery is allowed to charge from the grid.\nBattery can only discharge to offset meter's load.\n\nJanuary\n\nFebruary\n\nMarch\n\nApril\n\nMay\n\nJune\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 18:00, 23:00\nDischarge (No Export): 17:00\n\nJuly\n\nAugust\n\nSeptember\n\nOctober\n\nNovember\n\nDecember\n\n",
+    "created_at": "2020-10-29T18:40:28.712",
+    "objective": "reduce_cca_finance"
+  }
+},
+{
+  "model": "reference_model.derstrategy",
+  "pk": "6310aae4-5377-483c-aa8b-8551f8087b40",
+  "fields": {
+    "polymorphic_ctype": [
+      "simulation",
+      "batterystrategy"
+    ],
+    "name": "Fake MCE 2018 (charge from grid: False, discharge to grid: True)",
+    "description": "Battery is only allowed to charge from NEM exports.\nBattery can discharge to the grid.\n\nJanuary\n\nFebruary\n\nMarch\n\nApril\n\nMay\n\nJune\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 18:00, 19:00, 20:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 17:00\n\nJuly\n\nAugust\n\nSeptember\n\nOctober\n\nNovember\n\nDecember\n\n",
+    "created_at": "2020-10-29T18:40:36.815",
+    "objective": "reduce_cca_finance"
+  }
+},
+{
+  "model": "reference_model.derstrategy",
+  "pk": "a97312a6-3941-48a4-80cc-e4f6b26ea345",
+  "fields": {
+    "polymorphic_ctype": [
+      "simulation",
+      "batterystrategy"
+    ],
+    "name": "EV (charge from grid: True, discharge to grid: False)",
+    "description": "Battery is allowed to charge from the grid.\nBattery can only discharge to offset meter's load.\n\nJanuary\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (No Export): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nFebruary\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (No Export): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nMarch\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (No Export): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nApril\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (No Export): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nMay\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 23:00\nDischarge (No Export): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nJune\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 23:00\nDischarge (No Export): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nJuly\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 23:00\nDischarge (No Export): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nAugust\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 23:00\nDischarge (No Export): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nSeptember\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 23:00\nDischarge (No Export): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nOctober\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 23:00\nDischarge (No Export): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nNovember\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (No Export): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nDecember\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (No Export): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\n",
+    "created_at": "2020-10-29T18:38:33.601",
+    "objective": "reduce_bill"
+  }
+},
+{
+  "model": "reference_model.derstrategy",
+  "pk": "caffd6ff-4dc7-414b-9a35-3f7dba612fed",
+  "fields": {
+    "polymorphic_ctype": [
+      "simulation",
+      "batterystrategy"
+    ],
+    "name": "EV (charge from grid: False, discharge to grid: True)",
+    "description": "Battery is only allowed to charge from NEM exports.\nBattery can discharge to the grid.\n\nJanuary\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nFebruary\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nMarch\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nApril\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nMay\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nJune\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nJuly\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nAugust\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nSeptember\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nOctober\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nNovember\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\nDecember\nCharge (NEM Only): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 21:00, 22:00, 23:00\nDischarge (Export OK): 14:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00\n\n",
+    "created_at": "2020-10-29T18:38:43.182",
+    "objective": "reduce_bill"
+  }
+},
+{
+  "model": "reference_model.derstrategy",
+  "pk": "e8d5e949-eba8-4671-8077-ad8e0e6fc5c3",
+  "fields": {
+    "polymorphic_ctype": [
+      "simulation",
+      "batterystrategy"
+    ],
+    "name": "CNS 2022 (charge from grid: True, discharge to grid: False)",
+    "description": "Battery is allowed to charge from the grid.\nBattery can only discharge to offset meter's load.\n\nJanuary\nCharge (Grid OK): 2:00, 3:00, 4:00, 5:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00\nDischarge (No Export): 6:00, 16:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00\n\nFebruary\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 17:00, 21:00, 22:00, 23:00\nDischarge (No Export): 7:00, 8:00, 16:00, 17:00, 18:00, 19:00, 20:00, 21:00\n\nMarch\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 21:00, 22:00\nDischarge (No Export): 4:00, 5:00, 6:00, 17:00, 18:00, 19:00, 20:00, 23:00\n\nApril\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 21:00, 22:00, 23:00\nDischarge (No Export): 3:00, 4:00, 5:00, 17:00, 18:00, 19:00, 20:00, 23:00\n\nMay\nCharge (Grid OK): 1:00, 2:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 21:00, 22:00\nDischarge (No Export): 0:00, 3:00, 4:00, 5:00, 18:00, 19:00, 20:00, 23:00\n\nJune\nCharge (Grid OK): 4:00, 6:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 17:00, 18:00, 21:00, 22:00, 23:00\nDischarge (No Export): 0:00, 1:00, 2:00, 3:00, 5:00, 7:00, 19:00, 20:00\n\nJuly\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 17:00, 23:00\nDischarge (No Export): 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00\n\nAugust\nCharge (Grid OK): 3:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00\nDischarge (No Export): 16:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00, 23:00\n\nSeptember\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 7:00, 13:00, 14:00, 15:00, 16:00, 23:00\nDischarge (No Export): 8:00, 9:00, 10:00, 11:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00\n\nOctober\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 6:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 22:00, 23:00\nDischarge (No Export): 7:00, 15:00, 16:00, 17:00, 18:00, 19:00, 20:00, 21:00\n\nNovember\nCharge (Grid OK): 0:00, 1:00, 2:00, 3:00, 4:00, 5:00, 6:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 23:00\nDischarge (No Export): 7:00, 16:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00\n\nDecember\nCharge (Grid OK): 0:00, 2:00, 3:00, 4:00, 5:00, 6:00, 7:00, 8:00, 9:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00, 23:00\nDischarge (No Export): 0:00, 1:00, 17:00, 18:00, 19:00, 20:00, 21:00, 22:00\n\n",
+    "created_at": "2020-10-29T18:39:32.903",
+    "objective": "reduce_ghg"
+  }
+},
+{
+  "model": "simulation.derschedule",
+  "pk": 1,
+  "fields": {
+    "hash": 3650945168646278201
+  }
+},
+{
+  "model": "simulation.derschedule",
+  "pk": 2,
+  "fields": {
+    "hash": -2346493682600541617
+  }
+},
+{
+  "model": "simulation.derschedule",
+  "pk": 3,
+  "fields": {
+    "hash": 1746872562415496553
+  }
+},
+{
+  "model": "simulation.derschedule",
+  "pk": 4,
+  "fields": {
+    "hash": -7817921601870316951
+  }
+},
+{
+  "model": "simulation.derschedule",
+  "pk": 5,
+  "fields": {
+    "hash": 5065858011901019565
+  }
+},
+{
+  "model": "simulation.derschedule",
+  "pk": 6,
+  "fields": {
+    "hash": -7914140382241615393
+  }
+},
+{
+  "model": "simulation.derschedule",
+  "pk": 7,
+  "fields": {
+    "hash": -9167613710296292083
+  }
+},
+{
+  "model": "simulation.derschedule",
+  "pk": 8,
+  "fields": {
+    "hash": 5759028337524537284
+  }
+},
+{
+  "model": "simulation.derschedule",
+  "pk": 9,
+  "fields": {
+    "hash": -7188079264526328489
+  }
+},
+{
+  "model": "simulation.derschedule",
+  "pk": 10,
+  "fields": {
+    "hash": 5749750306637270143
+  }
+},
+{
+  "model": "simulation.derschedule",
+  "pk": 11,
+  "fields": {
+    "hash": 3870601083135485250
+  }
+},
+{
+  "model": "simulation.derschedule",
+  "pk": 12,
+  "fields": {
+    "hash": 4040195269521298846
+  }
+},
+{
+  "model": "simulation.batterystrategy",
+  "pk": "6310aae4-5377-483c-aa8b-8551f8087b40",
+  "fields": {
+    "charge_schedule": 11,
+    "discharge_schedule": 12
+  }
+},
+{
+  "model": "simulation.batterystrategy",
+  "pk": "206f34ee-7d43-44ca-b6ca-0b3a07cbaa37",
+  "fields": {
+    "charge_schedule": 9,
+    "discharge_schedule": 10
+  }
+},
+{
+  "model": "simulation.batterystrategy",
+  "pk": "1429bf1a-f9bf-4797-87e6-4ea832a866df",
+  "fields": {
+    "charge_schedule": 7,
+    "discharge_schedule": 8
+  }
+},
+{
+  "model": "simulation.batterystrategy",
+  "pk": "e8d5e949-eba8-4671-8077-ad8e0e6fc5c3",
+  "fields": {
+    "charge_schedule": 5,
+    "discharge_schedule": 6
+  }
+},
+{
+  "model": "simulation.batterystrategy",
+  "pk": "caffd6ff-4dc7-414b-9a35-3f7dba612fed",
+  "fields": {
+    "charge_schedule": 3,
+    "discharge_schedule": 4
+  }
+},
+{
+  "model": "simulation.batterystrategy",
+  "pk": "a97312a6-3941-48a4-80cc-e4f6b26ea345",
+  "fields": {
+    "charge_schedule": 1,
+    "discharge_schedule": 2
+  }
+}
+]

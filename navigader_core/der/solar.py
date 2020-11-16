@@ -195,14 +195,14 @@ class SolarPVStrategy(DERStrategy):
     """
 
     serviceable_load_ratio = attr.ib(type=float)
-
-    @serviceable_load_ratio.validator
-    def _validate_serviceable_load_ratio(self, attribute, value):
-        """
-        Validate serviceable_load_ratio is between 0 and 1.
-        """
-        if not (0 < value <= 1):
-            raise ValueError("serviceable_load_ratio must be between 0 and 1.")
+    
+    @serviceable_load_ratio.validator	
+    def _validate_serviceable_load_ratio(self, attribute, value):	
+        """	
+        Validate serviceable_load_ratio is between 0 and 1.	
+        """	
+        if value <= 0:	
+            raise ValueError("serviceable_load_ratio must be greater than zero")
 
     @staticmethod
     def get_annual_load(intervalframe: PowerIntervalFrame) -> float:

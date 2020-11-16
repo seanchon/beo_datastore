@@ -67,7 +67,7 @@ Several options can be provided to this script to customize the initial environm
 | `reset`  | Drops and recreates the database. After the database has been reset, the migrations will be re-applied.                                                                                                                                                 |
 | `flush`  | Empties the database, but does not delete it. This will keep the current migration status. Used in combination with other flags this can be a quick way to reset a local environment to a useful default state. Has no effect when used with `--reset`. |
 | `seed`   | Seeds the database with starting data, including sample meters and utility rates.                                                                                                                                                                       |
-| `openei` | Seeds the database with all the same data provided with the `--seed` option, and additionally includes some reference building and rate data from OpenEI. Has no effect when used with `--seed`.                                                        |
+| `openei` | Seeds the database with OpenEI reference building data from California and PG&E rate data from OpenEI.                                                        |
 
 ### LOADING TEST DATA
 

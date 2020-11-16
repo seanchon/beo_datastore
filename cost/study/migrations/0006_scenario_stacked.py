@@ -11,6 +11,11 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="scenario",
             name="stacked",
+            field=models.BooleanField(default=False),
+        ),
+        migrations.AlterField(
+            model_name="scenario",
+            name="stacked",
             field=models.BooleanField(default=True),
-        )
+        ),
     ]

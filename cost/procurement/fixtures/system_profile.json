@@ -3,9 +3,16 @@
   "model": "procurement.systemprofile",
   "pk": 1,
   "fields": {
-    "name": "MCE",
-    "load_serving_entity": 2,
-    "resource_adequacy_rate": 6.0
+    "name": "Fake MCE",
+    "load_serving_entity": 2
+  }
+},
+{
+  "model": "procurement.systemprofile",
+  "pk": 2,
+  "fields": {
+    "name": "Fake PG&E",
+    "load_serving_entity": 1
   }
 }
 ]

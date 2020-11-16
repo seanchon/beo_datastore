@@ -10,6 +10,11 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "beo_datastore.settings")
 django.setup()
 
+from beo_datastore.libs.fixtures import (
+    load_base_fixtures_and_intervalframes,
+    load_all_fixtures_and_intervalframes,
+)
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -26,7 +31,7 @@ def parse_arguments():
         )
     )
     parser.add_argument(
-        "--reset", action="store_true", dest="reset", help="recreate database",
+        "--reset", action="store_true", dest="reset", help="recreate database"
     )
     parser.add_argument(
         "--flush",
@@ -35,7 +40,7 @@ def parse_arguments():
         help="empties but does not delete database",
     )
     parser.add_argument(
-        "--seed", action="store_true", dest="seed", help="seed database",
+        "--seed", action="store_true", dest="seed", help="seed database"
     )
     parser.add_argument(
         "--openei",
@@ -44,6 +49,26 @@ def parse_arguments():
         help="import OpenEI data",
     )
     return parser.parse_args()
+
+
+def load_open_ei_reference_meters(state: str = "CA") -> None:
+    call_command(
+        "runscript",
+        "load.openei.scripts.ingest_reference_meters",
+        "--script-args",
+        state,
+    )
+
+
+def load_open_ei_utility_rates(
+    utility_name: str = "Pacific Gas & Electric Co"
+) -> None:
+    call_command(
+        "runscript",
+        "cost.utility_rate.scripts.ingest_openei_utility_rates",
+        "--script-args",
+        utility_name,
+    )
 
 
 if __name__ == "__main__":
@@ -63,20 +88,12 @@ if __name__ == "__main__":
 
     # Loads seed data
     if args.seed:
-        call_command(
-            "runscript",
-            "beo_datastore.scripts.load_data",
-            "--script-args",
-            "seed",
-        )
+        load_all_fixtures_and_intervalframes()
     # Loads OpenEI data
-    elif args.open_ei:
-        call_command(
-            "runscript",
-            "beo_datastore.scripts.load_data",
-            "--script-args",
-            "openei",
-        )
+    if args.open_ei:
+        load_base_fixtures_and_intervalframes()
+        load_open_ei_reference_meters()
+        load_open_ei_utility_rates()
     # Loads basic data
-    else:
-        call_command("runscript", "beo_datastore.scripts.load_data")
+    if not args.seed and not args.open_ei:
+        load_base_fixtures_and_intervalframes()
