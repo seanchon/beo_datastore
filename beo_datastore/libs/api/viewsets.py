@@ -1,7 +1,7 @@
-from dynamic_rest.viewsets import WithDynamicViewSetMixin
-from rest_framework import mixins
-from rest_framework import viewsets
 from typing import List
+
+from dynamic_rest.viewsets import WithDynamicViewSetMixin
+from rest_framework import mixins, viewsets
 
 from beo_datastore.libs.api.pagination import DefaultResultsSetPagination
 
@@ -47,6 +47,19 @@ class ListRetrieveViewSet(
     """
 
     pagination_class = DefaultResultsSetPagination
+
+
+class CreateListRetrieveDestroyViewSet(
+    WithDynamicViewSetMixin,
+    mixins.CreateModelMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    BaseViewSet,
+):
+    """
+    Dynamic rest viewset that allows POST, GET, and DELETE methods.
+    """
 
 
 class ListRetrieveUpdateDestroyViewSet(

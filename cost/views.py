@@ -1,25 +1,25 @@
-import coreapi
-from functools import reduce
-import pandas as pd
 import json
 from datetime import datetime
+from functools import reduce
 
+import coreapi
+import numpy as np
+import pandas as pd
 from django.db import transaction
 from django.http.request import QueryDict
-
-from rest_framework import serializers, status, mixins
+from rest_framework import mixins, serializers, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
 
 from beo_datastore.libs.api.serializers import require_request_data
 from beo_datastore.libs.api.viewsets import (
+    CreateListRetrieveDestroyViewSet,
     CreateListRetrieveUpdateDestroyViewSet,
     ListRetrieveDestroyViewSet,
     ListRetrieveViewSet,
 )
 from beo_datastore.libs.dataframe import download_dataframe
-
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate, SystemProfile
 from cost.study.models import Scenario
@@ -27,22 +27,26 @@ from cost.utility_rate.libs import (
     convert_rate_df_to_dict,
     convert_rate_dict_to_df,
 )
-from cost.utility_rate.models import RatePlan, RateCollection
+from cost.utility_rate.models import RateCollection, RatePlan
+from navigader_core.load.dataframe import get_dataframe_period
 from reference.reference_model.models import (
     DERConfiguration,
     DERStrategy,
     MeterGroup,
 )
-
 from .serializers import (
     CAISORateSerializer,
     GHGRateSerializer,
-    RatePlanSerializer,
     RateCollectionSerializer,
+    RatePlanSerializer,
     ScenarioSerializer,
     SystemProfileSerializer,
 )
 from .tasks import run_scenario
+
+# Constants for time in seconds
+QUARTER_HOUR = 900
+HOUR = 3600
 
 
 class ScenarioViewSet(CreateListRetrieveUpdateDestroyViewSet):
@@ -479,13 +483,60 @@ class RateCollectionViewSet(
         return download_dataframe(df, **download_kwargs)
 
 
-class SystemProfileViewSet(ListRetrieveViewSet):
-    """
-    SystemProfile objects
-    """
-
+class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
     model = SystemProfile
     serializer_class = SystemProfileSerializer
+    lookup_field = "uuid"
+
+    class CustomSystemProfileSchema(AutoSchema):
+        manual_fields = []
+
+        def get_manual_fields(self, path: str, method: str):
+            custom_fields = []
+            if method.upper() == "GET":
+                custom_fields = [
+                    coreapi.Field(
+                        "data_types",
+                        required=False,
+                        location="query",
+                        description=(
+                            "One or many data types to return. Choices are 'default', "
+                            "'total', 'average', 'maximum', 'minimum', and 'count'."
+                        ),
+                    ),
+                ]
+            if method.upper() == "POST":
+                custom_fields = [
+                    coreapi.Field(
+                        "file",
+                        required=True,
+                        location="body",
+                        description=(
+                            "CSV file that contains a load serving entity system-profile intervals. "
+                            "1st column header is arbitrary. "
+                            "1st column is to be timestamps with consistent 15 or 60 minutes intervals. "
+                            "2nd column header must be one of: kW, kWh, MW, MWh, GW, or GWh. "
+                            "2nd column is to be numeric readings values for each timestamp."
+                        ),
+                    ),
+                    coreapi.Field(
+                        "name",
+                        required=False,
+                        location="body",
+                        description=(
+                            "System profile `name`. If not provided filename will be used instead."
+                        ),
+                    ),
+                    coreapi.Field(
+                        "resource_adequacy_rate",
+                        required=True,
+                        location="body",
+                        description="$/kW value used in RA cost calculations",
+                    ),
+                ]
+            return self._manual_fields + custom_fields
+
+    schema = CustomSystemProfileSchema()
 
     def get_queryset(self):
         """
@@ -494,4 +545,116 @@ class SystemProfileViewSet(ListRetrieveViewSet):
         user = self.request.user
         return SystemProfile.objects.filter(
             load_serving_entity=user.profile.load_serving_entity
+        )
+
+    def create(self, request, *args, **kwargs):
+        """
+        Handle upload for a system profile annual interval in CSV
+        and ingest as a new SystemProfile instance.
+        """
+        require_request_data(request, ["file", "resource_adequacy_rate"])
+
+        [file, name, resource_adequacy_rate] = self._data(
+            ["file", "name", "resource_adequacy_rate"]
+        )
+        load_serving_entity = request.user.profile.load_serving_entity
+
+        df = pd.read_csv(file)
+        # Clean redundant empty rows or columns if any.
+        df.dropna(axis=0, how="all", inplace=True)
+        df.dropna(axis=1, how="all", inplace=True)
+
+        # Ensure intervals are consistent.
+        timestamp_column = df.columns[0]
+        indices = pd.DatetimeIndex(df[timestamp_column])
+        intervals = set(np.diff(indices))
+        if len(intervals) != 1:
+            raise serializers.ValidationError(
+                "Timestamp intervals are inconsistent. Found the following "
+                f"intervals: {intervals}"
+            )
+
+        interval: int = get_dataframe_period(
+            df, by_column=timestamp_column, n=None
+        ).seconds
+
+        if interval not in [QUARTER_HOUR, HOUR]:
+            raise serializers.ValidationError(
+                f"Expected intervals are either 15 or 60 minutes. "
+                f"Found '{interval/60}' minutes."
+            )
+
+        # Validate that upload file contains interval readings `up to` 366 days
+        first_interval: pd.Timestamp = indices[0]
+        last_interval: pd.Timestamp = indices[-1]
+
+        span_days = (last_interval - first_interval).days
+        if span_days > 366:
+            raise serializers.ValidationError(
+                "Currently each system-profile data span is limited up to 366 days. "
+                f"There are {span_days} days between {first_interval} and {last_interval}."
+            )
+
+        # CCAs identify each interval by end-interval datetime, but in our
+        # modelings (BEO Project) intervals identified with start datetime.
+        # Relabel intervals with their start-datetime instead of end-interval datetime.
+        indices = indices - pd.to_timedelta(interval, unit="second")
+
+        try:
+            df.set_index(
+                keys=indices,
+                verify_integrity=True,
+                drop=True,
+                inplace=True,
+            )
+        except Exception as e:
+            raise serializers.ValidationError(
+                "Duplicates, inconsistent or missing interval timestamps. ", e
+            )
+        df.drop(columns=timestamp_column, inplace=True)
+        df.index.rename("interval_start", inplace=True)
+
+        # Convert energy or power readings from one of the expected
+        # headers/units  kW, kWh, MW, MWH, GW, or GWH into `Power in kW`.
+        value = df.columns[0]
+        unit = value.upper()
+        interval_per_hour = HOUR / interval
+        if "KWH" in unit:
+            df[value] *= interval_per_hour
+        elif "KW" in unit:
+            pass
+        elif "MWH" in unit:
+            df[value] *= interval_per_hour * 1e3
+        elif "MW" in unit:
+            df[value] *= 1e3
+        elif "GWH" in unit:
+            df[value] *= interval_per_hour * 1e6
+        elif "GW" in unit:
+            df[value] *= 1e6
+        else:
+            raise serializers.ValidationError(
+                f"'{unit}' is not an expected unit for aggregated energy or power values. "
+                f"Unit should be one of kW, kWh, MW, MWH, GW, or GWH."
+            )
+        df.rename(columns={value: "kw"}, inplace=True)
+
+        name = name or file.name.split(".")[0]
+        try:
+            system_profile, created = SystemProfile.get_or_create(
+                dataframe=df,
+                name=name,
+                load_serving_entity=load_serving_entity,
+                resource_adequacy_rate=resource_adequacy_rate,
+            )
+        except serializers.ValidationError as e:
+            raise serializers.ValidationError(detail=e.message_dict)
+
+        if not created:
+            raise serializers.ValidationError(
+                "SystemProfile with provided parameters already exists!"
+            )
+
+        return Response(
+            self.serializer_class(system_profile, many=False).data,
+            status=status.HTTP_201_CREATED,
         )

@@ -1,8 +1,8 @@
 import json
-from datetime import timedelta, datetime
-import dateutil.parser
+from datetime import datetime, timedelta
 
-from dynamic_rest.fields import DynamicRelationField, DynamicComputedField
+import dateutil.parser
+from dynamic_rest.fields import DynamicComputedField, DynamicRelationField
 from dynamic_rest.serializers import DynamicModelSerializer
 from rest_framework import serializers
 
@@ -13,14 +13,14 @@ from beo_datastore.libs.api.serializers import (
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate, SystemProfile
 from cost.study.models import Scenario
-from cost.utility_rate.models import RatePlan, RateCollection
-from reference.auth_user.models import LoadServingEntity
+from cost.utility_rate.models import RateCollection, RatePlan
 from der.serializers import (
     DERConfigurationSerializer,
     DERSimulationSerializer,
     DERStrategySerializer,
 )
 from load.serializers import MeterGroupSerializer
+from reference.auth_user.models import LoadServingEntity
 
 
 class ScenarioSerializer(MeterGroupSerializer):
@@ -245,11 +245,19 @@ class RatePlanSerializer(DynamicModelSerializer):
         )
 
 
-class SystemProfileSerializer(DynamicModelSerializer):
+class SystemProfileSerializer(AbstractGetDataMixin, DynamicModelSerializer):
+    intervalframe_name = "intervalframe"
+    data = serializers.SerializerMethodField()
     load_serving_entity = DynamicRelationField(
         LoadServingEntitySerializer, deferred=True, embed=True
     )
 
     class Meta:
         model = SystemProfile
-        fields = ("id", "name", "load_serving_entity")
+        fields = (
+            "uuid",
+            "name",
+            "load_serving_entity",
+            "resource_adequacy_rate",
+            "data",
+        )

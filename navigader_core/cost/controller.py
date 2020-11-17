@@ -404,7 +404,7 @@ class AggregateProcurementCostCalculation(DERCostCalculation):
 
     @cached_property
     def pre_DER_procurement_cost_intervalframe(
-        self
+        self,
     ) -> ProcurementCostIntervalFrame:
         """
         ProcurementCostIntervalFrame with pre-DER costs on an
@@ -432,7 +432,7 @@ class AggregateProcurementCostCalculation(DERCostCalculation):
 
     @cached_property
     def post_DER_procurement_cost_intervalframe(
-        self
+        self,
     ) -> ProcurementCostIntervalFrame:
         """
         ProcurementCostIntervalFrame with post-DER costs on an
