@@ -976,7 +976,7 @@ class OpenEIRatePlan(object):
 
     @staticmethod
     def create_date_ranges(
-        intervalframe: ValidationIntervalFrame
+        intervalframe: ValidationIntervalFrame,
     ) -> List[Tuple[datetime, datetime]]:
         """
         Based on a ValidationIntervalFrame, create date ranges representing

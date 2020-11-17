@@ -1,5 +1,6 @@
-from datetime import timedelta
 import io
+from datetime import timedelta
+
 import numpy as np
 import pandas as pd
 import requests
@@ -57,20 +58,27 @@ def csv_url_to_dataframe(url):
     return pd.read_csv(io.StringIO(csv.decode("utf-8")))
 
 
-def get_dataframe_period(dataframe, n=96) -> timedelta:
+def get_dataframe_period(
+    dataframe: pd.DataFrame, by_column="", n=96
+) -> timedelta:
     """
-    Return dataframe period as a timedelta object.
+    Return dataframe period as a timedelta object,
+    with the index by default or with a column if provided.
 
     :param dataframe: pandas DataFrame with DatetimeIndex
+    :param by_column: if provided, use this column for timestamps
     :param n: run on first n lines to reduce computation
     :return: timedelta
     """
     if n:
         dataframe = dataframe.head(n=n)
 
-    # get most common (mode) delta in seconds
-    results = stats.mode(np.diff(dataframe.index.values)).mode.tolist()
-    results = [x / 1000000000 for x in results]
+    if by_column:
+        values = pd.DatetimeIndex(dataframe[by_column])
+    else:
+        values = dataframe.index.values
+    results = stats.mode(np.diff(values)).mode.tolist()
+    results = [x / 1e9 for x in results]
 
     if not results:
         return timedelta(seconds=0)

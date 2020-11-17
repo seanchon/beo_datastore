@@ -299,4 +299,4 @@ class TestScenario(TestCase):
         ra_delta = stacked_scenario.report_summary[
             stacked_scenario.report_summary.index == "RADelta"
         ]["0"].values[0]
-        self.assertAlmostEqual(ra_delta, agg_ra_calculation.net_impact, 10)
+        self.assertAlmostEqual(ra_delta, agg_ra_calculation.net_impact, 6)
