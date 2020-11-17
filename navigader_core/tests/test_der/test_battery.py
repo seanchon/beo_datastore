@@ -39,7 +39,7 @@ class TestBattery(TestCase):
             pd.DataFrame(
                 zip(
                     [datetime(2018, 1, 1, x) for x in range(0, 12)],
-                    [-5 for x in range(0, 6)] + [10 for x in range(0, 6)],
+                    [-5 for _ in range(0, 6)] + [10 for _ in range(0, 6)],
                 )
             )
             .rename(columns={0: "index", 1: "kw"})
@@ -78,12 +78,12 @@ class TestBattery(TestCase):
         # power
         self.assertEqual(
             list(self.simulation.der_intervalframe.dataframe.kw.values),
-            [5.0, 5.0, 5.0, 5.0, 0.0, 0.0, -5.0, -5.0, 0.0, 0.0, 0.0, 0.0],
+            [6.25, 6.25, 0.0, 0.0, 0.0, 0.0, -3.75, -3.75, 0.0, 0.0, 0.0, 0.0],
         )
         # charge
         self.assertEqual(
             list(self.simulation.der_intervalframe.dataframe.charge.values),
-            [2.5, 5.0, 7.5, 10.0, 10.0, 10.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [5.0, 10.0, 10.0, 10.0, 10.0, 10.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         )
         # capacity
         self.assertEqual(
@@ -116,25 +116,12 @@ class TestBattery(TestCase):
         # power doubles
         self.assertEqual(
             list(aggregate_battery_intervalframe.dataframe.kw.values),
-            [
-                10.0,
-                10.0,
-                10.0,
-                10.0,
-                0.0,
-                0.0,
-                -10.0,
-                -10.0,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-            ],
+            [12.5, 12.5, 0.0, 0.0, 0.0, 0.0, -7.5, -7.5, 0.0, 0.0, 0.0, 0.0],
         )
         # charge doubles
         self.assertEqual(
             list(aggregate_battery_intervalframe.dataframe.charge.values),
-            [5.0, 10.0, 15.0, 20.0, 20.0, 20.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [10.0, 20.0, 20.0, 20.0, 20.0, 20.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         )
         # capacity doubles
         self.assertEqual(
