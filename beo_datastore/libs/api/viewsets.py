@@ -61,6 +61,8 @@ class CreateListRetrieveDestroyViewSet(
     Dynamic rest viewset that allows POST, GET, and DELETE methods.
     """
 
+    pagination_class = DefaultResultsSetPagination
+
 
 class ListRetrieveUpdateDestroyViewSet(
     WithDynamicViewSetMixin,

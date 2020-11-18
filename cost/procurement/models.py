@@ -64,9 +64,6 @@ class SystemProfile(
     This information is expected to be provided from CCAs.
     """
 
-    uuid = models.UUIDField(
-        db_index=True, default=uuid.uuid4, editable=False, unique=True
-    )
     name = models.CharField(max_length=255)
     load_serving_entity = models.ForeignKey(
         to=LoadServingEntity,
@@ -451,9 +448,7 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
 
         # Check for data gaps
         period = get_dataframe_period(sorted_frame.set_index(start_column))
-        date_range = pd.date_range(
-            start, end_limit, freq=period, closed="left"
-        )
+        date_range = pd.date_range(start, end_limit, freq=period, closed="left")
 
         dates_present = date_range.isin(sorted_frame[start_column])
         if date_range[~dates_present].size > 0:
