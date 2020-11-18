@@ -1,39 +1,58 @@
+from cached_property import cached_property
 from datetime import timedelta
 import dateutil.parser
 from dynamic_rest.fields import DynamicComputedField
+from dynamic_rest.bases import CacheableFieldMixin
+from dynamic_rest.serializers import DynamicModelSerializer
 import pandas as pd
 from rest_framework import serializers
+from typing import Dict
 
 from beo_datastore.libs.models import nested_getattr
 
 
-def require_request_data(request, input_list):
+class ContextMixin(CacheableFieldMixin):
     """
-    Require that specified Request data is passed.
-
-    :param request: Request object
-    :param input_list: required inputs (str)
+    Mixin providing easy access to the `context` object attached to
+    `DynamicModelSerializer` class instances. For some requests, the context
+    dict includes the `request` object, which subsequently enables the
+    serializers to customize their responses based upon parameters specified in
+    the request.
     """
-    missing_inputs = set(input_list) - set(request.data.keys())
-    if missing_inputs:
-        raise serializers.ValidationError(
-            "Required: {}".format(", ".join(missing_inputs))
-        )
+
+    @cached_property
+    def __query_params(self) -> Dict[str, str]:
+        request = self.context.get("request")
+        return request.query_params if request else {}
+
+    def _context_params(self, *params: str):
+        """
+        Get multiple query params from request context. If it does not exist,
+        return None. POST operations do not have request in context, so this is
+        a safe way to retrieve params.
+
+        :param params: list of param strings, or a single string
+        """
+        return [self.__query_params.get(param) for param in params]
+
+    def _context_param(self, param: str):
+        """
+        Get a single query param from request context. If it does not exist,
+        return None. POST operations do not have request in context, so this is
+        a safe way to retrieve params.
+
+        :param param: string
+        """
+        return self.__query_params.get(param)
 
 
-def get_context_request_param(context, param):
+class BaseSerializer(ContextMixin, DynamicModelSerializer):
     """
-    Get param from context["request"]. If it does not exist, return None. POST
-    operations do not have request in context, so this is a safe way to
-    retrieve params.
-
-    :param context: Serializer context
-    :param param: param string
+    Base serializer class. This primarily exists as a convenience for
+    serializers that need access to the ContextMixin
     """
-    if "request" in context.keys():
-        return context["request"].query_params.get(param)
-    else:
-        return None
+
+    pass
 
 
 class Frame288ComputedField(DynamicComputedField):
@@ -43,9 +62,9 @@ class Frame288ComputedField(DynamicComputedField):
 
     frame_key: str = None
 
-    def __init__(self, frame_key: str, **kwargs):
+    def __init__(self, frame_key: str, *args, **kwargs):
         self.frame_key = frame_key
-        super().__init__(**kwargs)
+        super().__init__(*args, **kwargs)
 
     def get_attribute(self, instance):
         try:
@@ -57,64 +76,90 @@ class Frame288ComputedField(DynamicComputedField):
             )
 
 
-class AbstractGetDataMixin(object):
+class DataField(ContextMixin, DynamicComputedField):
     """
-    Method for serving interval data as DRF response.
-
-    To enable, do the following inside a serializer.
-    - add `data = serializers.SerializerMethodField()`
-    - add "data" Meta fields.
+    Computed field for serializing object data in a standard way
     """
 
-    def intervalframe_name(self):
-        raise NotImplementedError(
-            "intervalframe_name must be set in {}.".format(self.__class__)
-        )
+    # The key used to access the instance objects' dataframes. Defaults to
+    # "intervalframe"
+    frame_key: str
 
-    def get_data(self, obj):
+    def __init__(self, frame_key: str = "intervalframe", *args, **kwargs):
+        self.frame_key = frame_key
+        super().__init__(*args, **kwargs)
+
+    def get_attribute(self, instance):
         """
         Used for SerializerMethodField "data". Fields for Swagger documentation
         set in MeterViewSet.schema.
-
-        :field data_types: frame 288 type (optional)
-        :field start: ISO 8601 string (optional)
-        :field end_limit: ISO 8601 string (optional)
-        :field period: int (optional)
         """
-        data_types = get_context_request_param(self.context, "data_types")
-        start = get_context_request_param(self.context, "start")
-        end_limit = get_context_request_param(self.context, "end_limit")
-        column = get_context_request_param(self.context, "column")
-        period = get_context_request_param(self.context, "period")
+        # If no data types were requested return early so as not to waste time
+        # producing the intervalframe
+        if not self.data_types:
+            return {}
 
+        data = {}
+        intervalframe = self.get_intervalframe(instance)
+
+        # For each data type, compute the dataframe to return
+        for data_type in self.data_types:
+            if data_type == "default":
+                dataframe = intervalframe.dataframe.reset_index()
+            else:
+                frame_type = data_type + "_frame288"
+                dataframe = getattr(intervalframe, frame_type).dataframe
+
+            data[data_type] = dataframe.where(pd.notnull(dataframe), None)
+
+        return data
+
+    @cached_property
+    def start(self):
+        """
+        Returns the `start` request param parsed, if provided. If not provided,
+        returns the minimal pandas datetime. If provided but not parseable,
+        raises `ValidationError`
+        """
+        start = self._context_param("start")
         if start:
             try:
-                start = dateutil.parser.parse(start)
+                return dateutil.parser.parse(start)
             except Exception:
                 raise serializers.ValidationError(
                     "start must be valid ISO 8601."
                 )
         else:
-            start = pd.Timestamp.min
+            return pd.Timestamp.min
 
+    @cached_property
+    def end_limit(self):
+        """
+        Returns the `end_limit` request param parsed, if provided. If not
+        provided, returns the maximal pandas datetime. If provided but not
+        parseable, raises `ValidationError`
+        """
+        end_limit = self._context_param("end_limit")
         if end_limit:
             try:
-                end_limit = dateutil.parser.parse(end_limit)
+                return dateutil.parser.parse(end_limit)
             except Exception:
                 raise serializers.ValidationError(
                     "end_limit must be valid ISO 8601."
                 )
         else:
-            end_limit = pd.Timestamp.max
+            return pd.Timestamp.max
 
-        if period:
-            try:
-                period = int(period)
-            except Exception:
-                raise serializers.ValidationError("period must be an integer")
-
+    @cached_property
+    def data_types(self):
+        """
+        Returns a set of data types requested in the `data_types` query param.
+        If any unrecognized data types are requested, throws a `ValidationError`
+        """
+        data_types = self._context_param("data_types")
         data_types = set(data_types.split(",")) if data_types else set()
-        allowed_data_types = {
+
+        disallowed_data_types = data_types - {
             "default",
             "total",
             "average",
@@ -122,7 +167,7 @@ class AbstractGetDataMixin(object):
             "minimum",
             "count",
         }
-        disallowed_data_types = data_types - allowed_data_types
+
         if disallowed_data_types:
             raise serializers.ValidationError(
                 "Incorrect data_types: {}".format(
@@ -130,35 +175,49 @@ class AbstractGetDataMixin(object):
                 )
             )
 
-        if data_types:
-            data = {}
-            intervalframe = getattr(obj, self.intervalframe_name)
-            intervalframe = intervalframe.filter_by_datetime(
-                start=start, end_limit=end_limit
+        return data_types
+
+    @cached_property
+    def period(self):
+        """
+        Returns the `period` request param parsed, if provided. If not provided,
+        returns None. If provided but not convertible to an int, raises
+        `ValidationError`
+        """
+        period = self._context_param("period")
+        if period:
+            try:
+                return int(period)
+            except Exception:
+                raise serializers.ValidationError("period must be an integer")
+
+    def get_intervalframe(self, instance):
+        """
+        Returns the intervalframe for the instance, from which the requested
+        data types can be computed. If a `period` query param was included, the
+        intervalframe will be resampled to that period. If a `column` query
+        param was included and is a valid column of the dataframe, that column
+        will be set as the aggregation column for producing the 288 data types.
+
+        :param instance: the model instance being accessed for its data
+        """
+        column = self._context_param("column")
+        intervalframe = getattr(instance, self.frame_key)
+        intervalframe = intervalframe.filter_by_datetime(
+            start=self.start, end_limit=self.end_limit
+        )
+
+        # resample the dataframe to the specified period, if one is provided
+        if self.period:
+            intervalframe = intervalframe.resample_intervalframe(
+                timedelta(minutes=self.period)
             )
 
-            # resample the dataframe to the specified period, if one is provided
-            if period:
-                intervalframe = intervalframe.resample_intervalframe(
-                    timedelta(minutes=period)
-                )
+        if column and column not in intervalframe.dataframe.columns:
+            raise serializers.ValidationError(
+                "Incorrect column: {}".format(column)
+            )
+        elif column:  # calculate 288s on passed column
+            intervalframe.aggregation_column = column
 
-            if column and column not in intervalframe.dataframe.columns:
-                raise serializers.ValidationError(
-                    "Incorrect column: {}".format(column)
-                )
-            elif column:  # calculate 288s on passed column
-                intervalframe.aggregation_column = column
-
-            for data_type in data_types:
-                if data_type == "default":
-                    dataframe = intervalframe.dataframe.reset_index()
-                else:
-                    frame_type = data_type + "_frame288"
-                    dataframe = getattr(intervalframe, frame_type).dataframe
-
-                data[data_type] = dataframe.where(pd.notnull(dataframe), None)
-
-            return data
-        else:
-            return {}
+        return intervalframe

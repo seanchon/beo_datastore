@@ -3,13 +3,9 @@ from datetime import datetime, timedelta
 
 import dateutil.parser
 from dynamic_rest.fields import DynamicComputedField, DynamicRelationField
-from dynamic_rest.serializers import DynamicModelSerializer
 from rest_framework import serializers
 
-from beo_datastore.libs.api.serializers import (
-    AbstractGetDataMixin,
-    get_context_request_param,
-)
+from beo_datastore.libs.api.serializers import BaseSerializer, DataField
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate, SystemProfile
 from cost.study.models import Scenario
@@ -105,7 +101,7 @@ class ScenarioSerializer(MeterGroupSerializer):
         return json.loads(obj.report_summary.to_json(default_handler=str))
 
 
-class GHGRateSerializer(DynamicModelSerializer):
+class GHGRateSerializer(BaseSerializer):
     data = serializers.SerializerMethodField()
 
     class Meta:
@@ -117,10 +113,9 @@ class GHGRateSerializer(DynamicModelSerializer):
         """
         Nest GHGRate's frame288 under "data" key
         """
-        data_format = get_context_request_param(self.context, "data_format")
-        period = get_context_request_param(self.context, "period")
-        start = get_context_request_param(self.context, "start")
-        end_limit = get_context_request_param(self.context, "end_limit")
+        [data_format, period, start, end_limit] = self._context_params(
+            "data_format", "period", "start", "end_limit"
+        )
 
         if data_format == "288":
             return obj.dataframe
@@ -163,13 +158,10 @@ class GHGRateSerializer(DynamicModelSerializer):
             return None
 
 
-class CAISORateSerializer(AbstractGetDataMixin, DynamicModelSerializer):
-    data = serializers.SerializerMethodField()
+class CAISORateSerializer(BaseSerializer):
+    data = DataField()
     filters = serializers.JSONField()
     year = serializers.SerializerMethodField()
-
-    # required by AbstractGetDataMixin
-    intervalframe_name = "intervalframe"
 
     class Meta:
         model = CAISORate
@@ -179,7 +171,7 @@ class CAISORateSerializer(AbstractGetDataMixin, DynamicModelSerializer):
         return obj.caiso_report.year
 
 
-class RateCollectionSerializer(DynamicModelSerializer):
+class RateCollectionSerializer(BaseSerializer):
     rate_data = serializers.JSONField()
     rate_plan = DynamicRelationField("RatePlanSerializer", deferred=True)
 
@@ -196,7 +188,7 @@ class RateCollectionSerializer(DynamicModelSerializer):
         deferred_fields = "rate_plan"
 
 
-class LoadServingEntitySerializer(DynamicModelSerializer):
+class LoadServingEntitySerializer(BaseSerializer):
     class Meta:
         model = LoadServingEntity
         fields = ("id", "name", "short_name", "state")
@@ -219,7 +211,7 @@ class EffectiveDateComputedField(DynamicComputedField):
         )
 
 
-class RatePlanSerializer(DynamicModelSerializer):
+class RatePlanSerializer(BaseSerializer):
     load_serving_entity = DynamicRelationField(
         LoadServingEntitySerializer, deferred=True
     )
@@ -243,9 +235,8 @@ class RatePlanSerializer(DynamicModelSerializer):
         )
 
 
-class SystemProfileSerializer(AbstractGetDataMixin, DynamicModelSerializer):
-    intervalframe_name = "intervalframe"
-    data = serializers.SerializerMethodField()
+class SystemProfileSerializer(BaseSerializer):
+    data = DataField()
     load_serving_entity = DynamicRelationField(
         LoadServingEntitySerializer, deferred=True, embed=True
     )

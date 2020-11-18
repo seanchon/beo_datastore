@@ -5,7 +5,6 @@ from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
 
-from beo_datastore.libs.api.serializers import require_request_data
 from beo_datastore.libs.api.viewsets import ListRetrieveViewSet
 from cost.ghg.models import GHGRate
 from cost.procurement.models import SystemProfile
@@ -78,7 +77,7 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
         )
 
     def create(self, request):
-        require_request_data(request, ["der_type"])
+        self._require_data_fields("der_type")
         [der_type] = self._data(["der_type"])
 
         try:
@@ -120,7 +119,7 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
             "rating",
         ]
 
-        require_request_data(request, configuration_attrs)
+        self._require_data_fields(*configuration_attrs)
         discharge_duration_hours, efficiency, name, rating = self._data(
             configuration_attrs
         )
@@ -148,7 +147,7 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
             "name",
         ]
 
-        require_request_data(request, configuration_attrs)
+        self._require_data_fields(*configuration_attrs)
         (
             ev_capacity,
             ev_count,
@@ -186,7 +185,7 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
             "tilt",
         ]
 
-        require_request_data(request, configuration_attrs)
+        self._require_data_fields(*configuration_attrs)
         (
             address,
             array_type,
@@ -314,7 +313,7 @@ class DERStrategyViewSet(ListRetrieveViewSet):
         )
 
     def create(self, request):
-        require_request_data(request, ["name", "der_type"])
+        self._require_data_fields("name", "der_type")
         [der_type] = self._data(["der_type"])
 
         try:
@@ -347,7 +346,7 @@ class DERStrategyViewSet(ListRetrieveViewSet):
             "cost_function",
         ]
 
-        require_request_data(request, strategy_attrs)
+        self._require_data_fields(*strategy_attrs)
         name, charge_grid, discharge_grid, cost_fn, description = self._data(
             strategy_attrs + ["description"]
         )
@@ -396,7 +395,7 @@ class DERStrategyViewSet(ListRetrieveViewSet):
             "name",
         ]
 
-        require_request_data(request, strategy_attrs)
+        self._require_data_fields(*strategy_attrs)
         (
             charge_off_nem,
             distance,
@@ -421,7 +420,7 @@ class DERStrategyViewSet(ListRetrieveViewSet):
         Creates a SolarStrategy
         """
         strategy_attrs = ["name", "serviceable_load_ratio"]
-        require_request_data(request, strategy_attrs)
+        self._require_data_fields(*strategy_attrs)
         name, serviceable_load_ratio, description = self._data(
             strategy_attrs + ["description"]
         )

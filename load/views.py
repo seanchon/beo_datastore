@@ -7,7 +7,6 @@ from rest_framework.schemas import AutoSchema
 
 from django.core.exceptions import ValidationError
 
-from beo_datastore.libs.api.serializers import require_request_data
 from beo_datastore.libs.api.viewsets import (
     CreateViewSet,
     ListRetrieveViewSet,
@@ -66,14 +65,14 @@ class OriginFileViewSet(CreateViewSet):
     )
 
     def create(self, request):
-        require_request_data(request, ["file", "name"])
+        self._require_data_fields("file", "name")
 
         file = request.data["file"]
         name = request.data["name"]
         if request.user.profile.load_serving_entity:
             load_serving_entity = request.user.profile.load_serving_entity
         elif request.user.is_staff or request.user.is_superuser:
-            require_request_data(request, ["load_serving_entity_id"])
+            self._require_data_fields("load_serving_entity_id")
             load_serving_entity = LoadServingEntity.objects.get(
                 id=request.data["load_serving_entity_id"]
             )
@@ -135,9 +134,8 @@ class CustomerClusterViewSet(CreateViewSet):
     )
 
     def create(self, request):
-        require_request_data(
-            request,
-            ["meter_group_id", "type", "number_of_clusters", "normalize"],
+        self._require_data_fields(
+            "meter_group_id", "type", "number_of_clusters", "normalize",
         )
 
         try:
