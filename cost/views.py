@@ -486,7 +486,6 @@ class RateCollectionViewSet(
 class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
     model = SystemProfile
     serializer_class = SystemProfileSerializer
-    lookup_field = "uuid"
 
     class CustomSystemProfileSchema(AutoSchema):
         manual_fields = []
@@ -612,7 +611,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
                 "Duplicates, inconsistent or missing interval timestamps. ", e
             )
         df.drop(columns=timestamp_column, inplace=True)
-        df.index.rename("interval_start", inplace=True)
+        df.index.rename("index", inplace=True)
 
         # Convert energy or power readings from one of the expected
         # headers/units  kW, kWh, MW, MWH, GW, or GWH into `Power in kW`.
@@ -655,6 +654,10 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
             )
 
         return Response(
-            self.serializer_class(system_profile, many=False).data,
+            {
+                "system_profile": self.serializer_class(
+                    system_profile, many=False
+                ).data
+            },
             status=status.HTTP_201_CREATED,
         )

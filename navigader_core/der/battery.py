@@ -96,15 +96,12 @@ class Battery(DER):
     ) -> float:
         """
         Return the power level to get from current charge to target charge in a
-        duration of time based on a battery's rating, max capacity, and
-        efficiency.
+        duration of time based on a battery's rating and capacity
 
         The following battery constraints apply:
             - The battery cannot charge/discharge at power beyond it rating.
             - The battery cannot charge beyond its max capacity or discharge
-            below zero.
-            - The battery losses due to the efficiency factor are calculated on
-            the charge cycle.
+              below zero.
 
         :param duration: timedelta
         :param current_charge: current charge level (kwh)
@@ -114,7 +111,7 @@ class Battery(DER):
         hours = timedelta_to_hours(duration)
         if (target_charge - current_charge) >= 0:  # charge
             max_charge = min(target_charge, self.capacity)
-            power = (max_charge - current_charge) / (hours * self.efficiency)
+            power = (max_charge - current_charge) / hours
             target_power = min(power, self.rating)
         else:  # discharge
             min_charge = max(target_charge, 0)
@@ -123,6 +120,32 @@ class Battery(DER):
 
         self._validate_power(target_power)
         return target_power
+
+    def get_actual_power(
+        self, charge_delta: float, duration: timedelta
+    ) -> float:
+        """
+        Get the actual power drawn from the grid (if charging) or exported to
+        the grid/load (if discharging), taking into account the battery
+        efficiency.
+
+        :param charge_delta: the change in charge state during the interval
+          duration (kwh)
+        :param duration: the interval duration (timedelta)
+        :return: power factoring in efficiency (kw)
+        """
+        one_way_efficiency_losses = (1 - self.efficiency) / 2
+
+        # When charging, the actual energy draw from the grid is greater than
+        # the energy stored. When discharging, however, the opposite is true and
+        # the actual energy drawn from the battery is less than the energy that
+        # was stored.
+        if charge_delta >= 0:
+            actual_kwh = charge_delta * (1 + one_way_efficiency_losses)
+        else:
+            actual_kwh = charge_delta * (1 - one_way_efficiency_losses)
+
+        return actual_kwh / timedelta_to_hours(duration)
 
     def get_next_charge(
         self, power: float, duration: timedelta, current_charge: float
@@ -137,15 +160,7 @@ class Battery(DER):
         :return: charge (kwh)
         """
         self._validate_power(power)
-        if power >= 0:  # charge
-            next_charge = current_charge + (
-                power * timedelta_to_hours(duration) * self.efficiency
-            )
-        else:  # discharge
-            next_charge = current_charge + (
-                power * timedelta_to_hours(duration)
-            )
-
+        next_charge = current_charge + power * timedelta_to_hours(duration)
         self._validate_charge(next_charge)
         return next_charge
 
@@ -287,10 +302,8 @@ class BatterySimulationBuilder(DERSimulationSequenceBuilder):
             timestamp=interval_start, meter_reading=interval_load
         )
 
-        if power_level >= 0:  # charge
-            charge_limit = self.der.capacity
-        else:  # discharge
-            charge_limit = 0
+        charging = power_level >= 0
+        charge_limit = self.der.capacity if charging else 0
 
         current_charge = der_intervalframe.current_charge
         power_limit = self.der.get_target_power(
@@ -299,22 +312,26 @@ class BatterySimulationBuilder(DERSimulationSequenceBuilder):
             target_charge=charge_limit,
         )
 
-        if power_level >= 0:  # charge
+        if charging:  # charge
             operational_power = min(power_level, power_limit)
         else:  # discharge
             operational_power = max(power_level, power_limit)
 
-        current_charge = self.der.get_next_charge(
+        next_charge = self.der.get_next_charge(
             power=operational_power,
             duration=duration,
             current_charge=current_charge,
         )
 
+        actual_power = self.der.get_actual_power(
+            charge_delta=next_charge - current_charge, duration=duration
+        )
+
         return OrderedDict(
             {
                 "start": interval_start,
-                "kw": operational_power,
-                "charge": current_charge,
+                "kw": actual_power,
+                "charge": next_charge,
                 "capacity": self.der.capacity,
             }
         )

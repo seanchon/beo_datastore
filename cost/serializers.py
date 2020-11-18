@@ -96,9 +96,7 @@ class ScenarioSerializer(MeterGroupSerializer):
         """
         Report associated with Scenario.
         """
-        return json.loads(
-            obj.report.reset_index().to_json(default_handler=str)
-        )
+        return json.loads(obj.report.reset_index().to_json(default_handler=str))
 
     def get_report_summary(self, obj):
         """
@@ -255,7 +253,7 @@ class SystemProfileSerializer(AbstractGetDataMixin, DynamicModelSerializer):
     class Meta:
         model = SystemProfile
         fields = (
-            "uuid",
+            "id",
             "name",
             "load_serving_entity",
             "resource_adequacy_rate",
