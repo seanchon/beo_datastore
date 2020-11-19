@@ -1,19 +1,14 @@
 from dynamic_rest.fields import DynamicRelationField
-from dynamic_rest.serializers import DynamicModelSerializer
 from rest_framework import serializers
 
-from beo_datastore.libs.api.serializers import AbstractGetDataMixin
+from beo_datastore.libs.api.serializers import BaseSerializer, DataField
 from cost.study.models import Scenario
 from load.customer.models import CustomerCluster, CustomerMeter, OriginFile
 from load.openei.models import ReferenceMeter
 from reference.reference_model.models import DERSimulation, Meter, MeterGroup
 
 
-class GetMeterDataMixin(AbstractGetDataMixin):
-    intervalframe_name = "meter_intervalframe"
-
-
-class OriginFileSerializer(DynamicModelSerializer):
+class OriginFileSerializer(BaseSerializer):
     filename = serializers.CharField(source="file.name")
 
     class Meta:
@@ -21,7 +16,7 @@ class OriginFileSerializer(DynamicModelSerializer):
         fields = ("filename", "expected_meter_count")
 
 
-class CustomerClusterSerializer(DynamicModelSerializer):
+class CustomerClusterSerializer(BaseSerializer):
     meter_group_id = serializers.CharField(
         source="customer_population.meter_group.id"
     )
@@ -37,7 +32,7 @@ class CustomerClusterSerializer(DynamicModelSerializer):
         )
 
 
-class ScenarioSerializer(DynamicModelSerializer):
+class ScenarioSerializer(BaseSerializer):
     is_complete = serializers.BooleanField(source="has_completed")
 
     class Meta:
@@ -45,8 +40,8 @@ class ScenarioSerializer(DynamicModelSerializer):
         fields = ("is_complete",)
 
 
-class MeterGroupSerializer(GetMeterDataMixin, DynamicModelSerializer):
-    data = serializers.SerializerMethodField()
+class MeterGroupSerializer(BaseSerializer):
+    data = DataField("meter_intervalframe")
     meters = serializers.SerializerMethodField()
     metadata = serializers.SerializerMethodField()
     owners = serializers.StringRelatedField(many=True)
@@ -101,19 +96,19 @@ class MeterGroupSerializer(GetMeterDataMixin, DynamicModelSerializer):
         return obj.intervalframe.date_range
 
 
-class CustomerMeterSerializer(DynamicModelSerializer):
+class CustomerMeterSerializer(BaseSerializer):
     class Meta:
         model = CustomerMeter
         fields = ("sa_id", "rate_plan_name", "state")
 
 
-class ReferenceMeterSerializer(DynamicModelSerializer):
+class ReferenceMeterSerializer(BaseSerializer):
     class Meta:
         model = ReferenceMeter
         fields = ("location", "state", "source_file_url")
 
 
-class DERSimulationSerialzier(DynamicModelSerializer):
+class DERSimulationSerialzier(BaseSerializer):
     class Meta:
         model = DERSimulation
         fields = (
@@ -127,8 +122,8 @@ class DERSimulationSerialzier(DynamicModelSerializer):
         )
 
 
-class MeterSerializer(GetMeterDataMixin, DynamicModelSerializer):
-    data = serializers.SerializerMethodField()
+class MeterSerializer(BaseSerializer):
+    data = DataField("meter_intervalframe")
     metadata = serializers.SerializerMethodField()
     meter_groups = DynamicRelationField("MeterGroupSerializer", many=True)
 
@@ -149,16 +144,12 @@ class MeterSerializer(GetMeterDataMixin, DynamicModelSerializer):
         Nest related serializer under "metadata".
         """
         if isinstance(obj, CustomerMeter):
-            return CustomerMeterSerializer(
-                obj, many=False, read_only=True
-            ).data
+            return CustomerMeterSerializer(obj, many=False, read_only=True).data
         elif isinstance(obj, ReferenceMeter):
             return ReferenceMeterSerializer(
                 obj, many=False, read_only=True
             ).data
         elif isinstance(obj, DERSimulation):
-            return DERSimulationSerialzier(
-                obj, many=False, read_only=True
-            ).data
+            return DERSimulationSerialzier(obj, many=False, read_only=True).data
         else:
             return {}

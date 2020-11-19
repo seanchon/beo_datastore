@@ -1,9 +1,9 @@
 from dynamic_rest.fields import DynamicRelationField
-from dynamic_rest.serializers import DynamicModelSerializer
 from rest_framework import serializers
 
 from beo_datastore.libs.api.serializers import (
-    AbstractGetDataMixin,
+    BaseSerializer,
+    DataField,
     Frame288ComputedField,
 )
 from der.simulation.models import (
@@ -21,17 +21,13 @@ from reference.reference_model.models import (
 )
 
 
-class GetDERDataMixin(AbstractGetDataMixin):
-    intervalframe_name = "der_intervalframe"
-
-
-class BatteryConfigurationSerializer(DynamicModelSerializer):
+class BatteryConfigurationSerializer(BaseSerializer):
     class Meta:
         model = BatteryConfiguration
         fields = ("rating", "discharge_duration_hours", "efficiency")
 
 
-class EVSEConfigurationSerializer(DynamicModelSerializer):
+class EVSEConfigurationSerializer(BaseSerializer):
     class Meta:
         model = EVSEConfiguration
         fields = (
@@ -45,7 +41,7 @@ class EVSEConfigurationSerializer(DynamicModelSerializer):
         )
 
 
-class SolarPVConfigurationSerializer(DynamicModelSerializer):
+class SolarPVConfigurationSerializer(BaseSerializer):
     address = serializers.CharField(source="parameters.address")
     array_type = serializers.IntegerField(source="parameters.array_type")
     azimuth = serializers.FloatField(source="parameters.azimuth")
@@ -68,7 +64,7 @@ class SolarPVConfigurationSerializer(DynamicModelSerializer):
         )
 
 
-class DERConfigurationSerializer(DynamicModelSerializer):
+class DERConfigurationSerializer(BaseSerializer):
     data = serializers.SerializerMethodField()
 
     class Meta:
@@ -98,8 +94,8 @@ class DERConfigurationSerializer(DynamicModelSerializer):
         return serializer(obj, many=False, read_only=True).data
 
 
-class DERSimulationSerializer(GetDERDataMixin, DynamicModelSerializer):
-    data = serializers.SerializerMethodField()
+class DERSimulationSerializer(BaseSerializer):
+    data = DataField("der_intervalframe")
     meter = DynamicRelationField("load.serializers.MeterSerializer")
 
     class Meta:
@@ -118,7 +114,7 @@ class DERSimulationSerializer(GetDERDataMixin, DynamicModelSerializer):
         )
 
 
-class BatteryStrategySerializer(DynamicModelSerializer):
+class BatteryStrategySerializer(BaseSerializer):
     charge_schedule_frame = Frame288ComputedField("charge_schedule.frame288")
     discharge_schedule_frame = Frame288ComputedField(
         "discharge_schedule.frame288"
@@ -129,7 +125,7 @@ class BatteryStrategySerializer(DynamicModelSerializer):
         fields = ("charge_schedule_frame", "discharge_schedule_frame")
 
 
-class EVSEStrategySerializer(DynamicModelSerializer):
+class EVSEStrategySerializer(BaseSerializer):
     charge_schedule = Frame288ComputedField("charge_schedule.frame288")
     drive_schedule = Frame288ComputedField("drive_schedule.frame288")
 
@@ -138,7 +134,7 @@ class EVSEStrategySerializer(DynamicModelSerializer):
         fields = ("charge_schedule", "drive_schedule")
 
 
-class SolarPVStrategySerializer(DynamicModelSerializer):
+class SolarPVStrategySerializer(BaseSerializer):
     serviceable_load_ratio = serializers.FloatField(
         source="parameters.serviceable_load_ratio"
     )
@@ -148,7 +144,7 @@ class SolarPVStrategySerializer(DynamicModelSerializer):
         fields = ("serviceable_load_ratio",)
 
 
-class DERStrategySerializer(DynamicModelSerializer):
+class DERStrategySerializer(BaseSerializer):
     data = serializers.SerializerMethodField()
 
     class Meta:

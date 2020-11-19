@@ -12,7 +12,6 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
 
-from beo_datastore.libs.api.serializers import require_request_data
 from beo_datastore.libs.api.viewsets import (
     CreateListRetrieveDestroyViewSet,
     CreateListRetrieveUpdateDestroyViewSet,
@@ -160,7 +159,7 @@ class ScenarioViewSet(CreateListRetrieveUpdateDestroyViewSet):
     )
 
     def create(self, request):
-        require_request_data(request, ["name", "meter_group_ids", "ders"])
+        self._require_data_fields("name", "meter_group_ids", "ders")
 
         lse = request.user.profile.load_serving_entity
         name, meter_group_ids, scenario_ids, ders, cost_functions = self._data(
@@ -551,7 +550,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
         Handle upload for a system profile annual interval in CSV
         and ingest as a new SystemProfile instance.
         """
-        require_request_data(request, ["file", "resource_adequacy_rate"])
+        self._require_data_fields("file", "resource_adequacy_rate")
 
         [file, name, resource_adequacy_rate] = self._data(
             ["file", "name", "resource_adequacy_rate"]
@@ -601,10 +600,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
 
         try:
             df.set_index(
-                keys=indices,
-                verify_integrity=True,
-                drop=True,
-                inplace=True,
+                keys=indices, verify_integrity=True, drop=True, inplace=True,
             )
         except Exception as e:
             raise serializers.ValidationError(

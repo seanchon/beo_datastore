@@ -1,7 +1,7 @@
 from typing import List
 
 from dynamic_rest.viewsets import WithDynamicViewSetMixin
-from rest_framework import mixins, viewsets
+from rest_framework import mixins, serializers, viewsets
 
 from beo_datastore.libs.api.pagination import DefaultResultsSetPagination
 
@@ -26,6 +26,18 @@ class BaseViewSet(viewsets.GenericViewSet):
         :param data_keys: the names of the data keys to get
         """
         return [self.request.data.get(key) for key in data_keys]
+
+    def _require_data_fields(self, *data_keys: str):
+        """
+        Require that specified data fields are included in a request
+
+        :param data_keys: required inputs (str)
+        """
+        missing_inputs = set(data_keys) - set(self.request.data.keys())
+        if missing_inputs:
+            raise serializers.ValidationError(
+                "Required: {}".format(", ".join(missing_inputs))
+            )
 
 
 class CreateViewSet(mixins.CreateModelMixin, BaseViewSet):
@@ -96,7 +108,8 @@ class ListRetrieveUpdateDestroyViewSet(
         if "envelope" not in kwargs:
             kwargs["envelope"] = True
 
-        # Deliberately skips the parent class's method, which modifies the "included fields"
+        # Deliberately skips the parent class's method, which modifies the
+        # "included fields"
         return super(WithDynamicViewSetMixin, self).get_serializer(
             *args, **kwargs
         )
