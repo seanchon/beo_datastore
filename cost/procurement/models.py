@@ -38,15 +38,6 @@ from reference.auth_user.models import LoadServingEntity
 from reference.reference_model.models import DERSimulation
 
 
-class SystemProfileIntervalFrame(PowerIntervalFrameFile):
-    """
-    Model for handling SystemProfile IntervalFrameFiles.
-    """
-
-    # directory for parquet file storage
-    file_directory = os.path.join(MEDIA_ROOT, "system_profiles")
-
-
 class SystemProfile(
     IntervalFrameFileMixin,
     RateDataMixin,
@@ -73,6 +64,11 @@ class SystemProfile(
     resource_adequacy_rate = models.FloatField(
         validators=[MinValueValidator(0.0)],
     )
+
+    class SystemProfileIntervalFrame(PowerIntervalFrameFile):
+
+        # directory for parquet file storage
+        file_directory = os.path.join(MEDIA_ROOT, "system_profiles")
 
     # Required by IntervalFrameFileMixin.
     frame_file_class = SystemProfileIntervalFrame
