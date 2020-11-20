@@ -5,7 +5,7 @@ from reference.reference_model.models import DERSimulation
 
 class RateDataMixin(object):
     """
-    Mixin for all DER rate models used to generate DER cost-calcuations.
+    Mixin for all DER rate models used to generate DER cost-calculations.
     """
 
     @property

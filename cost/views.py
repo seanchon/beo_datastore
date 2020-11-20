@@ -556,7 +556,36 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
         [file, name, resource_adequacy_rate] = self._data(
             ["file", "name", "resource_adequacy_rate"]
         )
+
         load_serving_entity = request.user.profile.load_serving_entity
+        dataframe = self.read_interval_csv(file)
+        name = name or file.name.split(".")[0]
+        try:
+            system_profile, created = SystemProfile.get_or_create(
+                dataframe=dataframe,
+                name=name,
+                load_serving_entity=load_serving_entity,
+                resource_adequacy_rate=resource_adequacy_rate,
+            )
+        except serializers.ValidationError as e:
+            raise serializers.ValidationError(detail=e.message_dict)
+
+        if not created:
+            raise serializers.ValidationError(
+                "SystemProfile with provided parameters already exists!"
+            )
+
+        return Response(
+            {
+                "system_profile": self.serializer_class(
+                    system_profile, many=False
+                ).data
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @staticmethod
+    def read_interval_csv(file) -> pd.DataFrame:
 
         df = pd.read_csv(file)
         # Clean redundant empty rows or columns if any.
@@ -637,30 +666,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
             )
         df.rename(columns={value: "kw"}, inplace=True)
 
-        name = name or file.name.split(".")[0]
-        try:
-            system_profile, created = SystemProfile.get_or_create(
-                dataframe=df,
-                name=name,
-                load_serving_entity=load_serving_entity,
-                resource_adequacy_rate=resource_adequacy_rate,
-            )
-        except serializers.ValidationError as e:
-            raise serializers.ValidationError(detail=e.message_dict)
-
-        if not created:
-            raise serializers.ValidationError(
-                "SystemProfile with provided parameters already exists!"
-            )
-
-        return Response(
-            {
-                "system_profile": self.serializer_class(
-                    system_profile, many=False
-                ).data
-            },
-            status=status.HTTP_201_CREATED,
-        )
+        return df
 
 
 class ProcurementRateViewSet(CreateListRetrieveDestroyViewSet):
