@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from functools import reduce
 
 import pandas as pd
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.utils.functional import cached_property
 from jsonfield import JSONField
@@ -36,6 +36,91 @@ from navigader_core.load.dataframe import get_dataframe_period
 from navigader_core.load.intervalframe import ValidationFrame288
 from reference.auth_user.models import LoadServingEntity
 from reference.reference_model.models import DERSimulation
+
+
+class ProcurementRate(
+    IntervalFrameFileMixin,
+    RateDataMixin,
+    TimeStampMixin,
+    ValidationModel,
+):
+    """
+    Represents hourly or quarter-hourly procurement $/kW rates that can be
+    a combination of CAISO pricing and/or other fees/cost specific to a CCA
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    load_serving_entity = models.ForeignKey(
+        to=LoadServingEntity,
+        related_name="procurement_rates",
+        on_delete=models.PROTECT,
+    )
+    year = models.IntegerField(
+        validators=[MinValueValidator(2000), MaxValueValidator(2050)]
+    )
+
+    class Meta:
+        ordering = ["-updated_at"]
+        unique_together = [
+            "name",
+            "load_serving_entity",
+            "year",
+        ]
+
+    # Required by RateDataMixin.
+    cost_calculation_model = AggregateProcurementCostCalculation
+
+    class ProcurementRateIntervalFrame(PowerIntervalFrameFile):
+
+        # directory for parquet file storage
+        file_directory = os.path.join(MEDIA_ROOT, "procurement_rates")
+
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = ProcurementRateIntervalFrame
+
+    def __str__(self):
+        return "{}-{} {}".format(self.year, self.load_serving_entity, self.name)
+
+    @property
+    def rate_data(self):
+        """
+        Required by RateDataMixin.
+        """
+        return self.intervalframe
+
+    @property
+    def short_name(self):
+        """
+        Name minus whitespace.
+        """
+        return self.name.replace(" ", "")
+
+    @property
+    def average_frame288_html_plot(self):
+        """
+        Return Django-formatted HTML average 288 plt.
+        """
+        return plot_frame288(
+            frame288=ValidationFrame288(
+                self.intervalframe.average_frame288.dataframe / 1000
+            ),
+            y_label="MW",
+            to_html=True,
+        )
+
+    @property
+    def maximum_frame288_html_plot(self):
+        """
+        Return Django-formatted HTML maximum 288 plt.
+        """
+        return plot_frame288(
+            frame288=ValidationFrame288(
+                self.intervalframe.maximum_frame288.dataframe / 1000
+            ),
+            y_label="MW",
+            to_html=True,
+        )
 
 
 class SystemProfile(
