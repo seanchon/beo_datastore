@@ -20,7 +20,7 @@ from beo_datastore.libs.api.viewsets import (
 )
 from beo_datastore.libs.dataframe import download_dataframe
 from cost.ghg.models import GHGRate
-from cost.procurement.models import CAISORate, SystemProfile
+from cost.procurement.models import CAISORate, ProcurementRate, SystemProfile
 from cost.study.models import Scenario
 from cost.utility_rate.libs import (
     convert_rate_df_to_dict,
@@ -36,6 +36,7 @@ from reference.reference_model.models import (
 from .serializers import (
     CAISORateSerializer,
     GHGRateSerializer,
+    ProcurementRateSerializer,
     RateCollectionSerializer,
     RatePlanSerializer,
     ScenarioSerializer,
@@ -486,7 +487,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
     model = SystemProfile
     serializer_class = SystemProfileSerializer
 
-    class CustomSystemProfileSchema(AutoSchema):
+    class CustomProfileSchema(AutoSchema):
         manual_fields = []
 
         def get_manual_fields(self, path: str, method: str):
@@ -534,7 +535,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
                 ]
             return self._manual_fields + custom_fields
 
-    schema = CustomSystemProfileSchema()
+    schema = CustomProfileSchema()
 
     def get_queryset(self):
         """
@@ -600,7 +601,10 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
 
         try:
             df.set_index(
-                keys=indices, verify_integrity=True, drop=True, inplace=True,
+                keys=indices,
+                verify_integrity=True,
+                drop=True,
+                inplace=True,
             )
         except Exception as e:
             raise serializers.ValidationError(
@@ -657,3 +661,193 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class ProcurementRateViewSet(CreateListRetrieveDestroyViewSet):
+    model = ProcurementRate
+    serializer_class = ProcurementRateSerializer
+
+    class CustomProfileSchema(AutoSchema):
+        manual_fields = []
+
+        def get_manual_fields(self, path: str, method: str):
+            custom_fields = []
+            if method.upper() == "GET":
+                custom_fields = [
+                    coreapi.Field(
+                        "data_types",
+                        required=False,
+                        location="query",
+                        description=(
+                            "One or many data types to return. Choices are 'default', "
+                            "'total', 'average', 'maximum', 'minimum', and 'count'."
+                        ),
+                    ),
+                ]
+            if method.upper() == "POST":
+                custom_fields = [
+                    coreapi.Field(
+                        "file",
+                        required=True,
+                        location="body",
+                        description=(
+                            "CSV file that contains a load serving entity annual hourly or quarter-hourly "
+                            "Procurement $/Power rates. "
+                            "1st column header is arbitrary. "
+                            "2nd column header must be one of: $/kW, $/MW, or $/GW. "
+                            "1st column is to be timestamps with consistent 15 or 60 minutes intervals. "
+                            "2nd column is to be dollars cost values during each timestamp."
+                        ),
+                    ),
+                    coreapi.Field(
+                        "name",
+                        required=False,
+                        location="body",
+                        description=(
+                            "Procurement rate `name`. If not provided filename will be used instead."
+                        ),
+                    ),
+                    coreapi.Field(
+                        "year",
+                        required=True,
+                        location="body",
+                        description="The 'year' intervals that should exist in upload CSV fie.",
+                    ),
+                ]
+            return self._manual_fields + custom_fields
+
+    schema = CustomProfileSchema()
+
+    def get_queryset(self):
+        """
+        Limit the user to the ProcurementRate objects associated with their LSE.
+        """
+        user = self.request.user
+        return ProcurementRate.objects.filter(
+            load_serving_entity=user.profile.load_serving_entity
+        )
+
+    def create(self, request, *args, **kwargs):
+        """
+        Handle upload and ingestion of a CCA historic interval pricing
+        rates (cost) per actual load (power) for a given year.
+
+        """
+        self._require_data_fields("file", "year")
+        [file, name, year] = self._data(["file", "name", "year"])
+
+        dataframe = self.read_interval_csv(file)
+
+        name = name or file.name.split(".")[0]
+        load_serving_entity = request.user.profile.load_serving_entity
+        try:
+            procurement_rate, created = ProcurementRate.get_or_create(
+                dataframe=dataframe,
+                load_serving_entity=load_serving_entity,
+                name=name,
+                year=year,
+            )
+        except serializers.ValidationError as e:
+            raise serializers.ValidationError(detail=e.message_dict)
+
+        if not created:
+            raise serializers.ValidationError(
+                f"{self.model.__name__} with provided parameters already exists!"
+            )
+
+        return Response(
+            {
+                "procurement_rate": self.serializer_class(
+                    procurement_rate, many=False
+                ).data
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @staticmethod
+    def read_interval_csv(file: str) -> pd.DataFrame:
+        """
+        Read and parse file like object of a CSV file with
+        time series and value columns.
+        """
+        try:
+            df = pd.read_csv(file)
+            # Clean redundant empty rows or columns if any.
+            df.dropna(axis=0, how="all", inplace=True)
+            df.dropna(axis=1, how="all", inplace=True)
+        except Exception as e:
+            raise serializers.ValidationError(
+                "Could not covert CSV file to DataFrame! ", e
+            )
+
+        # Ensure intervals are consistent.
+        timestamp_column = df.columns[0]
+        indices = pd.DatetimeIndex(df[timestamp_column])
+        intervals = set(np.diff(indices))
+        if len(intervals) != 1:
+            raise serializers.ValidationError(
+                "Timestamp intervals are inconsistent. Found the following "
+                f"intervals: {intervals}"
+            )
+
+        interval: int = get_dataframe_period(
+            df, by_column=timestamp_column, n=None
+        ).seconds
+
+        if interval not in [QUARTER_HOUR, HOUR]:
+            raise serializers.ValidationError(
+                f"Expected intervals are either 15 or 60 minutes. "
+                f"Found '{interval/60}' minutes."
+            )
+
+        # Validate that upload file contains interval readings `up to` 366 days
+        first_interval: pd.Timestamp = indices[0]
+        last_interval: pd.Timestamp = indices[-1]
+
+        span_days = (last_interval - first_interval).days
+        if span_days > 366:
+            raise serializers.ValidationError(
+                "Upload CSV intervals span exceeds 366 days. "
+                f"There are {span_days} days between {first_interval} and {last_interval}."
+            )
+
+        # Relabel intervals with their start-datetime instead of end-interval datetime.
+        indices = indices - pd.to_timedelta(interval, unit="second")
+
+        try:
+            df.set_index(
+                keys=indices,
+                verify_integrity=True,
+                drop=True,
+                inplace=True,
+            )
+        except Exception as e:
+            raise serializers.ValidationError(
+                "Duplicates, inconsistent or missing interval timestamps. ", e
+            )
+        df.drop(columns=timestamp_column, inplace=True)
+        df.index.rename("index", inplace=True)
+
+        # Convert energy or power readings from one of the expected
+        # headers/units  kW, kWh, MW, MWH, GW, or GWH into `Power in kW`.
+        value = df.columns[0]
+        unit = value.upper()
+        if unit in ("KWH", "MWH", "GWH"):
+            raise serializers.ValidationError(
+                f"Procurement rates are expected to be per kW, MW, or GW power units. "
+                f"Found '{unit}' energy unit in upload csv file header."
+            )
+        elif "KW" in unit:
+            pass
+        elif "MW" in unit:
+            df[value] /= 1e3
+        elif "GW" in unit:
+            df[value] /= 1e6
+        else:
+            raise serializers.ValidationError(
+                f"Procurement rates are expected to be per kW, MW, or GW power units. "
+                f"Found {unit} in upload csv file header."
+            )
+        df.rename(columns={value: "kw"}, inplace=True)
+
+        return df

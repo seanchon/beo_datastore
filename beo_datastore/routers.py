@@ -3,9 +3,10 @@ from rest_framework.routers import DefaultRouter
 from cost.views import (
     CAISORateViewSet,
     GHGRateViewSet,
-    ScenarioViewSet,
-    RatePlanViewSet,
+    ProcurementRateViewSet,
     RateCollectionViewSet,
+    RatePlanViewSet,
+    ScenarioViewSet,
     SystemProfileViewSet,
 )
 from der.views import (
@@ -15,14 +16,16 @@ from der.views import (
 )
 from load.views import (
     CustomerClusterViewSet,
-    MeterViewSet,
     MeterGroupViewSet,
+    MeterViewSet,
     OriginFileViewSet,
 )
 
-
 v1_router = DefaultRouter()
 v1_router.register(r"cost/caiso_rate", CAISORateViewSet, basename="CAISORate")
+v1_router.register(
+    r"cost/procurement_rate", ProcurementRateViewSet, basename="ProcurementRate"
+)
 v1_router.register(r"cost/ghg_rate", GHGRateViewSet, basename="GHGRate")
 v1_router.register(r"cost/scenario", ScenarioViewSet, basename="Scenario")
 v1_router.register(r"cost/rate_plan", RatePlanViewSet, basename="RatePlan")

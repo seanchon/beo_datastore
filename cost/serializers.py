@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 from beo_datastore.libs.api.serializers import BaseSerializer, DataField
 from cost.ghg.models import GHGRate
-from cost.procurement.models import CAISORate, SystemProfile
+from cost.procurement.models import CAISORate, ProcurementRate, SystemProfile
 from cost.study.models import Scenario
 from cost.utility_rate.models import RateCollection, RatePlan
 from der.serializers import (
@@ -249,4 +249,21 @@ class SystemProfileSerializer(BaseSerializer):
             "load_serving_entity",
             "resource_adequacy_rate",
             "data",
+        )
+
+
+class ProcurementRateSerializer(BaseSerializer):
+    data = DataField()
+    load_serving_entity = DynamicRelationField(
+        LoadServingEntitySerializer, deferred=True, embed=True
+    )
+
+    class Meta:
+        model = ProcurementRate
+        fields = (
+            "id",
+            "data",
+            "name",
+            "load_serving_entity",
+            "year",
         )
