@@ -13,7 +13,7 @@ command=(eb deploy $env_name --label "${env_name}-${cur_date_time}")
 echo "Running command: ${command[@]}"
 ${command[@]}
 
-command=(eb deploy "${$env_name}-worker" --label "${env_name}-worker-${cur_date_time}")
+command=(eb deploy "${env_name}-worker" --label "${env_name}-worker-${cur_date_time}")
 echo "Running command: ${command[@]}"
 ${command[@]}
 
