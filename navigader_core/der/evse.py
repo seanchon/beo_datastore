@@ -388,7 +388,11 @@ class EVSESimulationBuilder(DERSimulationSequenceBuilder):
             self.der.ev_mpg_eq * duration_hours
         )
 
-        if gallon_per_hour < 0:
+        # Rounded because float division can be messy and leave minuscule
+        # overflow. The number 5 is somewhat arbitrary-- not so small that a
+        # real overflow would be missed, not so big that the float division
+        # error wouldn't be rounded off.
+        if round(gallon_per_hour, 5) < 0:
             raise RuntimeError("Gallon per hour cannot be negative.")
         else:
             return gallon_per_hour
