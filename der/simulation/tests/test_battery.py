@@ -14,7 +14,11 @@ from navigader_core.load.intervalframe import PowerIntervalFrame
 
 from beo_datastore.libs.fixtures import flush_intervalframe_files
 
-from der.simulation.models import StoredBatterySimulation
+from der.simulation.models import (
+    BatteryConfiguration,
+    BatteryStrategy,
+    StoredBatterySimulation,
+)
 from load.customer.models import CustomerMeter, Channel
 from reference.reference_model.models import DataUnit
 from reference.auth_user.models import LoadServingEntity
@@ -71,6 +75,11 @@ class TestBattery(TestCase):
         self.battery = pyBattery(
             rating=5, discharge_duration=timedelta(hours=2), efficiency=0.5
         )
+        configuration, _ = BatteryConfiguration.get_or_create_from_object(
+            self.battery
+        )
+        self.battery_configuration = configuration
+
         # always attempt to charge on negative kW readings
         self.charge_schedule = create_diurnal_schedule(
             start_hour=0, end_limit_hour=0, power_limit_1=0, power_limit_2=0
@@ -80,14 +89,18 @@ class TestBattery(TestCase):
             start_hour=0, end_limit_hour=0, power_limit_1=5, power_limit_2=5
         )
 
-        self.battery_strategy = pyBatteryStrategy(
+        self.battery_strategy_core = pyBatteryStrategy(
             charge_schedule=self.charge_schedule,
             discharge_schedule=self.discharge_schedule,
         )
 
+        self.battery_strategy = BatteryStrategy.create_from_battery_strategy(
+            self.battery_strategy_core
+        )
+
         # run battery simulation
         builder = BatterySimulationBuilder(
-            der=self.battery, der_strategy=self.battery_strategy
+            der=self.battery, der_strategy=self.battery_strategy_core
         )
         self.director = DERSimulationDirector(builder=builder)
         self.simulation = self.director.run_single_simulation(
@@ -102,7 +115,10 @@ class TestBattery(TestCase):
         Test the retrieval of battery simulation elements from disk/database.
         """
         StoredBatterySimulation.get_or_create_from_objects(
-            meter=self.meter, der_product=self.simulation
+            meter=self.meter,
+            der_configuration=self.battery_configuration,
+            der_product=self.simulation,
+            der_strategy=self.battery_strategy,
         )
 
         # retrieve simulation from disk
@@ -126,7 +142,7 @@ class TestBattery(TestCase):
         Test the retrieval of aggregate battery simulations from disk/database.
         """
         StoredBatterySimulation.generate(
-            der=self.battery,
+            der_configuration=self.battery_configuration,
             der_strategy=self.battery_strategy,
             start=self.intervalframe.start_datetime,
             end_limit=self.intervalframe.end_limit_datetime,
@@ -136,7 +152,7 @@ class TestBattery(TestCase):
 
         # retrieve aggregate simulation from disk
         stored_simulations = StoredBatterySimulation.generate(
-            der=self.battery,
+            der_configuration=self.battery_configuration,
             der_strategy=self.battery_strategy,
             start=self.intervalframe.start_datetime,
             end_limit=self.intervalframe.end_limit_datetime,

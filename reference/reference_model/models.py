@@ -644,14 +644,22 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
 
     @classmethod
     def get_or_create_from_objects(
-        cls, meter, der_product, start=None, end_limit=None
+        cls,
+        meter: Meter,
+        der_configuration: DERConfiguration,
+        der_product: DERProduct,
+        der_strategy: DERStrategy,
+        start=None,
+        end_limit=None,
     ):
         """
         Get existing or create new DERSimulation from a Meter and DERProduct.
         Creates necessary DERConfiguration and DERSchedule objects
 
         :param meter: Meter
+        :param der_configuration: DERConfiguration
         :param der_product: DERProduct
+        :param der_strategy: DERStrategy
         :param start: datetime
         :param end_limit: datetime
         :return: (
@@ -669,32 +677,12 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
                 start=start,
                 end_limit=end_limit,
                 meter=meter,
-                der_configuration=cls.get_configuration(der_product.der),
-                der_strategy=cls.get_strategy(der_product.der_strategy),
+                der_configuration=der_configuration,
+                der_strategy=der_strategy,
                 pre_DER_total=der_product.pre_der_intervalframe.total,
                 post_DER_total=der_product.post_der_intervalframe.total,
                 dataframe=der_product.der_intervalframe.dataframe,
             )
-
-    @classmethod
-    def get_configuration(cls, der: pyDER) -> DERConfiguration:
-        """
-        Gets a `DERConfiguration` for use in a simulation, given the DER python
-        model that the configuration wraps
-        """
-        raise NotImplementedError(
-            "get_configuration must be set in {}".format(cls.__class__)
-        )
-
-    @classmethod
-    def get_strategy(cls, der_strategy: pyDERStrategy) -> DERStrategy:
-        """
-        Gets a `DERStrategy` for use in a simulation, given the DERStrategy
-        python model that the strategy wraps
-        """
-        raise NotImplementedError(
-            "get_strategy must be set in {}".format(cls.__class__)
-        )
 
     @classmethod
     def get_simulation_builder(
@@ -710,8 +698,8 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
     @classmethod
     def generate(
         cls,
-        der: pyDER,
-        der_strategy: pyDERStrategy,
+        der_configuration: DERConfiguration,
+        der_strategy: DERStrategy,
         start,
         end_limit,
         meter_set,
@@ -721,8 +709,8 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         Get or create many DERSimulations at once. Pre-existing simulations are
         retrieved and non-existing simulations are created.
 
-        :param der: pyDER
-        :param der_strategy: pyDERStrategy
+        :param der_configuration: DERConfiguration
+        :param der_strategy: DERStrategy
         :param start: datetime
         :param end_limit: datetime
         :param meter_set: QuerySet or set of Meters
@@ -730,14 +718,11 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         :return: simulation QuerySet
         """
         with transaction.atomic():
-            configuration = cls.get_configuration(der)
-            strategy = cls.get_strategy(der_strategy)
-
             # get existing simulations
             stored_simulations = cls.objects.filter(
                 meter__id__in=[x.id for x in meter_set],
-                der_configuration=configuration,
-                der_strategy=strategy,
+                der_configuration=der_configuration,
+                der_strategy=der_strategy,
                 start=start,
                 end_limit=end_limit,
             )
@@ -745,7 +730,8 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
             # generate new simulations for remaining meters
             new_meters = set(meter_set) - {x.meter for x in stored_simulations}
             builder = cls.get_simulation_builder(
-                der=der, der_strategy=der_strategy
+                der=der_configuration.der,
+                der_strategy=der_strategy.der_strategy,
             )
             director = DERSimulationDirector(builder=builder)
             new_simulation = director.run_many_simulations(
@@ -761,15 +747,17 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
             for (meter, der_simulation) in new_simulation.der_products.items():
                 cls.get_or_create_from_objects(
                     meter=meter,
+                    der_configuration=der_configuration,
                     der_product=der_simulation,
+                    der_strategy=der_strategy,
                     start=start,
                     end_limit=end_limit,
                 )
 
             return cls.objects.filter(
                 meter__in=meter_set,
-                der_configuration=configuration,
-                der_strategy=strategy,
+                der_configuration=der_configuration,
+                der_strategy=der_strategy,
                 start=start,
                 end_limit=end_limit,
             )

@@ -815,8 +815,8 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
         Run a single Meter's DERSimulation and cost calculations.
         """
         der_simulation_set = self.der_simulation_class.generate(
-            der=self.der_configuration.der,
-            der_strategy=self.der_strategy.der_strategy,
+            der_configuration=self.der_configuration,
+            der_strategy=self.der_strategy,
             start=self.start,
             end_limit=self.end_limit,
             meter_set={meter},
@@ -875,10 +875,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
 
         return reduce(
             lambda x, y: x + y,
-            (
-                nested_getattr(x, frame_attr)
-                for x in self.der_simulations.all()
-            ),
+            (nested_getattr(x, frame_attr) for x in self.der_simulations.all()),
             PowerIntervalFrame(),
         )
 

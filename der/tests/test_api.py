@@ -81,8 +81,8 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
 
         # create a battery simulation
         StoredBatterySimulation.generate(
-            der=configuration.der,
-            der_strategy=strategy.der_strategy,
+            der_configuration=configuration,
+            der_strategy=strategy,
             start=datetime(2018, 1, 1),
             end_limit=datetime(2018, 1, 2),
             meter_set=CustomerMeter.objects.all(),

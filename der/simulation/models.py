@@ -164,6 +164,25 @@ class BatteryStrategy(DERStrategy):
         )
 
     @classmethod
+    def create_from_battery_strategy(cls, strategy: pyBatteryStrategy):
+        """
+        Create BatteryConfiguration from pyBattery.
+
+        :param strategy: pyBattery
+        :return: BatteryConfiguration
+        """
+        charge_schedule, _ = DERSchedule.get_or_create_from_frame288(
+            strategy.charge_schedule
+        )
+        discharge_schedule, _ = DERSchedule.get_or_create_from_frame288(
+            strategy.discharge_schedule
+        )
+        return cls.objects.create(
+            charge_schedule=charge_schedule,
+            discharge_schedule=discharge_schedule,
+        )
+
+    @classmethod
     def generate(
         cls,
         name,
@@ -549,29 +568,6 @@ class StoredBatterySimulation(DERSimulation):
         )
 
     @classmethod
-    def get_configuration(cls, der: pyBattery) -> BatteryConfiguration:
-        configuration, _ = BatteryConfiguration.objects.get_or_create(
-            rating=der.rating,
-            discharge_duration_hours=der.discharge_duration_hours,
-            efficiency=der.efficiency,
-        )
-        return configuration
-
-    @classmethod
-    def get_strategy(cls, der_strategy: pyBatteryStrategy) -> BatteryStrategy:
-        charge_schedule, _ = DERSchedule.get_or_create_from_frame288(
-            der_strategy.charge_schedule
-        )
-        discharge_schedule, _ = DERSchedule.get_or_create_from_frame288(
-            der_strategy.discharge_schedule
-        )
-        der_strategy, _ = BatteryStrategy.objects.get_or_create(
-            charge_schedule=charge_schedule,
-            discharge_schedule=discharge_schedule,
-        )
-        return der_strategy
-
-    @classmethod
     def get_simulation_builder(
         cls, der: pyBattery, der_strategy: pyBatteryStrategy
     ) -> BatterySimulationBuilder:
@@ -599,32 +595,6 @@ class EVSESimulation(DERSimulation):
 
     class Meta(DERSimulation.Meta):
         verbose_name_plural = "EVSE simulations"
-
-    @classmethod
-    def get_configuration(cls, der: pyEVSE) -> EVSEConfiguration:
-        configuration, _ = EVSEConfiguration.objects.get_or_create(
-            ev_mpkwh=der.ev_mpkwh,
-            ev_mpg_eq=der.ev_mpg_eq,
-            ev_capacity=der.ev_capacity,
-            ev_efficiency=der.ev_efficiency,
-            evse_rating=der.evse_rating,
-            ev_count=der.ev_count,
-            evse_count=der.evse_count,
-        )
-        return configuration
-
-    @classmethod
-    def get_strategy(cls, der_strategy: pyEVSEStrategy) -> EVSEStrategy:
-        charge_schedule, _ = DERSchedule.get_or_create_from_frame288(
-            frame288=der_strategy.charge_schedule
-        )
-        drive_schedule, _ = DERSchedule.get_or_create_from_frame288(
-            frame288=der_strategy.drive_schedule
-        )
-        der_strategy, _ = EVSEStrategy.objects.get_or_create(
-            charge_schedule=charge_schedule, drive_schedule=drive_schedule
-        )
-        return der_strategy
 
     @classmethod
     def get_simulation_builder(
@@ -661,6 +631,16 @@ class SolarPVConfiguration(DERConfiguration):
         return pySolarPV(
             stored_response=self.stored_response, **self.parameters
         )
+
+    def fetch_pvwatts_response(self):
+        """
+        Fetches the solar data from the PVWatts API. This happens upon object
+        creation, and can subsequently be called again if the original API call
+        fails.
+        """
+        der = pySolarPV(api_key=PVWATTS_API_KEY, **self.parameters)
+        self.stored_response = der.pvwatts_response
+        self.save()
 
     @cached_property
     def solar_intervalframe(self) -> PowerIntervalFrame:
@@ -798,22 +778,6 @@ class SolarPVSimulation(DERSimulation):
         return self.der_configuration.der.get_system_capacity(
             self.intervalframe
         )
-
-    @classmethod
-    def get_configuration(cls, der: pySolarPV) -> SolarPVConfiguration:
-        configuration, _ = SolarPVConfiguration.get_or_create_from_object(
-            solar_pv=der
-        )
-
-        return configuration
-
-    @classmethod
-    def get_strategy(cls, der_strategy: pySolarPVStrategy) -> SolarPVStrategy:
-        der_strategy, _ = SolarPVStrategy.get_or_create_from_object(
-            solar_pv_strategy=der_strategy
-        )
-
-        return der_strategy
 
     @classmethod
     def get_simulation_builder(

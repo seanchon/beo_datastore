@@ -72,9 +72,16 @@ class TestSolarPV(APITestCase):
         self.assertEqual(SolarPVSimulation.objects.count(), 0)
 
         meter = CustomerMeter.objects.first()
+        configuration, _ = SolarPVConfiguration.get_or_create_from_object(
+            solar_pv=self.solar_pv
+        )
+        strategy, _ = SolarPVStrategy.get_or_create_from_object(
+            solar_pv_strategy=self.solar_pv_strategy
+        )
+
         SolarPVSimulation.generate(
-            der=self.solar_pv,
-            der_strategy=self.solar_pv_strategy,
+            der_configuration=configuration,
+            der_strategy=strategy,
             start=meter.intervalframe.start_datetime,
             end_limit=meter.intervalframe.end_limit_datetime,
             meter_set={meter},
