@@ -38,91 +38,6 @@ from reference.auth_user.models import LoadServingEntity
 from reference.reference_model.models import DERSimulation
 
 
-class ProcurementRate(
-    IntervalFrameFileMixin,
-    RateDataMixin,
-    TimeStampMixin,
-    ValidationModel,
-):
-    """
-    Represents hourly or quarter-hourly procurement $/kW rates that can be
-    a combination of CAISO pricing and/or other fees/cost specific to a CCA
-    """
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=255)
-    load_serving_entity = models.ForeignKey(
-        to=LoadServingEntity,
-        related_name="procurement_rates",
-        on_delete=models.PROTECT,
-    )
-    year = models.IntegerField(
-        validators=[MinValueValidator(2000), MaxValueValidator(2050)]
-    )
-
-    class Meta:
-        ordering = ["-updated_at"]
-        unique_together = [
-            "name",
-            "load_serving_entity",
-            "year",
-        ]
-
-    # Required by RateDataMixin.
-    cost_calculation_model = AggregateProcurementCostCalculation
-
-    class ProcurementRateIntervalFrame(PowerIntervalFrameFile):
-
-        # directory for parquet file storage
-        file_directory = os.path.join(MEDIA_ROOT, "procurement_rates")
-
-    # Required by IntervalFrameFileMixin.
-    frame_file_class = ProcurementRateIntervalFrame
-
-    def __str__(self):
-        return "{}-{} {}".format(self.year, self.load_serving_entity, self.name)
-
-    @property
-    def rate_data(self):
-        """
-        Required by RateDataMixin.
-        """
-        return self.intervalframe
-
-    @property
-    def short_name(self):
-        """
-        Name minus whitespace.
-        """
-        return self.name.replace(" ", "")
-
-    @property
-    def average_frame288_html_plot(self):
-        """
-        Return Django-formatted HTML average 288 plt.
-        """
-        return plot_frame288(
-            frame288=ValidationFrame288(
-                self.intervalframe.average_frame288.dataframe / 1000
-            ),
-            y_label="MW",
-            to_html=True,
-        )
-
-    @property
-    def maximum_frame288_html_plot(self):
-        """
-        Return Django-formatted HTML maximum 288 plt.
-        """
-        return plot_frame288(
-            frame288=ValidationFrame288(
-                self.intervalframe.maximum_frame288.dataframe / 1000
-            ),
-            y_label="MW",
-            to_html=True,
-        )
-
-
 class SystemProfile(
     IntervalFrameFileMixin,
     RateDataMixin,
@@ -591,22 +506,45 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
         return ProcurementRateIntervalFrame(dataframe=df)
 
 
-class CAISORate(RateDataMixin, ValidationModel):
+class CAISORate(
+    IntervalFrameFileMixin,
+    RateDataMixin,
+    TimeStampMixin,
+    ValidationModel,
+):
     """
     Container for referencing associated CAISO ProcurementRateIntervalFrame.
+
+    Represents hourly or quarter-hourly procurement $/kW rates that can be
+    a combination of CAISO pricing and/or other fees/cost specific to a CCA.
     """
 
-    filters = JSONField()
+    empty = {"blank": True, "null": True}
+    name = models.CharField(max_length=255, **empty)
+    filters = JSONField(**empty)
     caiso_report = models.ForeignKey(
-        to=CAISOReport, related_name="caiso_rates", on_delete=models.CASCADE
+        to=CAISOReport, on_delete=models.CASCADE, **empty
     )
+    load_serving_entity = models.ForeignKey(
+        to=LoadServingEntity, on_delete=models.PROTECT, **empty
+    )
+    year = models.IntegerField(
+        validators=[MinValueValidator(2000), MaxValueValidator(2050)], **empty
+    )
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    class IntervalFrame(PowerIntervalFrameFile):
+
+        # directory for parquet file storage
+        file_directory = os.path.join(MEDIA_ROOT, "procurement_rates")
+
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = IntervalFrame
 
     # Required by RateDataMixin.
     cost_calculation_model = AggregateProcurementCostCalculation
-
-    class Meta:
-        ordering = ["id"]
-        unique_together = ["filters", "caiso_report"]
 
     @property
     def rate_data(self):
@@ -614,16 +552,6 @@ class CAISORate(RateDataMixin, ValidationModel):
         Required by RateDataMixin.
         """
         return self.intervalframe
-
-    @property
-    def name(self):
-        return "{} {}".format(
-            self.caiso_report.report_name, self.caiso_report.year
-        )
-
-    @property
-    def short_name(self):
-        return self.name.replace(" ", "")
 
     @property
     def intervalframe(self):
