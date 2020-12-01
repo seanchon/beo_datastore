@@ -13,7 +13,7 @@ def set_existing_fields(apps, _):
     """
     CAISORate = apps.get_model("procurement", "CAISORate")
     for row in CAISORate.objects.all():
-        row.name = row.caiso_report.report_name
+        row.name = f"{row.caiso_report.report_name} {row.caiso_report.year}"
         row.created_at = row.caiso_report.created_at
         row.year = row.caiso_report.year
         row.save(update_fields=["name", "created_at", "year"])
