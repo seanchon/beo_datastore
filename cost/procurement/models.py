@@ -523,7 +523,10 @@ class CAISORate(
     name = models.CharField(max_length=255, **empty)
     filters = JSONField(**empty)
     caiso_report = models.ForeignKey(
-        to=CAISOReport, on_delete=models.CASCADE, **empty
+        to=CAISOReport,
+        related_name="caiso_rates",
+        on_delete=models.CASCADE,
+        **empty
     )
     load_serving_entity = models.ForeignKey(
         to=LoadServingEntity, on_delete=models.PROTECT, **empty
