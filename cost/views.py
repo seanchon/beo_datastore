@@ -337,7 +337,7 @@ class GHGRateViewSet(ListRetrieveViewSet):
     )
 
 
-class CAISORateViewSet(ListRetrieveViewSet):
+class CAISORateViewSet(ListRetrieveDestroyViewSet):
     model = CAISORate
     serializer_class = CAISORateSerializer
 
@@ -493,7 +493,7 @@ class CAISORateViewSet(ListRetrieveViewSet):
                 "Duplicates, inconsistent or missing interval timestamps. ", e
             )
         df.drop(columns=timestamp_column, inplace=True)
-        df.index.rename("index", inplace=True)
+        df.index.rename("start", inplace=True)
 
         # Convert dollar per (energy or power) readings from one of the expected
         # headers/units  kW, kWh, MW, MWH, GW, or GWH into `Power in kW`.
@@ -517,7 +517,7 @@ class CAISORateViewSet(ListRetrieveViewSet):
                 f"'{unit}' is not an expected unit for aggregated energy or power values. "
                 f"Unit should be one of kW, kWh, MW, MWH, GW, or GWH."
             )
-        df.rename(columns={value: "kw"}, inplace=True)
+        df.rename(columns={value: "$/kwh"}, inplace=True)
 
         return df
 

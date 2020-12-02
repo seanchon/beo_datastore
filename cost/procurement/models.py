@@ -15,6 +15,7 @@ from pytz import timezone
 from beo_datastore.libs.intervalframe_file import (
     ArbitraryDataFrameFile,
     PowerIntervalFrameFile,
+    ProcurementRateIntervalFrameFile,
 )
 from beo_datastore.libs.models import (
     IntervalFrameFileMixin,
@@ -538,13 +539,13 @@ class CAISORate(
     class Meta:
         ordering = ["-updated_at"]
 
-    class IntervalFrame(PowerIntervalFrameFile):
+    class ProcurementIntervalFrame(ProcurementRateIntervalFrameFile):
 
         # directory for parquet file storage
         file_directory = os.path.join(MEDIA_ROOT, "procurement_rates")
 
     # Required by IntervalFrameFileMixin.
-    frame_file_class = IntervalFrame
+    frame_file_class = ProcurementIntervalFrame
 
     # Required by RateDataMixin.
     cost_calculation_model = AggregateProcurementCostCalculation
@@ -555,15 +556,6 @@ class CAISORate(
         Required by RateDataMixin.
         """
         return self.intervalframe
-
-    @property
-    def intervalframe(self):
-        """
-        Associated CAISO ProcurementRateIntervalFrame.
-        """
-        return self.caiso_report.get_procurement_rate_intervalframe(
-            filters=self.filters
-        )
 
     @property
     def intervalframe_plot(self):

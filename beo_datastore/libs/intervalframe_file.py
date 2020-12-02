@@ -7,6 +7,7 @@ from navigader_core.load.intervalframe import (
     PowerIntervalFrame,
     ArbitraryDataFrame,
 )
+from navigader_core.cost.procurement import ProcurementRateIntervalFrame
 
 from beo_datastore.libs.dataframe import convert_columns_type, read_parquet
 from beo_datastore.libs.utils import mkdir_p
@@ -114,6 +115,17 @@ class DataFrameFile(ValidationDataFrame):
 class PowerIntervalFrameFile(PowerIntervalFrame, DataFrameFile):
     """
     Combines a PowerIntervalFrame with file-handling capabilities of a
+    DataFrameFile.
+    """
+
+    pass
+
+
+class ProcurementRateIntervalFrameFile(
+    ProcurementRateIntervalFrame, DataFrameFile
+):
+    """
+    Combines a ProcurementRateIntervalFrame with file-handling capabilities of a
     DataFrameFile.
     """
 
