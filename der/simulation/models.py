@@ -383,11 +383,10 @@ class EVSEStrategy(DERStrategy):
     @classmethod
     def generate(
         cls,
-        charge_during_day: bool,
         charge_off_nem: bool,
         description: str,
-        drive_in_hour: int,
-        drive_home_hour: int,
+        start_charge_hour: int,
+        end_charge_hour: int,
         distance: float,
         name: str,
         objective=None,
@@ -397,36 +396,39 @@ class EVSEStrategy(DERStrategy):
         Creates an `EVSEStrategy` given a name, description, the drive times and
         distance, and optionally an objective.
 
-        :param charge_during_day: `True` if the EV should charge after the
-          drive-in time and before the drive-home time
         :param charge_off_nem: `True` if EVs should only charge off NEM exports
         :param description: strategy description
-        :param drive_in_hour: hour at which drivers commute to work
-        :param drive_home_hour: hour at which drivers commute home
+        :param start_charge_hour: hour at which charging can begin
+        :param end_charge_hour: hour at the start of which charging must end
         :param distance: the number of miles the drivers commute one-way
         :param name: name of the strategy
         :param objective: the DERStrategy objective
         :param load_serving_entity: the LSE to assign the EVSEStrategy to
         """
         charge_limit = 0 if charge_off_nem else float("inf")
-        no_charge = float("-inf")
-
         charge_schedule, _ = DERSchedule.get_or_create_from_frame288(
             create_diurnal_schedule(
-                start_hour=drive_in_hour + 1,
-                end_limit_hour=drive_home_hour,
-                power_limit_1=charge_limit if charge_during_day else no_charge,
-                power_limit_2=no_charge if charge_during_day else charge_limit,
+                start_hour=start_charge_hour,
+                end_limit_hour=end_charge_hour,
+                power_limit_1=charge_limit,
+                power_limit_2=float("-inf"),
             )
         )
 
+        # Driving will occur in the hour before charging begins and the hour
+        # charging ends.
+        drive_hour_1 = (start_charge_hour - 1) % 24
+        drive_hour_2 = end_charge_hour
+        if drive_hour_2 < drive_hour_1:
+            drive_hour_1, drive_hour_2 = drive_hour_2, drive_hour_1
+
         drive_schedule, _ = DERSchedule.get_or_create_from_frame288(
             create_fixed_schedule(
-                [0] * drive_in_hour
+                [0] * drive_hour_1
                 + [distance]
-                + [0] * (drive_home_hour - drive_in_hour - 1)
+                + [0] * (drive_hour_2 - drive_hour_1 - 1)
                 + [distance]
-                + [0] * (23 - drive_home_hour)
+                + [0] * (23 - drive_hour_2)
             )
         )
 
@@ -450,9 +452,6 @@ class EVSEConfiguration(DERConfiguration):
     ev_mpkwh = models.FloatField(
         blank=False, null=False, validators=[MinValueValidator(limit_value=0)]
     )
-    ev_mpg_eq = models.FloatField(
-        blank=False, null=False, validators=[MinValueValidator(limit_value=0)]
-    )
     ev_capacity = models.FloatField(
         blank=False, null=False, validators=[MinValueValidator(limit_value=0)]
     )
@@ -473,6 +472,14 @@ class EVSEConfiguration(DERConfiguration):
     evse_count = models.IntegerField(
         blank=False, null=False, validators=[MinValueValidator(limit_value=0)]
     )
+    evse_utilization = models.FloatField(
+        blank=False,
+        null=False,
+        validators=[
+            MinValueValidator(limit_value=0),
+            MaxValueValidator(limit_value=1),
+        ],
+    )
 
     der_type = "EVSE"
 
@@ -487,12 +494,12 @@ class EVSEConfiguration(DERConfiguration):
         """
         return pyEVSE(
             ev_mpkwh=self.ev_mpkwh,
-            ev_mpg_eq=self.ev_mpg_eq,
             ev_capacity=self.ev_capacity,
             ev_efficiency=self.ev_efficiency,
             evse_rating=self.evse_rating,
             ev_count=self.ev_count,
             evse_count=self.evse_count,
+            evse_utilization=self.evse_utilization,
         )
 
 

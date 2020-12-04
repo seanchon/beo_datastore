@@ -167,8 +167,8 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
         """
         strategy = generate_commuter_evse_strategy(
             charge_off_nem=True,
-            drive_in_hour=8,
-            drive_home_hour=17,
+            start_charge_hour=8,
+            end_charge_hour=17,
             distance=20,
             name="Test EVSE strategy",
         )
@@ -188,12 +188,12 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
         """
         configuration, _ = EVSEConfiguration.objects.get_or_create(
             ev_mpkwh=15,
-            ev_mpg_eq=20,
             ev_capacity=300,
             ev_efficiency=0.87,
             evse_rating=30.0,
             ev_count=15,
             evse_count=5,
+            evse_utilization=0.8,
         )
 
         self.client.force_authenticate(user=self.user)
@@ -207,12 +207,12 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
             data,
             {
                 "ev_mpkwh": 15,
-                "ev_mpg_eq": 20,
                 "ev_capacity": 300,
                 "ev_efficiency": 0.87,
                 "evse_rating": 30.0,
                 "ev_count": 15,
                 "evse_count": 5,
+                "evse_utilization": 0.8,
             },
         )
 
@@ -222,12 +222,12 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
         """
         evse_attrs = {
             "ev_mpkwh": 15,
-            "ev_mpg_eq": 20,
             "ev_capacity": 300,
             "ev_efficiency": 0.87,
             "evse_rating": 30.0,
             "ev_count": 15,
             "evse_count": 5,
+            "evse_utilization": 0.8,
         }
 
         mce = LoadServingEntity.objects.get(name__icontains="MCE")
@@ -274,11 +274,10 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
         pge = LoadServingEntity.objects.get(name__icontains="Pacific Gas")
 
         evse_attrs = {
-            "charge_during_day": True,
             "charge_off_nem": True,
             "description": "Test EVSE strategy",
-            "drive_in_hour": 8,
-            "drive_home_hour": 17,
+            "start_charge_hour": 8,
+            "end_charge_hour": 17,
             "distance": 15,
             "name": "Test EVSE strategy",
         }
