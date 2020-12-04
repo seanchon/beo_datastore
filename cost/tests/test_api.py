@@ -2,6 +2,7 @@ from datetime import datetime
 from faker import Factory
 import itertools
 import json
+import pandas as pd
 
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -16,12 +17,13 @@ from beo_datastore.libs.fixtures import (
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate
 from cost.study.models import Scenario
-from cost.utility_rate.models import RatePlan
+from cost.utility_rate.models import RateCollection, RatePlan
 from der.simulation.models import BatteryConfiguration, BatteryStrategy
 from der.simulation.scripts.generate_der_strategy import (
     generate_bill_reduction_battery_strategy,
 )
 from load.customer.models import OriginFile
+from reference.auth_user.models import LoadServingEntity
 from reference.reference_model.models import MeterGroup
 
 
@@ -199,6 +201,72 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         self.assertEqual(scenario.procurement_rate, procurement_rate)
 
 
+class CostFunctionTestMixin:
+    """
+    Tests common cost function viewset functionality
+    """
+
+    # Must be overridden in child classes
+    url_component = None
+
+    def setUp(self):
+        faker = Factory.create()
+        self.user = User.objects.create(
+            username=faker.user_name(),
+            email=faker.email(domain="@terraverde.energy"),
+            is_superuser=False,
+        )
+
+        self.mce = LoadServingEntity.objects.get(name__icontains="MCE")
+        self.pge = LoadServingEntity.objects.get(name__icontains="Pacific Gas")
+
+    def test_retrieve_diff_lse(self):
+        """
+        Tests that a user cannot retrieve a cost function object if it is within
+        an LSE different from the current user's
+        """
+        cost_fn = self.make_cost_fn(lse=self.mce)
+        self.client.force_authenticate(user=self.user)
+        uri = f"/v1/cost/{self.url_component}/{cost_fn.id}/"
+        response = self.client.get(uri, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_retrieve_same_lse(self):
+        """
+        Tests that a user can retrieve a cost function object within the user's
+        LSE
+        """
+        cost_fn = self.make_cost_fn(lse=self.pge)
+        self.client.force_authenticate(user=self.user)
+        uri = f"/v1/cost/{self.url_component}/{cost_fn.id}/"
+        response = self.client.get(uri, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_deletion_diff_lse(self):
+        """
+        Tests that a user cannot delete a CAISORate object if it is within an
+        LSE different from the current user's
+        """
+        cost_fn = self.make_cost_fn(lse=self.mce)
+        self.client.force_authenticate(user=self.user)
+        uri = f"/v1/cost/{self.url_component}/{cost_fn.id}/"
+        response = self.client.delete(uri, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_deletion_same_lse(self):
+        """
+        Tests that a user can delete a CAISORate object within the user's LSE
+        """
+        cost_fn = self.make_cost_fn(lse=self.pge)
+        self.client.force_authenticate(user=self.user)
+        uri = f"/v1/cost/{self.url_component}/{cost_fn.id}/"
+        response = self.client.delete(uri, format="json")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def make_cost_fn(self, lse: LoadServingEntity = None):
+        raise NotImplementedError
+
+
 class TestEndpointsGHGRate(APITestCase, BasicAuthenticationTestMixin):
     """
     Ensures endpoints are only accessible to logged-in users and are rendered
@@ -276,25 +344,23 @@ class TestEndpointsGHGRate(APITestCase, BasicAuthenticationTestMixin):
             self.assertEqual(ghg_rate_data.size, 24 * 31 * 2)
 
 
-class TestEndpointsCAISORate(APITestCase, BasicAuthenticationTestMixin):
+class TestEndpointsCAISORate(
+    APITestCase, CostFunctionTestMixin, BasicAuthenticationTestMixin
+):
     """
     Ensures endpoints are only accessible to logged-in users and are rendered
     without errors.
     """
 
     fixtures = ["reference_model", "caiso_rate"]
+    url_component = "caiso_rate"
 
     def setUp(self):
         """
         Initialize endpoints to test and loads parquet files.
         """
+        CostFunctionTestMixin.setUp(self)
         load_intervalframe_files()
-
-        # create fake API user
-        faker = Factory.create()
-        self.user = User.objects.create(
-            username=faker.user_name(), email=faker.email(), is_superuser=False
-        )
 
         periods = [15, 60]
         data_types = [
@@ -313,26 +379,58 @@ class TestEndpointsCAISORate(APITestCase, BasicAuthenticationTestMixin):
             for data_type, period in itertools.product(data_types, periods)
         ]
 
+    def test_retrieve_no_lse(self):
+        """
+        Tests that a user can retrieve a cost function object if it is a public
+        object (i.e., if it has no associated LSE)
 
-class TestEndpointsUtilityRatePlan(APITestCase, BasicAuthenticationTestMixin):
+        TODO: if rate plans, rate collections and system profiles become
+              public objects (i.e. if their `load_serving_entity` field becomes
+              nullable) this method should be moved to CostFunctionTestMixin
+        """
+        cost_fn = self.make_cost_fn()
+        self.client.force_authenticate(user=self.user)
+        uri = f"/v1/cost/{self.url_component}/{cost_fn.id}/"
+        response = self.client.get(uri, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_deletion_no_lse(self):
+        """
+        Tests that a user cannot delete a CAISORate object if it is a public
+        object (i.e., if it has no associated LSE)
+
+        TODO: if rate plans, rate collections and system profiles become
+              public objects (i.e. if their `load_serving_entity` field becomes
+              nullable) this method should be moved to CostFunctionTestMixin
+        """
+        cost_fn = self.make_cost_fn()
+        self.client.force_authenticate(user=self.user)
+        uri = f"/v1/cost/{self.url_component}/{cost_fn.id}/"
+        response = self.client.delete(uri, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def make_cost_fn(self, lse: LoadServingEntity = None):
+        return CAISORate.create(
+            dataframe=pd.DataFrame(), load_serving_entity=lse
+        )
+
+
+class TestEndpointsUtilityRatePlan(
+    APITestCase, CostFunctionTestMixin, BasicAuthenticationTestMixin
+):
     """
     Ensures endpoints are only accessible to logged-in users and are rendered
     without errors.
     """
 
     fixtures = ["reference_model", "utility_rate"]
+    url_component = "rate_plan"
 
     def setUp(self):
         """
         Initialize endpoints
         """
-
-        # create fake API user
-        faker = Factory.create()
-        self.user = User.objects.create(
-            username=faker.user_name(), email=faker.email(), is_superuser=False
-        )
-
+        CostFunctionTestMixin.setUp(self)
         self.endpoints = [
             "/v1/cost/rate_plan/?include[]={}".format(related_field)
             for related_field in [
@@ -341,9 +439,14 @@ class TestEndpointsUtilityRatePlan(APITestCase, BasicAuthenticationTestMixin):
             ]
         ]
 
+    def make_cost_fn(self, lse: LoadServingEntity = None):
+        return RatePlan.objects.create(
+            load_serving_entity=lse, name="Test rate plan", sector="Residential"
+        )
+
 
 class TestEndpointsUtilityRateCollection(
-    APITestCase, BasicAuthenticationTestMixin
+    APITestCase, CostFunctionTestMixin, BasicAuthenticationTestMixin
 ):
     """
     Ensures endpoints are only accessible to logged-in users and are rendered
@@ -351,18 +454,13 @@ class TestEndpointsUtilityRateCollection(
     """
 
     fixtures = ["reference_model", "utility_rate"]
+    url_component = "rate_collection"
 
     def setUp(self):
         """
         Initialize user and endpoint
         """
-
-        # create fake API user
-        faker = Factory.create()
-        self.user = User.objects.create(
-            username=faker.user_name(), email=faker.email(), is_superuser=False
-        )
-
+        CostFunctionTestMixin.setUp(self)
         self.endpoints = [
             "/v1/cost/rate_collection/",
             "/v1/cost/rate_collection/?include[]=rate_plan",
@@ -413,3 +511,19 @@ class TestEndpointsUtilityRateCollection(
                     "/v1/cost/rate_collection/", body, format="json"
                 )
                 self.assertEqual(resp.status_code, 201)
+
+    def make_cost_fn(self, lse: LoadServingEntity = None):
+        """
+        Returns a RateCollection object associated with the given
+        LoadServingEntity
+        """
+        faker = Factory.create()
+        rate_plan = RatePlan.objects.create(
+            load_serving_entity=lse, name="Test rate plan", sector="Residential"
+        )
+        return RateCollection.objects.create(
+            effective_date=faker.date(),
+            rate_data={"data": None},
+            rate_plan=rate_plan,
+            utility_url=faker.url(),
+        )

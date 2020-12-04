@@ -6,8 +6,9 @@ import coreapi
 import numpy as np
 import pandas as pd
 from django.db import transaction
+from django.db.models import Q
 from django.http.request import QueryDict
-from rest_framework import mixins, serializers, status
+from rest_framework import serializers, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
@@ -15,19 +16,17 @@ from rest_framework.schemas import AutoSchema
 from beo_datastore.libs.api.viewsets import (
     CreateListRetrieveDestroyViewSet,
     CreateListRetrieveUpdateDestroyViewSet,
-    ListRetrieveDestroyViewSet,
     ListRetrieveViewSet,
 )
 from beo_datastore.libs.dataframe import download_dataframe
-from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate, SystemProfile
 from cost.study.models import Scenario
 from cost.utility_rate.libs import (
     convert_rate_df_to_dict,
     convert_rate_dict_to_df,
 )
-from cost.utility_rate.models import RateCollection, RatePlan
 from navigader_core.load.dataframe import get_dataframe_period
+from reference.auth_user.models import LoadServingEntity
 from reference.reference_model.models import (
     DERConfiguration,
     DERStrategy,
@@ -54,7 +53,6 @@ class ScenarioViewSet(CreateListRetrieveUpdateDestroyViewSet):
     der_intervalframe, and post_der_intervalframe data and report data.
     """
 
-    model = Scenario
     serializer_class = ScenarioSerializer
 
     schema = AutoSchema(
@@ -281,7 +279,6 @@ class GHGRateViewSet(ListRetrieveViewSet):
     GHGRate objects
     """
 
-    model = GHGRate
     serializer_class = GHGRateSerializer
 
     schema = AutoSchema(
@@ -337,8 +334,55 @@ class GHGRateViewSet(ListRetrieveViewSet):
     )
 
 
-class CAISORateViewSet(ListRetrieveDestroyViewSet):
-    model = CAISORate
+class CostFunctionViewSet(CreateListRetrieveDestroyViewSet):
+    """
+    Provides common `get_queryset` and `destroy` methods for the cost functions.
+    Users are permitted to access cost functions if the cost function belongs to
+    the user's LSE or if it isn't associated with any LSE. Users are permitted
+    to delete cost functions if the cost function belongs to the user's LSE.
+    """
+
+    def get_queryset(self, queryset=None):
+        lse = self.request.user.profile.load_serving_entity
+        return self.get_serializer().Meta.model.objects.filter(
+            Q(load_serving_entity__isnull=True) | Q(load_serving_entity=lse)
+        )
+
+    def get_cost_fn_lse(self) -> LoadServingEntity:
+        """
+        Returns the LSE associated with the cost function object. For almost all
+        cost function classes the relationship with the LSE is managed by the
+        serializer model itself, but for `RateCollection` it is managed by the
+        parent `RatePlan` object.
+        """
+        return self.get_object().load_serving_entity
+
+    def user_can_delete_cost_fn(self, request):
+        """
+        Returns True if the user has permission to delete the provided cost
+        function object. Cost function deletion permissioning is handled at the
+        LSE level: if a user is a member of the same LSE as the cost function,
+        they are permitted to delete it. If the cost function is not associated
+        with any LSE, no user is permitted to delete it.
+
+        :param request: The Django request object
+        """
+        lse = self.get_cost_fn_lse()
+        user_lse = request.user.profile.load_serving_entity
+
+        # Disallow deletion if the LSE doesn't precisely match
+        has_lse = lse is not None
+        same_lse = lse == user_lse
+        return has_lse and same_lse
+
+    def destroy(self, request, *args, **kwargs):
+        if self.user_can_delete_cost_fn(request):
+            return super().destroy(request, *args, **kwargs)
+        else:
+            self.permission_denied(request)
+
+
+class CAISORateViewSet(CostFunctionViewSet):
     serializer_class = CAISORateSerializer
 
     class CustomSchema(AutoSchema):
@@ -388,15 +432,6 @@ class CAISORateViewSet(ListRetrieveDestroyViewSet):
             return self._manual_fields + custom_fields
 
     schema = CustomSchema()
-
-    def get_queryset(self):
-        """
-        Limit CCA users to their own CCA uploaded CAISO rates.
-        """
-        user = self.request.user
-        return CAISORate.objects.filter(
-            load_serving_entity=user.profile.load_serving_entity
-        )
 
     def create(self, request, *args, **kwargs):
         """
@@ -483,10 +518,7 @@ class CAISORateViewSet(ListRetrieveDestroyViewSet):
 
         try:
             df.set_index(
-                keys=indices,
-                verify_integrity=True,
-                drop=True,
-                inplace=True,
+                keys=indices, verify_integrity=True, drop=True, inplace=True,
             )
         except Exception as e:
             raise serializers.ValidationError(
@@ -522,18 +554,12 @@ class CAISORateViewSet(ListRetrieveDestroyViewSet):
         return df
 
 
-class RatePlanViewSet(ListRetrieveDestroyViewSet, mixins.CreateModelMixin):
+class RatePlanViewSet(CostFunctionViewSet):
     """
     Utility Rate Plan Objects
     """
 
-    model = RatePlan
     serializer_class = RatePlanSerializer
-
-    def get_queryset(self):
-        return RatePlan.objects.filter(
-            load_serving_entity_id=self.request.user.profile.load_serving_entity_id
-        )
 
     def create(self, request, *args, **kwargs):
         user = request.user
@@ -542,20 +568,26 @@ class RatePlanViewSet(ListRetrieveDestroyViewSet, mixins.CreateModelMixin):
         return super().create(request, *args, **kwargs)
 
 
-class RateCollectionViewSet(
-    ListRetrieveDestroyViewSet, mixins.CreateModelMixin
-):
+class RateCollectionViewSet(CostFunctionViewSet):
     """
     Utility Rate Data for a particular effective date
     """
 
-    model = RateCollection
     serializer_class = RateCollectionSerializer
 
-    def get_queryset(self):
-        return RateCollection.objects.filter(
-            rate_plan__load_serving_entity_id=self.request.user.profile.load_serving_entity_id
+    def get_queryset(self, queryset=None):
+        lse = self.request.user.profile.load_serving_entity
+        return self.get_serializer().Meta.model.objects.filter(
+            Q(rate_plan__load_serving_entity__isnull=True)
+            | Q(rate_plan__load_serving_entity=lse)
         )
+
+    def get_cost_fn_lse(self):
+        """
+        Returns the LSE associated with the rate collection's parent rate plan
+        model
+        """
+        return self.get_object().rate_plan.load_serving_entity
 
     def create(self, request, **kwargs):
         """
@@ -602,17 +634,13 @@ class RateCollectionViewSet(
         Downloads the CSV file representation of the `RateCollection`
         """
         rate_collection = self.get_queryset().get(id=pk)
+        rate_collection_date = rate_collection.effective_date.strftime("%Y%m%d")
         df = convert_rate_dict_to_df(rate_collection.rate_data)
-        filename = "rate_collection-{}".format(
-            rate_collection.effective_date.strftime("%Y%m%d")
-        )
-        download_kwargs = {"index": False, "filename": filename}
-
-        return download_dataframe(df, **download_kwargs)
+        filename = f"rate_collection-{rate_collection_date}"
+        return download_dataframe(df, index=False, filename=filename)
 
 
-class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
-    model = SystemProfile
+class SystemProfileViewSet(CostFunctionViewSet):
     serializer_class = SystemProfileSerializer
 
     class CustomProfileSchema(AutoSchema):
@@ -664,15 +692,6 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
             return self._manual_fields + custom_fields
 
     schema = CustomProfileSchema()
-
-    def get_queryset(self):
-        """
-        Limit the user to the SystemProfile objects associated with their LSE
-        """
-        user = self.request.user
-        return SystemProfile.objects.filter(
-            load_serving_entity=user.profile.load_serving_entity
-        )
 
     def create(self, request, *args, **kwargs):
         """
@@ -758,10 +777,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
 
         try:
             df.set_index(
-                keys=indices,
-                verify_integrity=True,
-                drop=True,
-                inplace=True,
+                keys=indices, verify_integrity=True, drop=True, inplace=True,
             )
         except Exception as e:
             raise serializers.ValidationError(
