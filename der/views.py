@@ -140,10 +140,10 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
             "ev_capacity",
             "ev_count",
             "ev_efficiency",
-            "ev_mpg_eq",
             "ev_mpkwh",
             "evse_count",
             "evse_rating",
+            "evse_utilization",
             "name",
         ]
 
@@ -152,10 +152,10 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
             ev_capacity,
             ev_count,
             ev_efficiency,
-            ev_mpg_eq,
             ev_mpkwh,
             evse_count,
             evse_rating,
+            evse_utilization,
             name,
         ) = self._data(configuration_attrs)
 
@@ -164,10 +164,10 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
             ev_capacity=ev_capacity,
             ev_count=ev_count,
             ev_efficiency=ev_efficiency,
-            ev_mpg_eq=ev_mpg_eq,
             ev_mpkwh=ev_mpkwh,
             evse_count=evse_count,
             evse_rating=evse_rating,
+            evse_utilization=evse_utilization,
             load_serving_entity=request.user.profile.load_serving_entity,
         )
 
@@ -390,8 +390,8 @@ class DERStrategyViewSet(ListRetrieveViewSet):
         strategy_attrs = [
             "charge_off_nem",
             "distance",
-            "drive_home_hour",
-            "drive_in_hour",
+            "end_charge_hour",
+            "start_charge_hour",
             "name",
         ]
 
@@ -399,8 +399,8 @@ class DERStrategyViewSet(ListRetrieveViewSet):
         (
             charge_off_nem,
             distance,
-            drive_home_hour,
-            drive_in_hour,
+            end_charge_hour,
+            start_charge_hour,
             name,
             description,
         ) = self._data(strategy_attrs + ["description"])
@@ -408,8 +408,8 @@ class DERStrategyViewSet(ListRetrieveViewSet):
         return generate_commuter_evse_strategy(
             charge_off_nem=charge_off_nem,
             distance=distance,
-            drive_home_hour=drive_home_hour,
-            drive_in_hour=drive_in_hour,
+            end_charge_hour=end_charge_hour,
+            start_charge_hour=start_charge_hour,
             load_serving_entity=request.user.profile.load_serving_entity,
             name=name,
             user_description=description,

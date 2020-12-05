@@ -10,10 +10,7 @@ from navigader_core.der.builder import (
     DERSimulationSequenceBuilder,
     DERStrategy,
 )
-from navigader_core.load.intervalframe import (
-    PowerIntervalFrame,
-    ValidationFrame288,
-)
+from navigader_core.load.intervalframe import ValidationFrame288
 from beo_datastore.libs.utils import timedelta_to_hours
 
 
@@ -25,12 +22,12 @@ class EVSE(DER):
 
     Properties of the electric vehicle (EV) are:
         - EV efficiency (miles/kwh)
-        - EV gas efficiency equivalent (miles/gallon)
         - EV battery capacity (kwh)
         - EV battery efficiency (%)
 
     Properties of the electric vehicle service equipment (EVSE) are:
         - EVSE rating (kw)
+        - EVSE utilization (%)
 
     Additional assumptions around this model are:
         - number of electric vehicles
@@ -38,22 +35,15 @@ class EVSE(DER):
     """
 
     ev_mpkwh = attr.ib(type=float)
-    ev_mpg_eq = attr.ib(type=float)
     ev_capacity = attr.ib(type=float)
     ev_efficiency = attr.ib(type=float)
     evse_rating = attr.ib(type=float)
     ev_count = attr.ib(type=int)
     evse_count = attr.ib(type=int)
+    evse_utilization = attr.ib(type=float)
 
     @ev_mpkwh.validator
     def _validate_ev_mpkwh(self, attribute, value):
-        if value <= 0:
-            raise self.raise_validation_error(
-                attribute, "Must be greater than zero"
-            )
-
-    @ev_mpg_eq.validator
-    def _validate_ev_mpg_eq(self, attribute, value):
         if value <= 0:
             raise self.raise_validation_error(
                 attribute, "Must be greater than zero"
@@ -93,6 +83,11 @@ class EVSE(DER):
             raise self.raise_validation_error(
                 attribute, "Must be greater than zero"
             )
+
+    @evse_utilization.validator
+    def _validate_evse_utilization(self, attribute, value):
+        if not (0 < value <= 1):
+            self.raise_validation_error(attribute, "Must be between 0 and 1")
 
     @property
     def ev_total_capacity(self) -> float:
@@ -196,53 +191,6 @@ class EVSEStrategy(DERStrategy):
         return power_level
 
 
-class MixedFuelIntervalFrame(PowerIntervalFrame):
-    """
-    Container for kW and gallon_per_hour readings.
-    """
-
-    default_aggregation_column = "kw"
-    default_dataframe = pd.DataFrame(
-        columns=["kw", "gallon_per_hour"], index=pd.to_datetime([])
-    )
-
-    @classmethod
-    def create_pre_der_intervalframe(
-        cls,
-        power_intervalframe: PowerIntervalFrame,
-        evse: EVSE,
-        evse_strategy: EVSEStrategy,
-    ):
-        """
-        Create a pre_der_intervalframe (MixedFuelIntervalFrame) from a
-        PowerIntervalFrame and EVSEStrategy.
-        """
-        drive_schedule_dataframe = evse_strategy.drive_schedule.compute_intervalframe(
-            start=power_intervalframe.start_datetime,
-            end_limit=power_intervalframe.end_limit_datetime,
-            period=power_intervalframe.period,
-        ).rename(
-            columns={"value": "distance"}
-        )
-
-        total_combined_distance = (
-            drive_schedule_dataframe["distance"] * evse.ev_count
-        )
-        drive_schedule_dataframe["gallon_per_hour"] = (
-            total_combined_distance / evse.ev_mpg_eq
-        )
-
-        return cls(
-            dataframe=pd.merge(
-                power_intervalframe.dataframe,
-                drive_schedule_dataframe[["gallon_per_hour"]],
-                how="inner",
-                left_index=True,
-                right_index=True,
-            )
-        )
-
-
 class EVSEIntervalFrame(DataFrameQueue):
     """
     Container for generating and storing EVSE operation intervals.
@@ -251,22 +199,12 @@ class EVSEIntervalFrame(DataFrameQueue):
         - distance: Miles are driven by all cars.
         - kw: Electric power used to charge cars.
         - ev_kw: Electricity used to drive.
-        - gallon_per_hour: Gas used to drive (NOTE: This is only to keep track
-            of cases where a car does not have enough battery to drive the
-            specified distance.).
         - charge: Charge on all EV batteries.
         - capacity: Capacity of all EV batteries.
     """
 
     default_dataframe = pd.DataFrame(
-        columns=[
-            "distance",
-            "kw",
-            "ev_kw",
-            "gallon_per_hour",
-            "charge",
-            "capacity",
-        ],
+        columns=["distance", "kw", "ev_kw", "charge", "capacity"],
         index=pd.to_datetime([]),
     )
     default_aggregation_column = "kw"
@@ -372,31 +310,6 @@ class EVSESimulationBuilder(DERSimulationSequenceBuilder):
         else:
             return ev_kw
 
-    def get_gallon_per_hour(
-        self, distance: float, ev_kw: float, duration: timedelta
-    ) -> float:
-        """
-        Return gallon_per_hour needed to drive any remaining miles. This is
-        meant to account for costs not offset by EV usage.
-        """
-        duration_hours = timedelta_to_hours(duration)
-
-        ev_distance = (-ev_kw * duration_hours) * self.der.ev_mpkwh
-        remaining_distance = distance - ev_distance
-
-        gallon_per_hour = remaining_distance / (
-            self.der.ev_mpg_eq * duration_hours
-        )
-
-        # Rounded because float division can be messy and leave minuscule
-        # overflow. The number 5 is somewhat arbitrary-- not so small that a
-        # real overflow would be missed, not so big that the float division
-        # error wouldn't be rounded off.
-        if round(gallon_per_hour, 5) < 0:
-            raise RuntimeError("Gallon per hour cannot be negative.")
-        else:
-            return gallon_per_hour
-
     def get_charge(
         self, kw: float, ev_kw: float, duration: timedelta, charge: float
     ) -> float:
@@ -424,33 +337,10 @@ class EVSESimulationBuilder(DERSimulationSequenceBuilder):
                 "distance": 0,
                 "kw": 0,
                 "ev_kw": 0,
-                "gallon_per_hour": 0,
                 "charge": self.get_latest_charge(der_intervalframe),
                 "capacity": self.der.ev_total_capacity,
             }
         )
-
-    def get_pre_der_intervalframe(
-        self, intervalframe: PowerIntervalFrame
-    ) -> MixedFuelIntervalFrame:
-        return MixedFuelIntervalFrame.create_pre_der_intervalframe(
-            power_intervalframe=intervalframe,
-            evse=self.der,
-            evse_strategy=self.der_strategy,
-        )
-
-    def get_post_der_intervalframe(
-        self,
-        pre_der_intervalframe: PowerIntervalFrame,
-        der_intervalframe: PowerIntervalFrame,
-    ) -> PowerIntervalFrame:
-        post_der_if = super().get_post_der_intervalframe(
-            pre_der_intervalframe, der_intervalframe
-        )
-        post_der_if.dataframe["gallon_per_hour"] = der_intervalframe.dataframe[
-            "gallon_per_hour"
-        ]
-        return post_der_if
 
     def operate_der(
         self,
@@ -469,7 +359,6 @@ class EVSESimulationBuilder(DERSimulationSequenceBuilder):
             - distance
             - kw
             - ev_kw
-            - gallon_per_hour
             - charge
             - capacity
         """
@@ -496,10 +385,6 @@ class EVSESimulationBuilder(DERSimulationSequenceBuilder):
         ev_kw = self.get_ev_kw(
             distance=distance, duration=duration, charge=latest_charge
         )
-        # gallon_per_hour of gas to drive EV (if not enough charge)
-        gallon_per_hour = self.get_gallon_per_hour(
-            distance=distance, ev_kw=ev_kw, duration=duration
-        )
         # remaining charge after operation
         charge = self.get_charge(
             kw=kw, ev_kw=ev_kw, duration=duration, charge=latest_charge
@@ -511,8 +396,14 @@ class EVSESimulationBuilder(DERSimulationSequenceBuilder):
                 "distance": distance,
                 "kw": kw,
                 "ev_kw": ev_kw,
-                "gallon_per_hour": gallon_per_hour,
                 "charge": charge,
                 "capacity": self.der.ev_total_capacity,
             }
         )
+
+    def finalize(self, der_intervalframe):
+        """
+        Derate the kW values by the utilization rate
+        """
+        super().finalize(der_intervalframe)
+        der_intervalframe.dataframe.kw *= self.der.evse_utilization

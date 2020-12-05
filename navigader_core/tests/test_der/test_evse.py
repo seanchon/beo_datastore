@@ -13,18 +13,17 @@ from navigader_core.der.evse import (
     EVSE,
     EVSESimulationBuilder,
     EVSEStrategy,
-    MixedFuelIntervalFrame,
 )
 
 
 # EVSE model specifications
 ev_mpkwh = 3.5
-ev_mpg_eq = 22.0
 ev_capacity = 25.0
 ev_efficiency = 0.96
 ev_count = 15
 evse_rating = 150.0
 evse_count = 5
+evse_utilization = 0.8
 driving_distance = 20
 
 # time durations
@@ -61,12 +60,12 @@ class TestEVSE(TestCase):
 
         self.evse = EVSE(
             ev_mpkwh=ev_mpkwh,
-            ev_mpg_eq=ev_mpg_eq,
             ev_capacity=ev_capacity,
             ev_efficiency=ev_efficiency,
             evse_rating=evse_rating,
             ev_count=ev_count,
             evse_count=evse_count,
+            evse_utilization=evse_utilization,
         )
 
         # charge from 8 a.m. to 5 p.m. on solar exports only
@@ -110,80 +109,6 @@ class TestEVSE(TestCase):
         self.evse_strategy = EVSEStrategy(charge_schedule, drive_schedule)
         self.builder = EVSESimulationBuilder(
             der=self.evse, der_strategy=self.evse_strategy
-        )
-
-    def test_mixed_fuel_60_min_intervalframe(self):
-        """
-        Test the creation of a pre_der_intervalframe (MixedFuelIntervalFrame).
-        """
-        mixed_fuel = MixedFuelIntervalFrame.create_pre_der_intervalframe(
-            power_intervalframe=self.intervalframe,
-            evse=self.evse,
-            evse_strategy=self.evse_strategy,
-        )
-
-        gallons_to_work = mixed_fuel.dataframe.loc[datetime(2020, 1, 1, 7)][
-            "gallon_per_hour"
-        ]
-        gallons_to_home = mixed_fuel.dataframe.loc[datetime(2020, 1, 1, 17)][
-            "gallon_per_hour"
-        ]
-
-        # gallons to drive into work
-        expected_gallons = driving_distance * ev_count / ev_mpg_eq
-        self.assertEqual(gallons_to_work, expected_gallons)
-        self.assertEqual(gallons_to_home, expected_gallons)
-
-    def test_mixed_fuel_15_min_intervalframe(self):
-        """
-        Test the creation of a pre_der_intervalframe (MixedFuelIntervalFrame).
-        """
-        intervalframe_15_min = self.intervalframe.resample_intervalframe(
-            target_period=quarter_hour
-        )
-        mixed_fuel = MixedFuelIntervalFrame.create_pre_der_intervalframe(
-            power_intervalframe=intervalframe_15_min,
-            evse=self.evse,
-            evse_strategy=self.evse_strategy,
-        )
-
-        gallons_to_work = mixed_fuel.dataframe.loc[
-            datetime(2020, 1, 1, 7, 15)
-        ]["gallon_per_hour"]
-        gallons_to_home = mixed_fuel.dataframe.loc[
-            datetime(2020, 1, 1, 17, 15)
-        ]["gallon_per_hour"]
-
-        # gallons to drive into work
-        expected_gallons = driving_distance * ev_count / ev_mpg_eq
-        self.assertEqual(gallons_to_work, expected_gallons)
-        self.assertEqual(gallons_to_home, expected_gallons)
-
-    def test_mixed_fuel_intervalframe_equality(self):
-        """
-        A 15-minute MixedFuelIntervalFrame should be the same as a 60-minute
-        MixedFuelIntervalFrame when resampled and vice versa.
-        """
-        mixed_fuel_60 = MixedFuelIntervalFrame.create_pre_der_intervalframe(
-            power_intervalframe=self.intervalframe,
-            evse=self.evse,
-            evse_strategy=self.evse_strategy,
-        )
-
-        intervalframe_15_min = self.intervalframe.resample_intervalframe(
-            target_period=quarter_hour
-        )
-        mixed_fuel_15 = MixedFuelIntervalFrame.create_pre_der_intervalframe(
-            power_intervalframe=intervalframe_15_min,
-            evse=self.evse,
-            evse_strategy=self.evse_strategy,
-        )
-
-        self.assertEqual(
-            mixed_fuel_15.resample_intervalframe(one_hour), mixed_fuel_60
-        )
-        self.assertEqual(
-            mixed_fuel_60.resample_intervalframe(quarter_hour), mixed_fuel_15
         )
 
     def test_get_power(self):
@@ -253,9 +178,7 @@ class TestEVSE(TestCase):
 
         # inside of drive schedule, one hour
         self.assertEqual(
-            self.builder.get_drive_distance(
-                month=1, hour=7, duration=one_hour
-            ),
+            self.builder.get_drive_distance(month=1, hour=7, duration=one_hour),
             ev_count * driving_distance,
         )
 
@@ -298,34 +221,6 @@ class TestEVSE(TestCase):
                 charge=insufficient_charge,
             ),
             -insufficient_charge / 0.25,  # 10 kwh / (.25 hours)
-        )
-
-    def test_get_gallon_per_hour(self):
-        """
-        Calculate gallon per hour for remaining miles if an EV does not have
-        enough charge.
-        """
-
-        # EV has enough charge
-        distance = 50
-        self.assertEqual(
-            self.builder.get_gallon_per_hour(
-                distance=distance,
-                ev_kw=-distance / (ev_mpkwh * 0.25),
-                duration=quarter_hour,
-            ),
-            0,
-        )
-
-        # EV does not have enough charge
-        insufficient_power = 40
-        distance_on_battery = insufficient_power * ev_mpkwh * 0.25
-        distance_remaining = distance - distance_on_battery
-        self.assertEqual(
-            self.builder.get_gallon_per_hour(
-                distance=distance, ev_kw=-40, duration=quarter_hour
-            ),
-            distance_remaining / (ev_mpg_eq * 0.25),
         )
 
     def test_get_charge(self):

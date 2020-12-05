@@ -260,34 +260,32 @@ def generate_ra_reduction_battery_strategy(
 
 def generate_commuter_evse_strategy(
     charge_off_nem: bool,
-    drive_in_hour: int,
-    drive_home_hour: int,
+    start_charge_hour: int,
+    end_charge_hour: int,
     distance: float,
     name: str,
     user_description: str = None,
     load_serving_entity: LoadServingEntity = None,
 ):
     """
-    Generate a BatteryStrategy with the intention of reducting a CCA's system
-    peak using a system profile maximum in a 288 format. Overwrites name and
+    Generates a description for a new EVSEStrategy if one is not provided.
     """
     description = user_description or (
-        "Commuters drive {distance} miles to work at {drive_in_time}, and "
-        "drive {distance} miles home at {drive_out_time}. Their vehicles are "
-        "charged while at work.".format(
+        "Vehicles begin charging at {start_charge_hour} and end charging at "
+        "{end_charge_hour}. In between charges the vehicles are assumed to "
+        "commute {distance} miles one way.".format(
             distance=distance,
-            drive_in_time=format_hour(drive_in_hour),
-            drive_out_time=format_hour(drive_home_hour),
+            start_charge_hour=format_hour(start_charge_hour),
+            end_charge_hour=format_hour(end_charge_hour),
         )
     )
 
     return EVSEStrategy.generate(
-        charge_during_day=True,
         charge_off_nem=charge_off_nem,
         description=description,
         distance=distance,
-        drive_home_hour=drive_home_hour,
-        drive_in_hour=drive_in_hour,
+        end_charge_hour=end_charge_hour,
+        start_charge_hour=start_charge_hour,
         load_serving_entity=load_serving_entity,
         name=name,
     )
@@ -299,15 +297,15 @@ def format_hour(hour: int) -> str:
     representation.
 
       Ex:
-        0  --> 12 a.m.
-        5  -->  5 a.m.
-        12 --> 12 p.m.
-        18 -->  6 p.m.
-        23 --> 11 p.m.
+        0  --> 12 am
+        5  -->  5 am
+        12 --> 12 pm
+        18 -->  6 pm
+        23 --> 11 pm
 
     :param hour: int
     """
     if hour < 12:
-        return "{hour} a.m.".format(hour=hour if hour != 0 else 12)
+        return "{hour} am".format(hour=hour if hour != 0 else 12)
     else:
-        return "{hour} p.m.".format(hour=hour if hour == 12 else hour - 12)
+        return "{hour} pm".format(hour=hour if hour == 12 else hour - 12)
