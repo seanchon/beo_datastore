@@ -19,6 +19,12 @@ from load.serializers import MeterGroupSerializer
 from reference.auth_user.models import LoadServingEntity
 
 
+class LoadServingEntitySerializer(BaseSerializer):
+    class Meta:
+        model = LoadServingEntity
+        fields = ("id", "name", "short_name", "state")
+
+
 class ScenarioSerializer(MeterGroupSerializer):
     ders = serializers.SerializerMethodField()
     der_simulations = serializers.SerializerMethodField()
@@ -161,14 +167,21 @@ class GHGRateSerializer(BaseSerializer):
 class CAISORateSerializer(BaseSerializer):
     data = DataField()
     filters = serializers.JSONField()
-    year = serializers.SerializerMethodField()
+    load_serving_entity = DynamicRelationField(
+        LoadServingEntitySerializer, deferred=True, embed=True
+    )
 
     class Meta:
         model = CAISORate
-        fields = ("data", "filters", "id", "name", "year")
-
-    def get_year(self, obj):
-        return obj.caiso_report.year
+        fields = (
+            "id",
+            "name",
+            "data",
+            "filters",
+            "caiso_report",
+            "load_serving_entity",
+            "year",
+        )
 
 
 class RateCollectionSerializer(BaseSerializer):
@@ -186,12 +199,6 @@ class RateCollectionSerializer(BaseSerializer):
             "rate_plan",
         )
         deferred_fields = "rate_plan"
-
-
-class LoadServingEntitySerializer(BaseSerializer):
-    class Meta:
-        model = LoadServingEntity
-        fields = ("id", "name", "short_name", "state")
 
 
 class EffectiveDateComputedField(DynamicComputedField):
