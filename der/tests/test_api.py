@@ -144,8 +144,6 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
             "array_type": 0,
             "azimuth": 180,
             "tilt": 7,
-            "losses": 5,
-            "system_capacity": 50,
         }
 
         configuration, _ = SolarPVConfiguration.objects.get_or_create(

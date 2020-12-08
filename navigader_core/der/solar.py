@@ -35,9 +35,7 @@ class SolarPV(DER):
     azimuth = attr.ib(type=float)
     tilt = attr.ib(type=float)
     api_key = attr.ib(type=str, default="")
-    losses = attr.ib(type=float, default=14.08)
     module_type = attr.ib(type=int, default=0)
-    system_capacity = attr.ib(type=float, default=1)
     timeframe = attr.ib(type=str, default="hourly")
     # non-parameter: pass stored response to avoid API call
     stored_response = attr.ib(type=dict, default={}, repr=False)
@@ -58,14 +56,6 @@ class SolarPV(DER):
         if not (0 <= value < 360):
             self.raise_validation_error(attribute, "Must be between 0 and 360")
 
-    @losses.validator
-    def _validate_losses(self, attribute, value):
-        """
-        Validate losses is between -5 and 99.
-        """
-        if not (-5 <= value < 99):
-            self.raise_validation_error(attribute, "Must be between -5 and 99")
-
     @module_type.validator
     def _validate_module_type(self, attribute, value):
         """
@@ -81,16 +71,6 @@ class SolarPV(DER):
         """
         if not (0 <= value <= 90):
             self.raise_validation_error(attribute, "Must be between 0 and 90")
-
-    @system_capacity.validator
-    def _validate_system_capacity(self, attribute, value):
-        """
-        Validate system capcity is between 0.05 and 500000.
-        """
-        if not (0.05 <= value <= 500000):
-            self.raise_validation_error(
-                attribute, "Must be between 0.05 and 500000"
-            )
 
     @property
     def request_params(self) -> dict:
@@ -110,7 +90,9 @@ class SolarPV(DER):
         if self.stored_response:
             return self.stored_response
         else:
-            return requests.get(PVWATTS_URL, params=self.request_params).json()
+            params = {"losses": 14.08, "system_capacity": 1}
+            params.update(self.request_params)
+            return requests.get(PVWATTS_URL, params=params).json()
 
     def get_annual_solar_intervalframe(
         self, year: int, target_period: timedelta = timedelta(hours=1)
@@ -178,8 +160,7 @@ class SolarPV(DER):
             .sum()
         )
 
-        normalized_solar_yield = solar_yield / self.system_capacity
-        return intervalframe.total / normalized_solar_yield
+        return intervalframe.total / solar_yield
 
 
 @attr.s(frozen=True)

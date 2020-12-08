@@ -615,7 +615,7 @@ class SolarPVConfiguration(DERConfiguration):
     Container for storing SolarPV configurations.
     """
 
-    parameters = JSONField(unique=True)
+    parameters = JSONField()
     stored_response = JSONField()
 
     der_type = "SolarPV"
@@ -667,7 +667,7 @@ class SolarPVConfiguration(DERConfiguration):
 
     @classmethod
     def get_or_create_from_object(
-        cls, solar_pv: pySolarPV
+        cls, solar_pv: pySolarPV, load_serving_entity: LoadServingEntity = None
     ) -> Tuple[DERConfiguration, bool]:
         """
         Get or create SolarPVConfiguration object from pySolarPV object.
@@ -677,7 +677,9 @@ class SolarPVConfiguration(DERConfiguration):
         response = solar_pv.pvwatts_response
 
         return cls.objects.get_or_create(
-            parameters=parameters, stored_response=response
+            load_serving_entity=load_serving_entity,
+            parameters=parameters,
+            stored_response=response,
         )
 
     @classmethod
@@ -686,9 +688,7 @@ class SolarPVConfiguration(DERConfiguration):
         address: str,
         array_type: int,
         azimuth: float,
-        losses: float,
         name: str,
-        system_capacity: float,
         tilt: float,
         load_serving_entity: LoadServingEntity = None,
     ):
@@ -701,17 +701,16 @@ class SolarPVConfiguration(DERConfiguration):
         """
         # Fix "module_type" to 0 ("Standard" type) and "timeframe" to "hourly"
         configuration, created = cls.get_or_create_from_object(
-            pySolarPV(
+            load_serving_entity=load_serving_entity,
+            solar_pv=pySolarPV(
                 address=address,
                 api_key=PVWATTS_API_KEY,
                 array_type=array_type,
                 azimuth=azimuth,
-                losses=losses,
                 module_type=0,
-                system_capacity=system_capacity,
                 tilt=tilt,
                 timeframe="hourly",
-            )
+            ),
         )
 
         # Do not overwrite the name and LSE of a pre-existing configuration
@@ -728,7 +727,7 @@ class SolarPVStrategy(DERStrategy):
     Container for storing SolarPVStrategy objects.
     """
 
-    parameters = JSONField(unique=True)
+    parameters = JSONField()
 
     der_type = "SolarPV"
 
@@ -745,13 +744,16 @@ class SolarPVStrategy(DERStrategy):
 
     @classmethod
     def get_or_create_from_object(
-        cls, solar_pv_strategy: pySolarPVStrategy
+        cls,
+        solar_pv_strategy: pySolarPVStrategy,
+        load_serving_entity: LoadServingEntity = None,
     ) -> Tuple[DERStrategy, bool]:
         """
         Get or create SolarPVStrategy object from pySolarPVStrategy object.
         """
         return cls.objects.get_or_create(
-            parameters=attr.asdict(solar_pv_strategy)
+            load_serving_entity=load_serving_entity,
+            parameters=attr.asdict(solar_pv_strategy),
         )
 
 
