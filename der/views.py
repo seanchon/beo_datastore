@@ -179,31 +179,21 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
             "address",
             "array_type",
             "azimuth",
-            "losses",
             "name",
-            "system_capacity",
             "tilt",
         ]
 
         self._require_data_fields(*configuration_attrs)
-        (
-            address,
-            array_type,
-            azimuth,
-            losses,
-            name,
-            system_capacity,
-            tilt,
-        ) = self._data(configuration_attrs)
+        (address, array_type, azimuth, name, tilt) = self._data(
+            configuration_attrs
+        )
 
         return SolarPVConfiguration.get_or_create_from_attrs(
             address=address,
             array_type=array_type,
             azimuth=azimuth,
             load_serving_entity=request.user.profile.load_serving_entity,
-            losses=losses,
             name=name,
-            system_capacity=system_capacity,
             tilt=tilt,
         )
 

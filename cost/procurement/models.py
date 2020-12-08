@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from functools import reduce
 
 import pandas as pd
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 from django.utils.functional import cached_property
 from jsonfield import JSONField
@@ -15,6 +15,7 @@ from pytz import timezone
 from beo_datastore.libs.intervalframe_file import (
     ArbitraryDataFrameFile,
     PowerIntervalFrameFile,
+    ProcurementRateIntervalFrameFile,
 )
 from beo_datastore.libs.models import (
     IntervalFrameFileMixin,
@@ -38,20 +39,8 @@ from reference.auth_user.models import LoadServingEntity
 from reference.reference_model.models import DERSimulation
 
 
-class SystemProfileIntervalFrame(PowerIntervalFrameFile):
-    """
-    Model for handling SystemProfile IntervalFrameFiles.
-    """
-
-    # directory for parquet file storage
-    file_directory = os.path.join(MEDIA_ROOT, "system_profiles")
-
-
 class SystemProfile(
-    IntervalFrameFileMixin,
-    RateDataMixin,
-    TimeStampMixin,
-    ValidationModel,
+    IntervalFrameFileMixin, RateDataMixin, TimeStampMixin, ValidationModel,
 ):
     """
     SystemProfile is aggregated meter intervals for `all`
@@ -71,8 +60,13 @@ class SystemProfile(
         on_delete=models.PROTECT,
     )
     resource_adequacy_rate = models.FloatField(
-        validators=[MinValueValidator(0.0)],
+        validators=[MinValueValidator(0.0)]
     )
+
+    class SystemProfileIntervalFrame(PowerIntervalFrameFile):
+
+        # directory for parquet file storage
+        file_directory = os.path.join(MEDIA_ROOT, "system_profiles")
 
     # Required by IntervalFrameFileMixin.
     frame_file_class = SystemProfileIntervalFrame
@@ -510,22 +504,45 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
         return ProcurementRateIntervalFrame(dataframe=df)
 
 
-class CAISORate(RateDataMixin, ValidationModel):
+class CAISORate(
+    IntervalFrameFileMixin, RateDataMixin, TimeStampMixin, ValidationModel,
+):
     """
     Container for referencing associated CAISO ProcurementRateIntervalFrame.
+
+    Represents hourly or quarter-hourly procurement $/kW rates that can be
+    a combination of CAISO pricing and/or other fees/cost specific to a CCA.
     """
 
-    filters = JSONField()
+    empty = {"blank": True, "null": True}
+    name = models.CharField(max_length=255, **empty)
+    filters = JSONField(**empty)
     caiso_report = models.ForeignKey(
-        to=CAISOReport, related_name="caiso_rates", on_delete=models.CASCADE
+        to=CAISOReport,
+        related_name="caiso_rates",
+        on_delete=models.CASCADE,
+        **empty
     )
+    load_serving_entity = models.ForeignKey(
+        to=LoadServingEntity, on_delete=models.PROTECT, **empty
+    )
+    year = models.IntegerField(
+        validators=[MinValueValidator(2000), MaxValueValidator(2050)], **empty
+    )
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    class ProcurementIntervalFrame(ProcurementRateIntervalFrameFile):
+
+        # directory for parquet file storage
+        file_directory = os.path.join(MEDIA_ROOT, "procurement_rates")
+
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = ProcurementIntervalFrame
 
     # Required by RateDataMixin.
     cost_calculation_model = AggregateProcurementCostCalculation
-
-    class Meta:
-        ordering = ["id"]
-        unique_together = ["filters", "caiso_report"]
 
     @property
     def rate_data(self):
@@ -533,25 +550,6 @@ class CAISORate(RateDataMixin, ValidationModel):
         Required by RateDataMixin.
         """
         return self.intervalframe
-
-    @property
-    def name(self):
-        return "{} {}".format(
-            self.caiso_report.report_name, self.caiso_report.year
-        )
-
-    @property
-    def short_name(self):
-        return self.name.replace(" ", "")
-
-    @property
-    def intervalframe(self):
-        """
-        Associated CAISO ProcurementRateIntervalFrame.
-        """
-        return self.caiso_report.get_procurement_rate_intervalframe(
-            filters=self.filters
-        )
 
     @property
     def intervalframe_plot(self):

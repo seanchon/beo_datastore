@@ -6,8 +6,9 @@ import coreapi
 import numpy as np
 import pandas as pd
 from django.db import transaction
+from django.db.models import Q
 from django.http.request import QueryDict
-from rest_framework import mixins, serializers, status
+from rest_framework import serializers, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
@@ -15,19 +16,17 @@ from rest_framework.schemas import AutoSchema
 from beo_datastore.libs.api.viewsets import (
     CreateListRetrieveDestroyViewSet,
     CreateListRetrieveUpdateDestroyViewSet,
-    ListRetrieveDestroyViewSet,
     ListRetrieveViewSet,
 )
 from beo_datastore.libs.dataframe import download_dataframe
-from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate, SystemProfile
 from cost.study.models import Scenario
 from cost.utility_rate.libs import (
     convert_rate_df_to_dict,
     convert_rate_dict_to_df,
 )
-from cost.utility_rate.models import RateCollection, RatePlan
 from navigader_core.load.dataframe import get_dataframe_period
+from reference.auth_user.models import LoadServingEntity
 from reference.reference_model.models import (
     DERConfiguration,
     DERStrategy,
@@ -54,7 +53,6 @@ class ScenarioViewSet(CreateListRetrieveUpdateDestroyViewSet):
     der_intervalframe, and post_der_intervalframe data and report data.
     """
 
-    model = Scenario
     serializer_class = ScenarioSerializer
 
     schema = AutoSchema(
@@ -281,7 +279,6 @@ class GHGRateViewSet(ListRetrieveViewSet):
     GHGRate objects
     """
 
-    model = GHGRate
     serializer_class = GHGRateSerializer
 
     schema = AutoSchema(
@@ -337,74 +334,232 @@ class GHGRateViewSet(ListRetrieveViewSet):
     )
 
 
-class CAISORateViewSet(ListRetrieveViewSet):
+class CostFunctionViewSet(CreateListRetrieveDestroyViewSet):
     """
-    CAISORate objects
+    Provides common `get_queryset` and `destroy` methods for the cost functions.
+    Users are permitted to access cost functions if the cost function belongs to
+    the user's LSE or if it isn't associated with any LSE. Users are permitted
+    to delete cost functions if the cost function belongs to the user's LSE.
     """
 
-    model = CAISORate
+    def get_queryset(self, queryset=None):
+        lse = self.request.user.profile.load_serving_entity
+        return self.get_serializer().Meta.model.objects.filter(
+            Q(load_serving_entity__isnull=True) | Q(load_serving_entity=lse)
+        )
+
+    def get_cost_fn_lse(self) -> LoadServingEntity:
+        """
+        Returns the LSE associated with the cost function object. For almost all
+        cost function classes the relationship with the LSE is managed by the
+        serializer model itself, but for `RateCollection` it is managed by the
+        parent `RatePlan` object.
+        """
+        return self.get_object().load_serving_entity
+
+    def user_can_delete_cost_fn(self, request):
+        """
+        Returns True if the user has permission to delete the provided cost
+        function object. Cost function deletion permissioning is handled at the
+        LSE level: if a user is a member of the same LSE as the cost function,
+        they are permitted to delete it. If the cost function is not associated
+        with any LSE, no user is permitted to delete it.
+
+        :param request: The Django request object
+        """
+        lse = self.get_cost_fn_lse()
+        user_lse = request.user.profile.load_serving_entity
+
+        # Disallow deletion if the LSE doesn't precisely match
+        has_lse = lse is not None
+        same_lse = lse == user_lse
+        return has_lse and same_lse
+
+    def destroy(self, request, *args, **kwargs):
+        if self.user_can_delete_cost_fn(request):
+            return super().destroy(request, *args, **kwargs)
+        else:
+            self.permission_denied(request)
+
+
+class CAISORateViewSet(CostFunctionViewSet):
     serializer_class = CAISORateSerializer
 
-    schema = AutoSchema(
-        manual_fields=[
-            coreapi.Field(
-                "data_types",
-                required=False,
-                location="query",
-                description=(
-                    "One or many data types to return. Choices are 'default', "
-                    "'total', 'average', 'maximum', 'minimum', and 'count'."
-                ),
-            ),
-            coreapi.Field(
-                "column",
-                required=False,
-                location="query",
-                description=(
-                    "Column to run aggregate calculations on for data_types "
-                    "other than default."
-                ),
-            ),
-            coreapi.Field(
-                "start",
-                required=False,
-                location="query",
-                description=(
-                    "Filter data to include only timestamps starting on or "
-                    "after start. (Format: ISO 8601)"
-                ),
-            ),
-            coreapi.Field(
-                "end_limit",
-                required=False,
-                location="query",
-                description=(
-                    "Filter data to include only timestamps starting before "
-                    "end_limit. (Format: ISO 8601)"
-                ),
-            ),
-            coreapi.Field(
-                "period",
-                required=False,
-                location="query",
-                description="Integer representing the number of minutes in the dataframe period",
-            ),
-        ]
-    )
+    class CustomSchema(AutoSchema):
+        manual_fields = []
+
+        def get_manual_fields(self, path: str, method: str):
+            custom_fields = []
+            if method.upper() == "GET":
+                custom_fields = [
+                    coreapi.Field(
+                        "data_types",
+                        required=False,
+                        location="query",
+                        description=(
+                            "One or many data types to return. Choices are 'default', "
+                            "'total', 'average', 'maximum', 'minimum', and 'count'."
+                        ),
+                    ),
+                ]
+            if method.upper() == "POST":
+                custom_fields = [
+                    coreapi.Field(
+                        "file",
+                        required=True,
+                        location="body",
+                        description=(
+                            "CAISO rate 8760 or 4x8760 interval CSV. "
+                            "1st column intervals in 1/1/19 1:00 format. "
+                            "2nd $/Power or $/Energy rate value. "
+                        ),
+                    ),
+                    coreapi.Field(
+                        "name",
+                        required=False,
+                        location="body",
+                        description=(
+                            "Optional 'name' for ingested file instead of actual filename. "
+                        ),
+                    ),
+                    coreapi.Field(
+                        "year",
+                        required=True,
+                        location="body",
+                        description="Intended 'year' intervals in upload rate file. ",
+                    ),
+                ]
+            return self._manual_fields + custom_fields
+
+    schema = CustomSchema()
+
+    def create(self, request, *args, **kwargs):
+        """
+        Handle upload and ingestion of CAISO CSV interval file.
+        """
+        self._require_data_fields("file", "year")
+        [file, name, year] = self._data(["file", "name", "year"])
+
+        dataframe = self._read_interval_csv(file)
+        load_serving_entity = request.user.profile.load_serving_entity
+        name = name or file.name.split(".")[0]
+        try:
+            new_instance, created = CAISORate.get_or_create(
+                dataframe=dataframe,
+                load_serving_entity=load_serving_entity,
+                name=name,
+                year=year,
+            )
+        except serializers.ValidationError as e:
+            raise serializers.ValidationError(detail=e.message_dict)
+
+        if not created:
+            raise serializers.ValidationError(
+                f"{self.model.__name__} with provided parameters already exists!"
+            )
+
+        return Response(
+            {
+                "caiso_rate": self.serializer_class(
+                    new_instance, many=False
+                ).data
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @staticmethod
+    def _read_interval_csv(file: str) -> pd.DataFrame:
+        """
+        Read, parse, and convert CAISO interval csv to interval dataframe.
+        """
+        try:
+            df = pd.read_csv(file)
+            # Clean redundant empty rows or columns if any.
+            df.dropna(axis=0, how="all", inplace=True)
+            df.dropna(axis=1, how="all", inplace=True)
+        except Exception as e:
+            raise serializers.ValidationError(
+                "Could not convert uploaded interval csv file to DataFrame.", e
+            )
+
+        # Ensure intervals are consistent.
+        timestamp_column = df.columns[0]
+        indices = pd.DatetimeIndex(df[timestamp_column])
+        intervals = set(np.diff(indices))
+        if len(intervals) != 1:
+            raise serializers.ValidationError(
+                "Timestamp intervals are inconsistent. Found the following "
+                f"intervals: {intervals}"
+            )
+
+        interval: int = get_dataframe_period(
+            df, by_column=timestamp_column, n=None
+        ).seconds
+
+        if interval not in [QUARTER_HOUR, HOUR]:
+            raise serializers.ValidationError(
+                f"Expected intervals are either 15 or 60 minutes. "
+                f"Found '{interval / 60}' minutes."
+            )
+
+        # Validate that upload file contains interval readings `up to` 366 days.
+        first_interval: pd.Timestamp = indices[0]
+        last_interval: pd.Timestamp = indices[-1]
+
+        span_days = (last_interval - first_interval).days
+        if span_days > 366:
+            raise serializers.ValidationError(
+                "Upload CSV intervals span exceeds 366 days. "
+                f"There are {span_days} days between {first_interval} and {last_interval}."
+            )
+
+        # Rename intervals with `start` datetime instead of `end` datetime.
+        indices = indices - pd.to_timedelta(interval, unit="second")
+
+        try:
+            df.set_index(
+                keys=indices, verify_integrity=True, drop=True, inplace=True,
+            )
+        except Exception as e:
+            raise serializers.ValidationError(
+                "Duplicates, inconsistent or missing interval timestamps. ", e
+            )
+        df.drop(columns=timestamp_column, inplace=True)
+        df.index.rename("start", inplace=True)
+
+        # Convert dollar per (energy or power) readings from one of the expected
+        # headers/units  kW, kWh, MW, MWH, GW, or GWH into `Power in kW`.
+        value = df.columns[0]
+        unit = value.upper()
+        interval_per_hour = HOUR / interval
+        if "KWH" in unit:
+            df[value] *= interval_per_hour
+        elif "KW" in unit:
+            pass
+        elif "MWH" in unit:
+            df[value] *= interval_per_hour / 1e3
+        elif "MW" in unit:
+            df[value] /= 1e3
+        elif "GWH" in unit:
+            df[value] *= interval_per_hour / 1e6
+        elif "GW" in unit:
+            df[value] /= 1e6
+        else:
+            raise serializers.ValidationError(
+                f"'{unit}' is not an expected unit for aggregated energy or power values. "
+                f"Unit should be one of kW, kWh, MW, MWH, GW, or GWH."
+            )
+        df.rename(columns={value: "$/kwh"}, inplace=True)
+
+        return df
 
 
-class RatePlanViewSet(ListRetrieveDestroyViewSet, mixins.CreateModelMixin):
+class RatePlanViewSet(CostFunctionViewSet):
     """
     Utility Rate Plan Objects
     """
 
-    model = RatePlan
     serializer_class = RatePlanSerializer
-
-    def get_queryset(self):
-        return RatePlan.objects.filter(
-            load_serving_entity_id=self.request.user.profile.load_serving_entity_id
-        )
 
     def create(self, request, *args, **kwargs):
         user = request.user
@@ -413,20 +568,26 @@ class RatePlanViewSet(ListRetrieveDestroyViewSet, mixins.CreateModelMixin):
         return super().create(request, *args, **kwargs)
 
 
-class RateCollectionViewSet(
-    ListRetrieveDestroyViewSet, mixins.CreateModelMixin
-):
+class RateCollectionViewSet(CostFunctionViewSet):
     """
     Utility Rate Data for a particular effective date
     """
 
-    model = RateCollection
     serializer_class = RateCollectionSerializer
 
-    def get_queryset(self):
-        return RateCollection.objects.filter(
-            rate_plan__load_serving_entity_id=self.request.user.profile.load_serving_entity_id
+    def get_queryset(self, queryset=None):
+        lse = self.request.user.profile.load_serving_entity
+        return self.get_serializer().Meta.model.objects.filter(
+            Q(rate_plan__load_serving_entity__isnull=True)
+            | Q(rate_plan__load_serving_entity=lse)
         )
+
+    def get_cost_fn_lse(self):
+        """
+        Returns the LSE associated with the rate collection's parent rate plan
+        model
+        """
+        return self.get_object().rate_plan.load_serving_entity
 
     def create(self, request, **kwargs):
         """
@@ -473,20 +634,16 @@ class RateCollectionViewSet(
         Downloads the CSV file representation of the `RateCollection`
         """
         rate_collection = self.get_queryset().get(id=pk)
+        rate_collection_date = rate_collection.effective_date.strftime("%Y%m%d")
         df = convert_rate_dict_to_df(rate_collection.rate_data)
-        filename = "rate_collection-{}".format(
-            rate_collection.effective_date.strftime("%Y%m%d")
-        )
-        download_kwargs = {"index": False, "filename": filename}
-
-        return download_dataframe(df, **download_kwargs)
+        filename = f"rate_collection-{rate_collection_date}"
+        return download_dataframe(df, index=False, filename=filename)
 
 
-class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
-    model = SystemProfile
+class SystemProfileViewSet(CostFunctionViewSet):
     serializer_class = SystemProfileSerializer
 
-    class CustomSystemProfileSchema(AutoSchema):
+    class CustomProfileSchema(AutoSchema):
         manual_fields = []
 
         def get_manual_fields(self, path: str, method: str):
@@ -534,16 +691,7 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
                 ]
             return self._manual_fields + custom_fields
 
-    schema = CustomSystemProfileSchema()
-
-    def get_queryset(self):
-        """
-        Limit the user to the SystemProfile objects associated with their LSE
-        """
-        user = self.request.user
-        return SystemProfile.objects.filter(
-            load_serving_entity=user.profile.load_serving_entity
-        )
+    schema = CustomProfileSchema()
 
     def create(self, request, *args, **kwargs):
         """
@@ -555,7 +703,36 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
         [file, name, resource_adequacy_rate] = self._data(
             ["file", "name", "resource_adequacy_rate"]
         )
+
         load_serving_entity = request.user.profile.load_serving_entity
+        dataframe = self._read_interval_csv(file)
+        name = name or file.name.split(".")[0]
+        try:
+            system_profile, created = SystemProfile.get_or_create(
+                dataframe=dataframe,
+                name=name,
+                load_serving_entity=load_serving_entity,
+                resource_adequacy_rate=resource_adequacy_rate,
+            )
+        except serializers.ValidationError as e:
+            raise serializers.ValidationError(detail=e.message_dict)
+
+        if not created:
+            raise serializers.ValidationError(
+                "SystemProfile with provided parameters already exists!"
+            )
+
+        return Response(
+            {
+                "system_profile": self.serializer_class(
+                    system_profile, many=False
+                ).data
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    @staticmethod
+    def _read_interval_csv(file) -> pd.DataFrame:
 
         df = pd.read_csv(file)
         # Clean redundant empty rows or columns if any.
@@ -633,27 +810,4 @@ class SystemProfileViewSet(CreateListRetrieveDestroyViewSet):
             )
         df.rename(columns={value: "kw"}, inplace=True)
 
-        name = name or file.name.split(".")[0]
-        try:
-            system_profile, created = SystemProfile.get_or_create(
-                dataframe=df,
-                name=name,
-                load_serving_entity=load_serving_entity,
-                resource_adequacy_rate=resource_adequacy_rate,
-            )
-        except serializers.ValidationError as e:
-            raise serializers.ValidationError(detail=e.message_dict)
-
-        if not created:
-            raise serializers.ValidationError(
-                "SystemProfile with provided parameters already exists!"
-            )
-
-        return Response(
-            {
-                "system_profile": self.serializer_class(
-                    system_profile, many=False
-                ).data
-            },
-            status=status.HTTP_201_CREATED,
-        )
+        return df

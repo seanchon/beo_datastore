@@ -46,22 +46,10 @@ class SolarPVConfigurationSerializer(BaseSerializer):
     array_type = serializers.IntegerField(source="parameters.array_type")
     azimuth = serializers.FloatField(source="parameters.azimuth")
     tilt = serializers.FloatField(source="parameters.tilt")
-    losses = serializers.FloatField(source="parameters.losses")
-    system_capacity = serializers.FloatField(
-        source="parameters.system_capacity"
-    )
 
     class Meta:
         model = SolarPVConfiguration
-        fields = (
-            "address",
-            "address",
-            "array_type",
-            "azimuth",
-            "tilt",
-            "losses",
-            "system_capacity",
-        )
+        fields = ("address", "array_type", "azimuth", "tilt")
 
 
 class DERConfigurationSerializer(BaseSerializer):
