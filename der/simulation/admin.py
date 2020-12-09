@@ -48,8 +48,6 @@ class BatteryConfiguration(admin.ModelAdmin):
 class EVSEConfigurationAdmin(admin.ModelAdmin):
     search_fields = [
         "ev_mpkwh",
-        "ev_capacity",
-        "ev_efficiency",
         "evse_rating",
         "ev_count",
         "evse_count",

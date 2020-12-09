@@ -186,8 +186,6 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
         """
         configuration, _ = EVSEConfiguration.objects.get_or_create(
             ev_mpkwh=15,
-            ev_capacity=300,
-            ev_efficiency=0.87,
             evse_rating=30.0,
             ev_count=15,
             evse_count=5,
@@ -205,8 +203,6 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
             data,
             {
                 "ev_mpkwh": 15,
-                "ev_capacity": 300,
-                "ev_efficiency": 0.87,
                 "evse_rating": 30.0,
                 "ev_count": 15,
                 "evse_count": 5,
@@ -220,8 +216,6 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
         """
         evse_attrs = {
             "ev_mpkwh": 15,
-            "ev_capacity": 300,
-            "ev_efficiency": 0.87,
             "evse_rating": 30.0,
             "ev_count": 15,
             "evse_count": 5,

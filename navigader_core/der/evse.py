@@ -21,9 +21,7 @@ class EVSE(DER):
     equipment (EVSE) a.k.a chargers in combination with electric vehicles (EVs).
 
     Properties of the electric vehicle (EV) are:
-        - EV efficiency (miles/kwh)
-        - EV battery capacity (kwh)
-        - EV battery efficiency (%)
+        - EV driving efficiency (miles/kwh)
 
     Properties of the electric vehicle service equipment (EVSE) are:
         - EVSE rating (kw)
@@ -35,8 +33,6 @@ class EVSE(DER):
     """
 
     ev_mpkwh = attr.ib(type=float)
-    ev_capacity = attr.ib(type=float)
-    ev_efficiency = attr.ib(type=float)
     evse_rating = attr.ib(type=float)
     ev_count = attr.ib(type=int)
     evse_count = attr.ib(type=int)
@@ -47,20 +43,6 @@ class EVSE(DER):
         if value <= 0:
             raise self.raise_validation_error(
                 attribute, "Must be greater than zero"
-            )
-
-    @ev_capacity.validator
-    def _validate_ev_capacity(self, attribute, value):
-        if value <= 0:
-            raise self.raise_validation_error(
-                attribute, "Must be greater than zero"
-            )
-
-    @ev_efficiency.validator
-    def _validate_ev_efficiency(self, attribute, value):
-        if not (0 < value <= 1):
-            raise self.raise_validation_error(
-                attribute, "Must be between 0 and 1"
             )
 
     @evse_rating.validator
@@ -90,20 +72,6 @@ class EVSE(DER):
             self.raise_validation_error(attribute, "Must be between 0 and 1")
 
     @property
-    def ev_total_capacity(self) -> float:
-        """
-        Total battery capacity of all EVs combined.
-        """
-        return self.ev_capacity * self.ev_count
-
-    @property
-    def ev_range(self) -> float:
-        """
-        Range in miles of a single EV under current assumptions.
-        """
-        return self.ev_capacity * self.ev_mpkwh
-
-    @property
     def evse_total_rating(self) -> float:
         """
         Total rating of all EVSEs combined.
@@ -111,7 +79,10 @@ class EVSE(DER):
         return self.evse_rating * self.evse_count
 
     def get_target_power(
-        self, duration: timedelta, current_charge: float
+        self,
+        duration: timedelta,
+        current_charge: float,
+        ev_total_capacity: float,
     ) -> float:
         """
         Return the upper limit for a battery operation based on its physical
@@ -120,17 +91,14 @@ class EVSE(DER):
         The following battery constraints apply:
             - The battery cannot charge at power beyond it rating.
             - The battery cannot charge beyond its max capacity.
-            - The battery losses due to the efficiency factor are calculated on
-            the charge cycle.
 
         :param duration: timedelta
         :param current_charge: current charge level (kwh)
+        :param ev_total_capacity: the combined battery capacity of all EV's
         :return: target power (kw)
         """
         hours = timedelta_to_hours(duration)
-        power = (self.ev_total_capacity - current_charge) / (
-            hours * self.ev_efficiency
-        )
+        power = (ev_total_capacity - current_charge) / hours
         return min(power, self.evse_total_rating)
 
 
@@ -164,6 +132,13 @@ class EVSEStrategy(DERStrategy):
                 "EVSEStrategy cannot contain instruction to drive and charge"
                 "within the same month-hour."
             )
+
+    @property
+    def round_trip_distance(self) -> float:
+        """
+        Returns how far an EV travels in a day according to the drive_schedule.
+        """
+        return self.drive_schedule.dataframe.sum().median()
 
     def get_target_power(
         self, month: int, hour: int, meter_reading: float
@@ -200,14 +175,12 @@ class EVSEIntervalFrame(DataFrameQueue):
         - kw: Electric power used to charge cars.
         - ev_kw: Electricity used to drive.
         - charge: Charge on all EV batteries.
-        - capacity: Capacity of all EV batteries.
     """
 
-    default_dataframe = pd.DataFrame(
-        columns=["distance", "kw", "ev_kw", "charge", "capacity"],
-        index=pd.to_datetime([]),
-    )
     default_aggregation_column = "kw"
+    default_dataframe = pd.DataFrame(
+        columns=["distance", "kw", "ev_kw", "charge"], index=pd.to_datetime([]),
+    )
 
 
 @attr.s(frozen=True)
@@ -218,26 +191,43 @@ class EVSESimulationBuilder(DERSimulationSequenceBuilder):
 
     der = attr.ib(type=EVSE)
     der_strategy = attr.ib(type=EVSEStrategy)
-    begin_charged = attr.ib(type=bool, default=False)
 
     def get_der_intervalframe(self) -> DataFrameQueue:
         return EVSEIntervalFrame()
 
-    def get_latest_charge(self, der_intervalframe: DataFrameQueue):
+    @property
+    def ev_total_capacity(self):
+        """
+        Throughout much of this model's development it was assumed that EV
+        capacity would be a user-provided input. The designed behavior was that
+        the EVSE chargers would attempt to fill the EV battery up to its
+        capacity. However, late in the model's development a rather fundamental
+        shift in the model's operations was introduced: rather than focus on the
+        battery capacity as the limiting factor for charging, we will focus on
+        the battery's usage while driving and attempt to recharge the amount of
+        kWh expended during the day, adjusting with the utilization factor.
+
+        This is total kludge. The model's basic operating principles have been
+        altered, but there's no time to overhaul the model. To make the square
+        peg fit the round hole with as little jamming as possible, the EV
+        battery capacity is going to be modeled as the amount of kWh required to
+        drive the EV the specified round-trip distance.
+        """
+        der = self.der
+        distance = self.der_strategy.round_trip_distance
+        return distance / der.ev_mpkwh * der.evse_utilization * der.ev_count
+
+    @staticmethod
+    def get_latest_charge(der_intervalframe: DataFrameQueue):
         """
         Returns the current state of the EV batteries' charge. On the first
-        interval, the charge is either 0 (if the EV's are not charged
-        initially) or the full capacity of the EV's, as given in the DER
-        configuration
+        interval, the charge is 0.
         """
         latest_evse_interval = der_intervalframe.latest_interval_dict
         if latest_evse_interval:
             return latest_evse_interval["charge"]
         else:
-            if self.begin_charged:
-                return self.der.ev_total_capacity
-            else:
-                return 0
+            return 0
 
     def get_target_power(
         self,
@@ -254,7 +244,9 @@ class EVSESimulationBuilder(DERSimulationSequenceBuilder):
         """
         power = min(
             self.der.get_target_power(
-                duration=duration, current_charge=current_charge
+                duration=duration,
+                current_charge=current_charge,
+                ev_total_capacity=self.ev_total_capacity,
             ),
             self.der_strategy.get_target_power(
                 month=month, hour=hour, meter_reading=meter_reading
@@ -316,14 +308,11 @@ class EVSESimulationBuilder(DERSimulationSequenceBuilder):
         """
         Return next charge after a battery or EV operation.
         """
+        # charge battery and drive EV
         duration_hours = timedelta_to_hours(duration)
+        charge += (kw + ev_kw) * duration_hours
 
-        # charge battery with efficiency losses
-        charge += kw * duration_hours * self.der.ev_efficiency
-        # drive EV
-        charge += ev_kw * duration_hours
-
-        if charge < 0 or charge > self.der.ev_total_capacity:
+        if charge < 0 or charge > self.ev_total_capacity:
             raise RuntimeError("Charge cannot be negative or exceed capacity.")
         else:
             return charge
@@ -338,7 +327,6 @@ class EVSESimulationBuilder(DERSimulationSequenceBuilder):
                 "kw": 0,
                 "ev_kw": 0,
                 "charge": self.get_latest_charge(der_intervalframe),
-                "capacity": self.der.ev_total_capacity,
             }
         )
 
@@ -360,7 +348,6 @@ class EVSESimulationBuilder(DERSimulationSequenceBuilder):
             - kw
             - ev_kw
             - charge
-            - capacity
         """
         if duration <= timedelta(0):
             raise ValueError("duration must be greater than timedelta(0).")
@@ -397,13 +384,5 @@ class EVSESimulationBuilder(DERSimulationSequenceBuilder):
                 "kw": kw,
                 "ev_kw": ev_kw,
                 "charge": charge,
-                "capacity": self.der.ev_total_capacity,
             }
         )
-
-    def finalize(self, der_intervalframe):
-        """
-        Derate the kW values by the utilization rate
-        """
-        super().finalize(der_intervalframe)
-        der_intervalframe.dataframe.kw *= self.der.evse_utilization

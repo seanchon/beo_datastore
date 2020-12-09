@@ -452,17 +452,6 @@ class EVSEConfiguration(DERConfiguration):
     ev_mpkwh = models.FloatField(
         blank=False, null=False, validators=[MinValueValidator(limit_value=0)]
     )
-    ev_capacity = models.FloatField(
-        blank=False, null=False, validators=[MinValueValidator(limit_value=0)]
-    )
-    ev_efficiency = models.FloatField(
-        blank=False,
-        null=False,
-        validators=[
-            MinValueValidator(limit_value=0),
-            MaxValueValidator(limit_value=1),
-        ],
-    )
     evse_rating = models.FloatField(
         blank=False, null=False, validators=[MinValueValidator(limit_value=0)]
     )
@@ -494,8 +483,6 @@ class EVSEConfiguration(DERConfiguration):
         """
         return pyEVSE(
             ev_mpkwh=self.ev_mpkwh,
-            ev_capacity=self.ev_capacity,
-            ev_efficiency=self.ev_efficiency,
             evse_rating=self.evse_rating,
             ev_count=self.ev_count,
             evse_count=self.evse_count,
