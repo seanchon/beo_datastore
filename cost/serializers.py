@@ -26,6 +26,7 @@ class LoadServingEntitySerializer(BaseSerializer):
 
 
 class ScenarioSerializer(MeterGroupSerializer):
+    cost_functions = serializers.SerializerMethodField()
     ders = serializers.SerializerMethodField()
     der_simulations = serializers.SerializerMethodField()
     meter_group = DynamicRelationField(MeterGroupSerializer, deferred=True)
@@ -39,6 +40,7 @@ class ScenarioSerializer(MeterGroupSerializer):
     class Meta:
         model = Scenario
         fields = MeterGroupSerializer.Meta.fields + (
+            "cost_functions",
             "der_configuration",
             "der_simulation_count",
             "der_simulations",
@@ -59,6 +61,29 @@ class ScenarioSerializer(MeterGroupSerializer):
             "der_configuration",
             "der_strategy",
         )
+
+    def get_cost_functions(self, obj):
+        """
+        Returns a dict with all the scenario's associated cost functions' ID and
+        name
+        """
+        cost_functions = [
+            "ghg_rate",
+            "procurement_rate",
+            "rate_plan",
+            "system_profile",
+        ]
+
+        def serialize_cost_fn(cost_fn):
+            if cost_fn is None:
+                return None
+            else:
+                return {"id": cost_fn.id, "name": cost_fn.name}
+
+        return {
+            cost_fn: serialize_cost_fn(getattr(obj, cost_fn))
+            for cost_fn in cost_functions
+        }
 
     def get_ders(self, obj):
         """
@@ -180,7 +205,6 @@ class CAISORateSerializer(BaseSerializer):
             "filters",
             "caiso_report",
             "load_serving_entity",
-            "year",
         )
 
 
