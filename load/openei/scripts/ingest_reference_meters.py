@@ -20,7 +20,7 @@ def load_reference_models():
 
 
 def get_links(url, filter_string):
-    response = requests.get(url)
+    response = requests.get(url, timeout=7)
     soup = BeautifulSoup(response.content, "html.parser")
 
     links = (x.get("href") for x in soup.find_all("a"))
