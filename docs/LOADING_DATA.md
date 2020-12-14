@@ -2,6 +2,13 @@
 
 To add datasets to the beo_datastore backend, the following scripts can be run.
 
+## Load Serving Entities
+To `seed` AWS database instances with load serving entities (CCAs and Utilities):
+```
+ python manage.py runscript scripts.ingest_load_serving_entities --silent
+```
+Use Django Admin to `update` existing instances of load serving entities.
+
 ## Base Fixtures
 
 Base data has been populated in the codebase and can be loaded using the following script.

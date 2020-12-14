@@ -1,8 +1,8 @@
 import argparse
-import django
 import os
 import sys
 
+import django
 from django.core.management import call_command
 
 # set up Django environment
@@ -48,6 +48,12 @@ def parse_arguments():
         dest="open_ei",
         help="import OpenEI data",
     )
+    parser.add_argument(
+        "--lse",
+        action="store_true",
+        dest="add_load_serving_entities",
+        help="ingest load service entities",
+    )
     return parser.parse_args()
 
 
@@ -61,13 +67,21 @@ def load_open_ei_reference_meters(state: str = "CA") -> None:
 
 
 def load_open_ei_utility_rates(
-    utility_name: str = "Pacific Gas & Electric Co"
+    utility_name: str = "Pacific Gas & Electric Co",
 ) -> None:
     call_command(
         "runscript",
         "cost.utility_rate.scripts.ingest_openei_utility_rates",
         "--script-args",
         utility_name,
+    )
+
+
+def add_load_serving_entities() -> None:
+    call_command(
+        "runscript",
+        "scripts.ingest_load_serving_entities",
+        "--silent",
     )
 
 
@@ -97,3 +111,5 @@ if __name__ == "__main__":
     # Loads basic data
     if not args.seed and not args.open_ei:
         load_base_fixtures_and_intervalframes()
+    if args.add_load_serving_entities:
+        add_load_serving_entities()

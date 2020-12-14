@@ -16,7 +16,7 @@ class LoadServingEntity(ValidationModel):
     Load serving entity (ex. Utility, CCA).
     """
 
-    name = models.CharField(max_length=32, unique=True)
+    name = models.CharField(max_length=100, unique=True)
     short_name = models.CharField(max_length=8, unique=False)
     state = USStateField(choices=STATE_CHOICES)
     _parent_utility = models.ForeignKey(
@@ -28,7 +28,7 @@ class LoadServingEntity(ValidationModel):
     )
 
     class Meta:
-        ordering = ["id"]
+        ordering = ["name"]
         verbose_name_plural = "load serving entities"
 
     def __str__(self):
