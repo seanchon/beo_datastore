@@ -32,8 +32,6 @@ class EVSEConfigurationSerializer(BaseSerializer):
         model = EVSEConfiguration
         fields = (
             "ev_mpkwh",
-            "ev_capacity",
-            "ev_efficiency",
             "evse_rating",
             "ev_count",
             "evse_count",

@@ -18,10 +18,8 @@ from navigader_core.der.evse import (
 
 # EVSE model specifications
 ev_mpkwh = 3.5
-ev_capacity = 25.0
-ev_efficiency = 0.96
 ev_count = 15
-evse_rating = 150.0
+evse_rating = 1.9
 evse_count = 5
 evse_utilization = 0.8
 driving_distance = 20
@@ -39,10 +37,7 @@ class TestEVSE(TestCase):
         1. The following hypothetical load conditions:
             - 2020/01/01 midnight to 2020/01/02 midnight: 0kW
         2. The following EVSE model specifications:
-            - EV efficiency: 3.5 miles/kwh
-            - EV gas efficiency equivalent: 22 miles/gallon
-            - EV battery capacity: 25 kwh
-            - EV battery efficiency: 96%
+            - EV driving efficiency: 3.5 miles/kwh
             - EVSE rating: 150 kw
             - number of electric vehicles: 15
             - number of electric vehicle chargers: 5
@@ -60,8 +55,6 @@ class TestEVSE(TestCase):
 
         self.evse = EVSE(
             ev_mpkwh=ev_mpkwh,
-            ev_capacity=ev_capacity,
-            ev_efficiency=ev_efficiency,
             evse_rating=evse_rating,
             ev_count=ev_count,
             evse_count=evse_count,
@@ -127,7 +120,7 @@ class TestEVSE(TestCase):
             0,  # no charge
         )
 
-        # outside of charge schedule, no charge
+        # outside of charge schedule: no charge
         self.assertEqual(
             self.builder.get_target_power(
                 month=1,
@@ -136,10 +129,10 @@ class TestEVSE(TestCase):
                 duration=one_hour,
                 current_charge=0.0,
             ),
-            0,  # no charge
+            0,
         )
 
-        # inside of charge schedule, charge
+        # inside of charge schedule: charge
         self.assertEqual(
             self.builder.get_target_power(
                 month=1,
@@ -148,19 +141,60 @@ class TestEVSE(TestCase):
                 duration=one_hour,
                 current_charge=0.0,
             ),
-            ev_capacity * ev_count / ev_efficiency,
+            evse_count * evse_rating,
         )
 
-        # inside of charge schedule, charge
+        # inside of charge schedule and mostly charged: charge, but only
+        # partially
+        charge = driving_distance * 2 / ev_mpkwh * evse_utilization * ev_count
+        self.assertEqual(
+            self.builder.get_target_power(
+                month=1,
+                hour=12,
+                meter_reading=-1000.0,
+                duration=one_hour,
+                current_charge=charge - 5,
+            ),
+            5,
+        )
+
+        # inside of charge schedule but fully charged: no charge
         self.assertEqual(
             self.builder.get_target_power(
                 month=1,
                 hour=12,
                 meter_reading=-1000.0,
                 duration=quarter_hour,
+                current_charge=charge,
+            ),
+            0,
+        )
+
+        # inside of charge schedule but positive meter reading: no charge
+        # note this is only the case because the strategy charges off NEM only
+        self.assertEqual(
+            self.builder.get_target_power(
+                month=1,
+                hour=12,
+                meter_reading=0,
+                duration=one_hour,
                 current_charge=0.0,
             ),
-            evse_rating * evse_count,
+            0,
+        )
+
+        # inside of charge schedule but meter reading is insufficient to
+        # fully charge: charge, but only partially. note this is only the case
+        # because the strategy charges off NEM only
+        self.assertEqual(
+            self.builder.get_target_power(
+                month=1,
+                hour=12,
+                meter_reading=-5,
+                duration=one_hour,
+                current_charge=0.0,
+            ),
+            5,
         )
 
     def test_get_drive_distance(self):
@@ -226,7 +260,6 @@ class TestEVSE(TestCase):
     def test_get_charge(self):
         """
         Calculate next charge for battery charge and EV drive operations.
-        Round-trip efficiency (ev_efficiency) calculated on charge.
         """
 
         # test battery charge
@@ -235,7 +268,7 @@ class TestEVSE(TestCase):
             self.builder.get_charge(
                 kw=kw_in, ev_kw=0, duration=quarter_hour, charge=0
             ),
-            kw_in * 0.25 * ev_efficiency,
+            kw_in * 0.25,
         )
 
         # test EV drive

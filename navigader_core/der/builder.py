@@ -381,7 +381,7 @@ class DERSimulationSequenceBuilder(DERSimulationBuilder):
 
             der_intervalframe.append_operation(operation)
 
-        self.finalize(der_intervalframe)
+        der_intervalframe.commit_operations()
         pre_der_intervalframe = self.get_pre_der_intervalframe(intervalframe)
         return DERProduct(
             der=self.der,
@@ -392,15 +392,6 @@ class DERSimulationSequenceBuilder(DERSimulationBuilder):
                 pre_der_intervalframe, der_intervalframe
             ),
         )
-
-    def finalize(self, der_intervalframe):
-        """
-        Runs any final actions on the dataframe just prior to simulation
-        completion. The queued operations need to be committed, and if child
-        classes need to take any final actions this is their opportunity to
-        do so.
-        """
-        der_intervalframe.commit_operations()
 
 
 @attr.s(frozen=True)

@@ -32,7 +32,7 @@ def drop_solar_configuration_params(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("simulation", "0011_auto_20201105_0320"),
+        ("simulation", "0012_auto_20201204_2009"),
     ]
 
     operations = [

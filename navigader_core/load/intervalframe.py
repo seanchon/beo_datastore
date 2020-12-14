@@ -874,9 +874,9 @@ class ValidationFrame288(ValidationDataFrame):
         )
         df.set_index("start", inplace=True)
 
-        # Convert the 288 to a dataframe with `value` and `month-hour` columns. The month-hour
-        # column is computed from the index of the unstacked dataframe, which comes in tuples
-        # of (month, hour of day)
+        # Convert the 288 to a dataframe with `value` and `month-hour` columns.
+        # The month-hour column is computed from the index of the unstacked
+        # dataframe, which comes in tuples of (month, hour of day)
         df_288 = pd.DataFrame(self.dataframe.unstack(), columns=["value"])
         df_288["month-hour"] = df_288.index.map(lambda x: x[0] * 100 + x[1])
         df["month-hour"] = df.index.map(lambda x: x.month * 100 + x.hour)

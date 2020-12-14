@@ -422,12 +422,6 @@ class CAISORateViewSet(CostFunctionViewSet):
                             "Optional 'name' for ingested file instead of actual filename. "
                         ),
                     ),
-                    coreapi.Field(
-                        "year",
-                        required=True,
-                        location="body",
-                        description="Intended 'year' intervals in upload rate file. ",
-                    ),
                 ]
             return self._manual_fields + custom_fields
 
@@ -437,8 +431,8 @@ class CAISORateViewSet(CostFunctionViewSet):
         """
         Handle upload and ingestion of CAISO CSV interval file.
         """
-        self._require_data_fields("file", "year")
-        [file, name, year] = self._data(["file", "name", "year"])
+        self._require_data_fields("file")
+        [file, name] = self._data(["file", "name"])
 
         dataframe = self._read_interval_csv(file)
         load_serving_entity = request.user.profile.load_serving_entity
@@ -448,14 +442,15 @@ class CAISORateViewSet(CostFunctionViewSet):
                 dataframe=dataframe,
                 load_serving_entity=load_serving_entity,
                 name=name,
-                year=year,
             )
         except serializers.ValidationError as e:
             raise serializers.ValidationError(detail=e.message_dict)
 
         if not created:
+            model_class = self.get_serializer().Meta.model
             raise serializers.ValidationError(
-                f"{self.model.__name__} with provided parameters already exists!"
+                f"{model_class.__name__} with provided parameters already "
+                f"exists!"
             )
 
         return Response(

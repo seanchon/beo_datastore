@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from functools import reduce
 
 import pandas as pd
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import MinValueValidator
 from django.db import models, transaction
 from django.utils.functional import cached_property
 from jsonfield import JSONField
@@ -525,9 +525,6 @@ class CAISORate(
     )
     load_serving_entity = models.ForeignKey(
         to=LoadServingEntity, on_delete=models.PROTECT, **empty
-    )
-    year = models.IntegerField(
-        validators=[MinValueValidator(2000), MaxValueValidator(2050)], **empty
     )
 
     class Meta:

@@ -137,9 +137,7 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
         Creates a EVSEConfiguration
         """
         configuration_attrs = [
-            "ev_capacity",
             "ev_count",
-            "ev_efficiency",
             "ev_mpkwh",
             "evse_count",
             "evse_rating",
@@ -149,9 +147,7 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
 
         self._require_data_fields(*configuration_attrs)
         (
-            ev_capacity,
             ev_count,
-            ev_efficiency,
             ev_mpkwh,
             evse_count,
             evse_rating,
@@ -161,9 +157,7 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
 
         return EVSEConfiguration.objects.get_or_create(
             name=name,
-            ev_capacity=ev_capacity,
             ev_count=ev_count,
-            ev_efficiency=ev_efficiency,
             ev_mpkwh=ev_mpkwh,
             evse_count=evse_count,
             evse_rating=evse_rating,
