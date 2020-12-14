@@ -89,10 +89,10 @@ class SolarPV(DER):
         """
         if self.stored_response:
             return self.stored_response
-        else:
-            params = {"losses": 14.08, "system_capacity": 1}
-            params.update(self.request_params)
-            return requests.get(PVWATTS_URL, params=params).json()
+
+        params = {"losses": 14.08, "system_capacity": 1}
+        params.update(self.request_params)
+        return requests.get(PVWATTS_URL, params=params, timeout=7).json()
 
     def get_annual_solar_intervalframe(
         self, year: int, target_period: timedelta = timedelta(hours=1)

@@ -54,7 +54,7 @@ def csv_url_to_dataframe(url):
     :param url: url of csv
     :return: pandas DataFrame
     """
-    csv = requests.get(url).content
+    csv = requests.get(url, timeout=7).content
     return pd.read_csv(io.StringIO(csv.decode("utf-8")))
 
 
@@ -189,9 +189,7 @@ def downsample_dataframe(dataframe, target_period, aggfunc):
         )
 
     return (
-        dataframe.astype(float)
-        .resample(rule=target_period)
-        .apply(func=aggfunc)
+        dataframe.astype(float).resample(rule=target_period).apply(func=aggfunc)
     )
 
 
