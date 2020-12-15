@@ -513,7 +513,10 @@ class CAISORateViewSet(CostFunctionViewSet):
 
         try:
             df.set_index(
-                keys=indices, verify_integrity=True, drop=True, inplace=True,
+                keys=indices,
+                verify_integrity=True,
+                drop=True,
+                inplace=True,
             )
         except Exception as e:
             raise serializers.ValidationError(
@@ -547,6 +550,18 @@ class CAISORateViewSet(CostFunctionViewSet):
         df.rename(columns={value: "$/kwh"}, inplace=True)
 
         return df
+
+    @action(methods=("get",), detail=True)
+    def download(self, request, pk, *args, **kwargs):
+        """
+        Downloads the CSV file representation of the `CAISORate`
+        """
+        caiso_rate = self.get_queryset().get(id=pk)
+        return download_dataframe(
+            caiso_rate.intervalframe.dataframe,
+            index=True,
+            filename="caiso-rate-data.csv",
+        )
 
 
 class RatePlanViewSet(CostFunctionViewSet):
@@ -772,7 +787,10 @@ class SystemProfileViewSet(CostFunctionViewSet):
 
         try:
             df.set_index(
-                keys=indices, verify_integrity=True, drop=True, inplace=True,
+                keys=indices,
+                verify_integrity=True,
+                drop=True,
+                inplace=True,
             )
         except Exception as e:
             raise serializers.ValidationError(
@@ -806,3 +824,15 @@ class SystemProfileViewSet(CostFunctionViewSet):
         df.rename(columns={value: "kw"}, inplace=True)
 
         return df
+
+    @action(methods=("get",), detail=True)
+    def download(self, request, pk, *args, **kwargs):
+        """
+        Downloads the CSV file representation of the `SystemProfile`
+        """
+        system_profile = self.get_queryset().get(id=pk)
+        return download_dataframe(
+            system_profile.intervalframe.dataframe,
+            index=True,
+            filename="system-profile-data.csv",
+        )
