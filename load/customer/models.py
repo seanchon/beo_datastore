@@ -1,7 +1,9 @@
 from datetime import datetime
 from functools import reduce
 import os
+import pandas as pd
 import pandas.io.sql as sqlio
+from typing import Union
 import us
 import uuid
 
@@ -9,11 +11,15 @@ from django.db import models, transaction
 from django.db.models import Count
 from django.utils.functional import cached_property
 
-from navigader_core.load.intervalframe import PowerIntervalFrame
+from navigader_core.load.intervalframe import (
+    GasIntervalFrame,
+    PowerIntervalFrame,
+)
 
 from beo_datastore.libs.intervalframe_file import (
     Frame288File,
     PowerIntervalFrameFile,
+    GasIntervalFrameFile,
 )
 from beo_datastore.libs.models import (
     ValidationModel,
@@ -76,9 +82,6 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
     # Required by IntervalFrameFileMixin.
     frame_file_class = OriginFileIntervalFrame
 
-    class Meta:
-        ordering = ["id"]
-
     @property
     def has_completed(self):
         """
@@ -88,6 +91,27 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         return (
             self.expected_meter_count == self.meters.count()
         ) and not self.meter_intervalframe.dataframe.empty
+
+    @property
+    def has_gas(self):
+        """
+        Returns boolean indicating if origin file has gas data
+        """
+        return any(meter.has_gas for meter in self.meters.all())
+
+    @property
+    def total_therms(self):
+        """
+        Dynamically computes the total therm usage across the CustomerMeters
+        """
+        if not self.has_gas:
+            return None
+        else:
+            return sum(
+                meter.total_therms
+                for meter in self.meters.all()
+                if meter.total_therms is not None
+            )
 
     @property
     def meter_intervalframe(self):
@@ -272,7 +296,7 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         """
         return "intervals"
 
-    def aggregate_meter_intervalframe(self) -> bool:
+    def aggregate_meter_intervalframe(self):
         """
         Only aggretate meter_intervalframe if all self.meters have been
         ingested.
@@ -382,9 +406,7 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         db_names = db_names.union(cls.db_get_orphaned_db_names())
 
         for db_name in db_names:
-            cls.db_execute_global(
-                "DROP DATABASE IF EXISTS {};".format(db_name)
-            )
+            cls.db_execute_global("DROP DATABASE IF EXISTS {};".format(db_name))
 
     def db_connect(self):
         """
@@ -556,6 +578,45 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
             return sqlio.read_sql_query(sql=command, con=postgres.connection)
 
 
+class GasUsageIntervalFrame(GasIntervalFrameFile):
+    """
+    Model for handling optional gas usage data
+    """
+
+    file_directory = os.path.join(MEDIA_ROOT, "gas_meters")
+
+
+class GasUsage(IntervalFrameFileMixin, ValidationModel):
+    """
+    GasUsage is a component that tracks gas usage.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    usage_hash = models.BigIntegerField(unique=True)
+
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = GasUsageIntervalFrame
+
+    class Meta:
+        ordering = ["id"]
+
+    @classmethod
+    def get_or_create_from_dataframe(cls, dataframe: Union[pd.DataFrame, None]):
+        """
+        Gets or creates a GasUsage model given a gas dataframe. If no dataframe
+        is provided or if the dataframe is empty, returns None.
+        """
+        if dataframe is None or dataframe.empty:
+            return None
+
+        gas_hash = GasUsageIntervalFrame(dataframe=dataframe).__hash__()
+        gas_usage, _ = GasUsage.get_or_create(
+            dataframe=dataframe, usage_hash=gas_hash
+        )
+
+        return gas_usage
+
+
 class CustomerMeter(Meter):
     """
     A CustomerMeter is a connection point to the Utility's distribution grid
@@ -577,9 +638,12 @@ class CustomerMeter(Meter):
     )
     import_hash = models.BigIntegerField(blank=True, null=True)
     export_hash = models.BigIntegerField(blank=True, null=True)
+    total_therms = models.FloatField(blank=True, null=True)
+    gas_usage = models.ForeignKey(
+        GasUsage, on_delete=models.PROTECT, blank=True, null=True
+    )
 
     class Meta:
-        ordering = ["id"]
         unique_together = (
             "sa_id",
             "rate_plan_name",
@@ -587,6 +651,7 @@ class CustomerMeter(Meter):
             "load_serving_entity",
             "import_hash",
             "export_hash",
+            "gas_usage",
         )
 
     def __str__(self):
@@ -597,6 +662,25 @@ class CustomerMeter(Meter):
     @property
     def meter_intervalframe(self):
         return self.intervalframe
+
+    @property
+    def gas_intervalframe(self) -> GasIntervalFrame:
+        if self.gas_usage:
+            return self.gas_usage.intervalframe
+
+    @property
+    def has_gas(self):
+        return bool(self.gas_usage)
+
+    def build_aggregate_metrics(self):
+        """
+        Computes the total_therms field
+        """
+        if not self.has_gas:
+            return
+
+        self.total_therms = self.gas_usage.intervalframe.total
+        super().build_aggregate_metrics()
 
     @property
     def state(self):
@@ -641,6 +725,7 @@ class CustomerMeter(Meter):
         rate_plan_name,
         forward_df,
         reverse_df,
+        gas_df=None,
         multiple_rate_plans=False,
     ):
         """
@@ -651,6 +736,7 @@ class CustomerMeter(Meter):
         :param rate_plan_name: string
         :param forward_df: import Channel dataframe
         :param reverse_df: export Channel dataframe
+        :param gas_df: gas dataframe
         :param multiple_rate_plans: bool
         """
         # get dataframe hash values
@@ -665,6 +751,7 @@ class CustomerMeter(Meter):
                 load_serving_entity=origin_file.load_serving_entity,
                 import_hash=import_hash,
                 export_hash=export_hash,
+                gas_usage=GasUsage.get_or_create_from_dataframe(gas_df),
             )
 
             meter.meter_groups.add(origin_file)

@@ -1,33 +1,38 @@
 import coreapi
-from django.core.exceptions import ValidationError
+import pandas as pd
+from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
 from django.db.models import Q
 from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
 
-from beo_datastore.libs.api.viewsets import ListRetrieveViewSet
+from beo_datastore.libs.api.viewsets import (
+    CreateListRetrieveDestroyViewSet,
+    ListRetrieveViewSet,
+)
 from cost.ghg.models import GHGRate
 from cost.procurement.models import SystemProfile
 from cost.utility_rate.models import RatePlan
-from der.simulation.scripts.generate_der_strategy import (
-    generate_ra_reduction_battery_strategy,
-    generate_bill_reduction_battery_strategy,
-    generate_ghg_reduction_battery_strategy,
-    generate_commuter_evse_strategy,
-)
-
 from der.simulation.models import (
-    DERConfiguration,
-    DERStrategy,
-    DERSimulation,
     BatteryConfiguration,
     BatteryStrategy,
+    DERConfiguration,
+    DERSimulation,
+    DERStrategy,
     EVSEConfiguration,
     EVSEStrategy,
+    FuelSwitchingConfiguration,
+    FuelSwitchingStrategy,
     SolarPVConfiguration,
     SolarPVStrategy,
 )
-
+from der.simulation.scripts.generate_der_strategy import (
+    generate_bill_reduction_battery_strategy,
+    generate_commuter_evse_strategy,
+    generate_ghg_reduction_battery_strategy,
+    generate_ra_reduction_battery_strategy,
+)
+from navigader_core.load.openei import TMY3Parser
 from .serializers import (
     DERConfigurationSerializer,
     DERSimulationSerializer,
@@ -35,7 +40,56 @@ from .serializers import (
 )
 
 
-class DERConfigurationViewSet(ListRetrieveViewSet):
+class DERObjectViewSet(CreateListRetrieveDestroyViewSet):
+    """
+    Provides common `get_queryset` and `destroy` methods for the DER
+    configurations and strategies. Users are permitted to access DER objects if
+    the object belongs to the user's LSE or if it isn't associated with any LSE.
+    Users are permitted to delete DER objects if the object belongs to the
+    user's LSE.
+    """
+
+    def get_queryset(self, queryset=None):
+        lse = self.request.user.profile.load_serving_entity
+        model = self.get_der_model()
+        return model.objects.filter(
+            Q(load_serving_entity__isnull=True) | Q(load_serving_entity=lse)
+        )
+
+    def get_der_model(self):
+        """
+        Returns the DER object class that the request is asking for
+        """
+        raise NotImplementedError(
+            "get_der_model must be set in {}".format(self.__class__)
+        )
+
+    def user_can_delete_der_object(self, request):
+        """
+        Returns True if the user has permission to delete the provided DER
+        object. DER object deletion permissioning is handled at the LSE level:
+        if a user is a member of the same LSE as the DER object, they are
+        permitted to delete it. If the DER object is not associated
+        with any LSE, no user is permitted to delete it.
+
+        :param request: The Django request object
+        """
+        lse = self.get_object().load_serving_entity
+        user_lse = request.user.profile.load_serving_entity
+
+        # Disallow deletion if the LSE doesn't precisely match
+        has_lse = lse is not None
+        same_lse = lse == user_lse
+        return has_lse and same_lse
+
+    def destroy(self, request, *args, **kwargs):
+        if self.user_can_delete_der_object(request):
+            return super().destroy(request, *args, **kwargs)
+        else:
+            self.permission_denied(request)
+
+
+class DERConfigurationViewSet(DERObjectViewSet):
     """
     DER configurations used in DER simulations.
     """
@@ -54,27 +108,16 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
         ]
     )
 
-    def get_queryset(self, queryset=None):
-        """
-        Enables filtering by DER type
-        """
+    der_model_map = {
+        "Battery": BatteryConfiguration,
+        "EVSE": EVSEConfiguration,
+        "SolarPV": SolarPVConfiguration,
+        "FuelSwitching": FuelSwitchingConfiguration,
+    }
+
+    def get_der_model(self):
         der_type = self._param("der_type")
-
-        if der_type == "Battery":
-            model = BatteryConfiguration
-        elif der_type == "EVSE":
-            model = EVSEConfiguration
-        elif der_type == "SolarPV":
-            model = SolarPVConfiguration
-        else:
-            model = DERConfiguration
-
-        # Only filter for configurations within the user's LSE. A configuration
-        # missing an LSE is visible to everyone.
-        lse = self.request.user.profile.load_serving_entity
-        return model.objects.filter(
-            Q(load_serving_entity__isnull=True) | Q(load_serving_entity=lse)
-        )
+        return self.der_model_map.get(der_type, DERConfiguration)
 
     def create(self, request):
         self._require_data_fields("der_type")
@@ -91,6 +134,10 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
                 configuration, created = self.create_solar_configuration(
                     request
                 )
+            elif der_type == "FuelSwitching":
+                # Fuel switching is a recognized DER type but they cannot be
+                # created through the API
+                return Response(status=status.HTTP_404_NOT_FOUND)
             else:
                 raise serializers.ValidationError(
                     f"der_type parameter has unrecognized type: {der_type}"
@@ -100,7 +147,7 @@ class DERConfigurationViewSet(ListRetrieveViewSet):
 
         if not created:
             raise serializers.ValidationError(
-                "BatteryConfiguration with provided parameters already exists!"
+                f"{der_type}Configuration with provided parameters already exists!"
             )
 
         return Response(
@@ -255,7 +302,7 @@ class DERSimulationViewSet(ListRetrieveViewSet):
         return DERSimulation.objects.filter(meter__meter_groups__owners=user)
 
 
-class DERStrategyViewSet(ListRetrieveViewSet):
+class DERStrategyViewSet(DERObjectViewSet):
     """
     DER strategies used in DER simulations.
     """
@@ -274,27 +321,16 @@ class DERStrategyViewSet(ListRetrieveViewSet):
         ]
     )
 
-    def get_queryset(self, queryset=None):
-        """
-        Enables filtering by DER type
-        """
+    der_model_map = {
+        "Battery": BatteryStrategy,
+        "EVSE": EVSEStrategy,
+        "SolarPV": SolarPVStrategy,
+        "FuelSwitching": FuelSwitchingStrategy,
+    }
+
+    def get_der_model(self):
         der_type = self._param("der_type")
-
-        if der_type == "Battery":
-            model = BatteryStrategy
-        elif der_type == "EVSE":
-            model = EVSEStrategy
-        elif der_type == "SolarPV":
-            model = SolarPVStrategy
-        else:
-            model = DERStrategy
-
-        # Only filter for strategies within the user's LSE. A strategy missing
-        # an LSE is visible to everyone.
-        lse = self.request.user.profile.load_serving_entity
-        return model.objects.filter(
-            Q(load_serving_entity__isnull=True) | Q(load_serving_entity=lse)
-        )
+        return self.der_model_map.get(der_type, DERStrategy)
 
     def create(self, request):
         self._require_data_fields("name", "der_type")
@@ -307,6 +343,8 @@ class DERStrategyViewSet(ListRetrieveViewSet):
                 strategy = self.create_evse_strategy(request)
             elif der_type == "SolarPV":
                 strategy = self.create_solar_strategy(request)
+            elif der_type == "FuelSwitching":
+                strategy = self.create_fuel_switching_strategy(request)
             else:
                 raise serializers.ValidationError(
                     detail=f"der_type parameter has unrecognized value: {der_type}"
@@ -422,3 +460,39 @@ class DERStrategyViewSet(ListRetrieveViewSet):
             )
 
         return solar_strategy
+
+    def create_fuel_switching_strategy(self, request) -> FuelSwitchingStrategy:
+        """
+        Create a FuelSwitchingStrategy instance based on the user request data and
+        ingest corresponding OpenEI CSV file as pd.DataFrame as is.
+        """
+
+        strategy_attrs = [
+            "name",
+            "file",
+        ]
+
+        # Validate request contains required fields in payload.
+        self._require_data_fields(*strategy_attrs)
+        (name, openei_file, description) = self._data(
+            strategy_attrs + ["description"]
+        )
+
+        dataframe = pd.read_csv(openei_file)
+        errors, _ = TMY3Parser.validate(dataframe)
+        if errors:
+            raise serializers.ValidationError({NON_FIELD_ERRORS: errors})
+
+        strategy, created = FuelSwitchingStrategy.get_or_create(
+            name=name,
+            description=description,
+            load_serving_entity=request.user.profile.load_serving_entity,
+            dataframe=dataframe,
+        )
+
+        if not created:
+            raise serializers.ValidationError(
+                "FuelSwitchingStrategy with provided parameters already exists!"
+            )
+
+        return strategy

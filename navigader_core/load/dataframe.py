@@ -268,3 +268,24 @@ def set_dataframe_index(dataframe, index_column, convert_to_datetime=False):
     dataframe.set_index(index_column, inplace=True)
 
     return dataframe
+
+
+def set_dataframe_year(
+    dataframe: pd.DataFrame, year: int, in_place: bool = True
+):
+    """
+    Replaces the year in a dataframe's index to a given year. Mutates the
+    dataframe by default, but will make a copy if `in_place` is False
+
+    :param dataframe: the pandas DataFrame with a DatetimeIndex to update
+    :param year: year to set the index to
+    :param in_place: True to mutate dataframe, False to make a copy
+    """
+    new_index = dataframe.index.map(lambda t: t.replace(year=year))
+
+    # Make a copy if in_place is False
+    if not in_place:
+        dataframe = dataframe.copy()
+
+    dataframe.index = new_index
+    return dataframe

@@ -1,8 +1,10 @@
+import attr
 from cached_property import cached_property
 from datetime import timedelta
 from functools import reduce
 import numpy as np
 import pandas as pd
+from typing import Iterable, TypeVar
 
 from navigader_core.load.dataframe import (
     add_interval_dataframe,
@@ -17,6 +19,9 @@ from navigader_core.load.dataframe import (
     upsample_dataframe,
     resample_dataframe,
 )
+
+
+T = TypeVar("T")
 
 
 class ValidationDataFrame(object):
@@ -155,7 +160,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
             )
         )
 
-    def __add__(self, other):
+    def __add__(self: T, other) -> T:
         """
         Return another ValidationIntervalFrame added to self.
 
@@ -193,7 +198,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
         return self + other.inverse_intervalframe
 
     @property
-    def inverse_intervalframe(self):
+    def inverse_intervalframe(self: T) -> T:
         """
         Return self with negative values.
         """
@@ -286,6 +291,15 @@ class ValidationIntervalFrame(ValidationDataFrame):
         return list(range(start_year, end_year + 1))
 
     @cached_property
+    def year_mode(self):
+        """
+        Returns the most common year in the dataframe. If there is more than one
+        most common year (e.g. if the dataframe spans exactly two years) returns
+        the first.
+        """
+        return self.dataframe.index.year.to_series().mode()[0]
+
+    @cached_property
     def period(self):
         """
         The dataframe period as a datetime.timedelta object.
@@ -299,6 +313,14 @@ class ValidationIntervalFrame(ValidationDataFrame):
         data.
         """
         return len(self.distinct_dates)
+
+    @property
+    def iter_days(self) -> Iterable[pd.Period]:
+        """
+        Returns an iterator that will iterate through all unique days in the
+        dataframe's index in order
+        """
+        return iter(self.dataframe.index.to_period(freq="D").unique())
 
     @property
     def distinct_dates(self):
@@ -372,7 +394,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
 
         return cls(dataframe=dataframe.sort_index(), *args, **kwargs)
 
-    def merge_intervalframe(self, other, overwrite_rows=False):
+    def merge_intervalframe(self: T, other, overwrite_rows=False) -> T:
         """
         Merges other_intervalframe.dataframe into self.dataframe. If
         overwrite_rows is True, rows in other_dataframe will overwrite any
@@ -388,8 +410,8 @@ class ValidationIntervalFrame(ValidationDataFrame):
         )
 
     def filter_by_datetime(
-        self, start=pd.Timestamp.min, end_limit=pd.Timestamp.max
-    ):
+        self: T, start=pd.Timestamp.min, end_limit=pd.Timestamp.max
+    ) -> T:
         """
         Return a ValidationIntervalFrame filtered by index beginning on and
         including start and ending on but excluding end_limit.
@@ -404,7 +426,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
             )
         )
 
-    def filter_by_weekday(self):
+    def filter_by_weekday(self: T) -> T:
         """
         Return a ValidationIntervalFrame filtered by weekdays.
 
@@ -414,7 +436,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
             dataframe=filter_dataframe_by_weekday(dataframe=self.dataframe)
         )
 
-    def filter_by_weekend(self):
+    def filter_by_weekend(self: T) -> T:
         """
         Return a ValidationIntervalFrame filtered by weekend days.
 
@@ -424,7 +446,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
             dataframe=filter_dataframe_by_weekend(dataframe=self.dataframe)
         )
 
-    def filter_by_months(self, months):
+    def filter_by_months(self: T, months) -> T:
         """
         Return a ValidationIntervalFrame filtered by months.
 
@@ -435,7 +457,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
             dataframe=self.dataframe[self.dataframe.index.month.isin(months)]
         )
 
-    def downsample_intervalframe(self, target_period, aggfunc):
+    def downsample_intervalframe(self: T, target_period, aggfunc) -> T:
         """
         Downsample a ValidationIntervalFrame to create an equivalent
         ValidationIntervalFrame with intervals occuring on a less-frequent
@@ -453,7 +475,7 @@ class ValidationIntervalFrame(ValidationDataFrame):
             )
         )
 
-    def upsample_intervalframe(self, target_period, method):
+    def upsample_intervalframe(self: T, target_period, method) -> T:
         """
         Upsample a ValidationIntervalFrame to create an equivalent
         ValidationIntervalFrame with intervals occuring on a more-frequent
@@ -477,11 +499,11 @@ class ValidationIntervalFrame(ValidationDataFrame):
         )
 
     def resample_intervalframe(
-        self,
+        self: T,
         target_period,
         downsample_aggfunc=np.mean,
         upsample_method="ffill",
-    ):
+    ) -> T:
         """
         Upsamples or downsamples a ValidationIntervalFrame to create an equivalent
         ValidationIntervalFrame with intervals occuring on a more- or less-frequent
@@ -729,7 +751,7 @@ class ValidationFrame288(ValidationDataFrame):
         columns=np.array(range(1, 13)), index=np.array(range(0, 24))
     )
 
-    def __add__(self, other):
+    def __add__(self: T, other) -> T:
         """
         Return self plus other.
 
@@ -739,7 +761,7 @@ class ValidationFrame288(ValidationDataFrame):
         self.validate_dataframe(other.dataframe)
         return self.__class__(dataframe=self.dataframe + other.dataframe)
 
-    def __sub__(self, other):
+    def __sub__(self: T, other) -> T:
         """
         Return self minus other.
 
@@ -749,7 +771,7 @@ class ValidationFrame288(ValidationDataFrame):
         self.validate_dataframe(other.dataframe)
         return self.__class__(dataframe=self.dataframe + other.dataframe)
 
-    def __mul__(self, other):
+    def __mul__(self: T, other) -> T:
         """
         Return self times other.
 
@@ -759,7 +781,7 @@ class ValidationFrame288(ValidationDataFrame):
         self.validate_dataframe(other.dataframe)
         return self.__class__(dataframe=self.dataframe * other.dataframe)
 
-    def __truediv__(self, other):
+    def __truediv__(self: T, other) -> T:
         """
         Return self divided by other.
 
@@ -770,7 +792,7 @@ class ValidationFrame288(ValidationDataFrame):
         return self.__class__(dataframe=self.dataframe / other.dataframe)
 
     @cached_property
-    def normalized_frame288(self):
+    def normalized_frame288(self: T) -> T:
         """
         Return ValidationFrame288 where values are between -1 and 1.
         """
@@ -790,7 +812,7 @@ class ValidationFrame288(ValidationDataFrame):
         Return all 288 values as a single array ordered from left to right by
         month-hour.
 
-        Ex. [Jan hour 1, Jan hour 1, ..., Dec hour 22, Dec hour 23]
+        Ex. [Jan hour 1, Jan hour 2, ..., Dec hour 22, Dec hour 23]
         """
         return reduce(
             lambda x, y: x + y,
@@ -847,7 +869,7 @@ class ValidationFrame288(ValidationDataFrame):
         ]
         return cls.convert_matrix_to_frame288(matrix=matrix)
 
-    def get_mask(self, key):
+    def get_mask(self: T, key) -> T:
         """
         Return ValidationFrame288 of True values when cell value matches key
         and False values otherwise.
@@ -908,3 +930,74 @@ class ArbitraryDataFrame(ValidationDataFrame):
         Ignore column checks.
         """
         pass
+
+
+class GasIntervalFrame(ValidationIntervalFrame):
+    """
+    Container class for pandas DataFrames with the following format:
+
+    DatetimeIndex   |   therms  |
+    datetime        |   float   |
+    """
+
+    default_dataframe = pd.DataFrame(
+        columns=["therms"], index=pd.to_datetime([])
+    )
+    default_aggregation_column = "therms"
+
+    @property
+    def total(self):
+        """
+        Returns the sum of all therms in the dataframe
+        """
+        return self.dataframe.therms.sum()
+
+
+@attr.s(frozen=True)
+class EnergyContainer:
+    """
+    Wrapper around kw and gas intervalframes. This is useful for transmitting
+    both data types together, as in fuel switching simulations.
+    """
+
+    kw = attr.ib(type=PowerIntervalFrame)
+    gas = attr.ib(type=GasIntervalFrame)
+
+    def __add__(self, other):
+        """
+        Adds energy data to the EnergyContainer. If the parameter is a
+        PowerIntervalFrame it will be added to the kw frame; if it is a
+        GasIntervalFrame it will be added to the gas frame; if it is an
+        EnergyContainer it will be added to both frames appropriately
+        """
+        if type(other) is PowerIntervalFrame:
+            return EnergyContainer(kw=self.kw + other, gas=self.gas)
+        if type(other) is GasIntervalFrame:
+            return EnergyContainer(kw=self.kw, gas=self.gas + other)
+        if type(other) is EnergyContainer:
+            return EnergyContainer(
+                kw=self.kw + other.kw, gas=self.gas + other.gas
+            )
+
+    def filter_by_datetime(
+        self, start=pd.Timestamp.min, end_limit=pd.Timestamp.max
+    ):
+        """
+        Filters the kw and gas intervalframes by index beginning on and
+        including start and ending on but excluding end_limit.
+
+        :param start: datetime object
+        :param end_limit: datetime object
+        """
+        return EnergyContainer(
+            kw=self.kw.filter_by_datetime(start, end_limit),
+            gas=self.gas.filter_by_datetime(start, end_limit),
+        )
+
+    @property
+    def power_intervalframe(self):
+        """
+        Returns the kw intervalframe's power_intervalframe while leaving the gas
+        data unmodified.
+        """
+        return EnergyContainer(kw=self.kw.power_intervalframe, gas=self.gas)

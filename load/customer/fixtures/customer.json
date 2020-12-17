@@ -124,5 +124,12 @@
     "data_unit": 2,
     "meter": 3
   }
+},
+{
+  "model": "customer.gasusage",
+  "pk": "acb919fc-2b4b-4991-b5af-f6ff7ac67191",
+  "fields": {
+    "usage_hash": 4228353989023052867
+  }
 }
 ]

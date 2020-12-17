@@ -175,10 +175,10 @@ def generate_ghg_reduction_battery_strategy(
 ):
     """
     Generate a BatteryStrategy with the intention of reducing GHG based on
-    Clean Net Short tables in a 288 format. Overwrites name and description
-    if BatteryStrategy exists.
+    a GHGRate's 288 data. Overwrites name and description if BatteryStrategy
+    exists.
 
-    :param name: name of strategy (ex. CNS 2018)
+    :param name: name of strategy (ex. CSP 2018)
     :param charge_grid: True to allow charging from the grid, False to allow
         charging from NEM-exports only.
     :param discharge_grid: True to allow discharging to the grid, False to

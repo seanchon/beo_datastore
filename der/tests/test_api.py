@@ -5,7 +5,7 @@ from rest_framework.test import APITestCase
 
 from django.contrib.auth.models import User
 
-from beo_datastore.libs.api.tests import BasicAuthenticationTestMixin
+from beo_datastore.libs.tests import BasicAuthenticationTestMixin
 from beo_datastore.libs.fixtures import (
     flush_intervalframe_files,
     load_intervalframe_files,
@@ -64,9 +64,7 @@ class TestEndpointsDER(APITestCase, BasicAuthenticationTestMixin):
         )
 
         # create a battery strategy from a GHGRate
-        ghg_rate = GHGRate.objects.get(
-            name="Clean Net Short", effective__year=2030
-        )
+        ghg_rate = GHGRate.objects.get(name__contains="Clean System Power 2030")
         strategy = generate_ghg_reduction_battery_strategy(
             name="2018 System Load",
             charge_grid=True,

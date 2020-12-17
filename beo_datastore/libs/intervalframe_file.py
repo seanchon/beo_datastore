@@ -6,6 +6,7 @@ from navigader_core.load.intervalframe import (
     ValidationFrame288,
     PowerIntervalFrame,
     ArbitraryDataFrame,
+    GasIntervalFrame,
 )
 from navigader_core.cost.procurement import ProcurementRateIntervalFrame
 
@@ -116,6 +117,15 @@ class PowerIntervalFrameFile(PowerIntervalFrame, DataFrameFile):
     """
     Combines a PowerIntervalFrame with file-handling capabilities of a
     DataFrameFile.
+    """
+
+    pass
+
+
+class GasIntervalFrameFile(GasIntervalFrame, DataFrameFile):
+    """
+    Combines a GasIntervalFrame with file-handling capabilities of a
+    DataFrameFile
     """
 
     pass
