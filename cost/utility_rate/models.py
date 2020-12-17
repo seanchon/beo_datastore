@@ -11,7 +11,7 @@ from navigader_core.cost.bill import (
 )
 from navigader_core.cost.controller import AggregateBillCalculation
 
-from beo_datastore.libs.models import ValidationModel
+from beo_datastore.libs.models import ValidationModel, TimeStampMixin
 from beo_datastore.libs.views import dataframe_to_html
 
 from cost.mixins import CostCalculationMixin, RateDataMixin
@@ -19,7 +19,7 @@ from reference.reference_model.models import DERSimulation
 from reference.auth_user.models import LoadServingEntity
 
 
-class RatePlan(RateDataMixin, ValidationModel):
+class RatePlan(RateDataMixin, TimeStampMixin, ValidationModel):
     """
     A RatePlan is a container for related RateCollections.
     """
