@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("simulation", "0015_drop_evse_configuration_fields"),
+        ("simulation", "0014_auto_20201209_0135"),
     ]
 
     operations = [
