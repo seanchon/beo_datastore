@@ -21,9 +21,7 @@ def csv_split(line, delimiter=",", quotechar='"'):
     """
     Perform a split on a CSV row and ignore delimiter inside of quotechar.
     """
-    return list(csv.reader([line], delimiter=delimiter, quotechar=quotechar))[
-        0
-    ]
+    return list(csv.reader([line], delimiter=delimiter, quotechar=quotechar))[0]
 
 
 def get_sa_id_column(dataframe):
@@ -190,4 +188,24 @@ def reformat_item_17(dataframe):
         if multiplier != 1:
             df["kw"] = df["kw"] * multiplier
 
+    return df
+
+
+def get_gas_dataframe(dataframe):
+    """
+    Returns a dataframe with a DatetimeIndex (period of 1 day) and a single
+    column "therms". This is used during meter ingest and the dataframe input
+    is assumed to be similar to an Item 17 file with the additional "therms" col
+
+    :param dataframe: the Item 17-like dataframe to extract therms from
+    """
+    if "therms" not in dataframe.columns:
+        return None
+
+    df = dataframe[["DATE", "therms"]].copy()
+    df.set_index("DATE", inplace=True)
+    df.index.rename("index", inplace=True)
+    df.index = pd.to_datetime(df.index)
+    df.sort_index(inplace=True)
+    df.therms = pd.to_numeric(df.therms)
     return df

@@ -46,6 +46,7 @@ class MeterGroupSerializer(BaseSerializer):
     metadata = serializers.SerializerMethodField()
     owners = serializers.StringRelatedField(many=True)
     date_range = serializers.SerializerMethodField()
+    total_therms = serializers.SerializerMethodField()
 
     class Meta:
         model = MeterGroup
@@ -54,6 +55,7 @@ class MeterGroupSerializer(BaseSerializer):
             "name",
             "created_at",
             "date_range",
+            "has_gas",
             "object_type",
             "meter_count",
             "owners",
@@ -62,8 +64,9 @@ class MeterGroupSerializer(BaseSerializer):
             "metadata",
             "max_monthly_demand",
             "total_kwh",
+            "total_therms",
         )
-        deferred_fields = ("meters",)
+        deferred_fields = ("meters", "total_therms")
 
     def get_meters(self, obj):
         """
@@ -94,6 +97,16 @@ class MeterGroupSerializer(BaseSerializer):
         Returns the meter group's date range
         """
         return obj.intervalframe.date_range
+
+    def get_total_therms(self, obj):
+        """
+        Returns the total therms associated with the MeterGroup's meters, if the
+        MeterGroup is an OriginFile. Otherwise returns None.
+        """
+        if isinstance(obj, OriginFile):
+            return obj.total_therms
+        else:
+            return None
 
 
 class CustomerMeterSerializer(BaseSerializer):
@@ -126,17 +139,20 @@ class MeterSerializer(BaseSerializer):
     data = DataField("meter_intervalframe")
     metadata = serializers.SerializerMethodField()
     meter_groups = DynamicRelationField("MeterGroupSerializer", many=True)
+    total_therms = serializers.SerializerMethodField()
 
     class Meta:
         model = Meter
         fields = (
             "id",
+            "has_gas",
             "object_type",
             "meter_groups",
             "data",
             "metadata",
             "max_monthly_demand",
             "total_kwh",
+            "total_therms",
         )
 
     def get_metadata(self, obj):
@@ -153,3 +169,13 @@ class MeterSerializer(BaseSerializer):
             return DERSimulationSerialzier(obj, many=False, read_only=True).data
         else:
             return {}
+
+    def get_total_therms(self, obj):
+        """
+        Returns the total therms associated with the meter, if the meter is a
+        CustomerMeter. Otherwise returns None.
+        """
+        if isinstance(obj, CustomerMeter):
+            return obj.total_therms
+        else:
+            return None

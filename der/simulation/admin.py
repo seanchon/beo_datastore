@@ -4,12 +4,15 @@ from __future__ import unicode_literals
 from django.contrib import admin
 
 from der.simulation.models import (
-    DERSchedule,
-    BatteryStrategy,
     BatteryConfiguration,
+    BatteryStrategy,
+    DERSchedule,
     EVSEConfiguration,
     EVSESimulation,
     EVSEStrategy,
+    FuelSwitchingConfiguration,
+    FuelSwitchingSimulation,
+    FuelSwitchingStrategy,
     SolarPVConfiguration,
     SolarPVSimulation,
     SolarPVStrategy,
@@ -101,6 +104,25 @@ class StoredBatterySimulation(admin.ModelAdmin):
 
 @admin.register(EVSESimulation)
 class EVSESimulation(admin.ModelAdmin):
+    readonly_fields = [
+        "pre_vs_post_average_288_html_plot",
+        "pre_vs_post_maximum_288_html_plot",
+    ]
+    search_fields = ["id", "meter__sa_id"]
+
+
+@admin.register(FuelSwitchingConfiguration)
+class FuelSwitchingConfigurationAdmin(admin.ModelAdmin):
+    search_fields = ["id", "name"]
+
+
+@admin.register(FuelSwitchingStrategy)
+class FuelSwitchingStrategyAdmin(admin.ModelAdmin):
+    search_fields = ["id", "name"]
+
+
+@admin.register(FuelSwitchingSimulation)
+class FuelSwitchingSimulationAdmin(admin.ModelAdmin):
     readonly_fields = [
         "pre_vs_post_average_288_html_plot",
         "pre_vs_post_maximum_288_html_plot",

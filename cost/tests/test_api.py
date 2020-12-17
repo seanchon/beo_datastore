@@ -9,7 +9,7 @@ from rest_framework.test import APITestCase
 
 from django.contrib.auth.models import User
 
-from beo_datastore.libs.api.tests import BasicAuthenticationTestMixin
+from beo_datastore.libs.tests import BasicAuthenticationTestMixin
 from beo_datastore.libs.fixtures import (
     flush_intervalframe_files,
     load_intervalframe_files,

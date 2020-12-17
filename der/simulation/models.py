@@ -1,20 +1,33 @@
-import attr
-from datetime import timedelta
-from jsonfield import JSONField
 import os
-from typing import Tuple
+from datetime import timedelta
+from typing import Set, Tuple
 
-from django.core.validators import MinValueValidator, MaxValueValidator
+import attr
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.functional import cached_property
+from jsonfield import JSONField
 
-from navigader_core.der.schedule_utils import (
-    create_diurnal_schedule,
-    create_fixed_schedule,
-    optimize_battery_schedule,
+from beo_datastore.libs.intervalframe_file import (
+    ArbitraryDataFrameFile,
+    DataFrameFile,
+    Frame288File,
+    PowerIntervalFrame,
+    PowerIntervalFrameFile,
 )
+from beo_datastore.libs.models import (
+    Frame288FileMixin,
+    IntervalFrameFileMixin,
+    ValidationModel,
+)
+from beo_datastore.libs.plot_intervalframe import (
+    plot_frame288,
+    plot_frame288_monthly_comparison,
+    plot_intervalframe,
+)
+from beo_datastore.settings import MEDIA_ROOT, PVWATTS_API_KEY
 from navigader_core.der.battery import (
     Battery as pyBattery,
     BatteryIntervalFrame,
@@ -27,31 +40,28 @@ from navigader_core.der.evse import (
     EVSESimulationBuilder,
     EVSEStrategy as pyEVSEStrategy,
 )
+from navigader_core.der.fuel_switching import (
+    FuelSwitching as pyFuelSwitching,  # why aliasing here?
+    FuelSwitchingSimulationBuilder,
+    FuelSwitchingStrategy as pyFuelSwitchingStrategy,
+)
+from navigader_core.der.schedule_utils import (
+    create_diurnal_schedule,
+    create_fixed_schedule,
+    optimize_battery_schedule,
+)
 from navigader_core.der.solar import (
     SolarPV as pySolarPV,
     SolarPVSimulationBuilder,
     SolarPVStrategy as pySolarPVStrategy,
 )
-
-from beo_datastore.libs.intervalframe_file import (
-    DataFrameFile,
-    Frame288File,
-    PowerIntervalFrame,
-    PowerIntervalFrameFile,
-)
-from beo_datastore.libs.models import ValidationModel, Frame288FileMixin
-from beo_datastore.libs.plot_intervalframe import (
-    plot_frame288,
-    plot_frame288_monthly_comparison,
-    plot_intervalframe,
-)
-from beo_datastore.settings import MEDIA_ROOT, PVWATTS_API_KEY
-
+from navigader_core.load.openei import TMY3Parser
 from reference.auth_user.models import LoadServingEntity
 from reference.reference_model.models import (
     DERConfiguration,
     DERSimulation,
     DERStrategy,
+    Meter,
 )
 
 
@@ -271,7 +281,7 @@ class BatteryConfiguration(DERConfiguration):
     der_type = "Battery"
 
     class Meta:
-        ordering = ["id"]
+        verbose_name_plural = "Battery configurations"
 
     @property
     def detailed_name(self):
@@ -473,7 +483,6 @@ class EVSEConfiguration(DERConfiguration):
     der_type = "EVSE"
 
     class Meta:
-        ordering = ["id"]
         verbose_name_plural = "EVSE configurations"
 
     @property
@@ -610,7 +619,6 @@ class SolarPVConfiguration(DERConfiguration):
     repr_exclude_fields = ["stored_response"]
 
     class Meta:
-        ordering = ["id"]
         verbose_name_plural = "Solar PV configurations"
 
     def clean(self, *args, **kwargs):
@@ -762,6 +770,8 @@ class SolarPVSimulation(DERSimulation):
     frame_file_class = SolarPVSimulationFrame
 
     der_type = "SolarPV"
+    der_configuration: SolarPVConfiguration
+    der_strategy: SolarPVStrategy
 
     class Meta(DERSimulation.Meta):
         verbose_name_plural = "Solar PV simulations"
@@ -780,3 +790,95 @@ class SolarPVSimulation(DERSimulation):
         cls, der: pySolarPV, der_strategy: pySolarPVStrategy
     ) -> SolarPVSimulationBuilder:
         return SolarPVSimulationBuilder(der=der, der_strategy=der_strategy)
+
+
+class FuelSwitchingConfiguration(DERConfiguration):
+    """
+    Container for storing FuelSwitching configurations.
+    """
+
+    der_type = "FuelSwitching"
+
+    space_heating = models.BooleanField(default=True)
+    water_heating = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name_plural = "Fuel Switching configurations"
+
+    @property
+    def der(self) -> pyFuelSwitching:
+        """
+        Return pyFuelSwitching (Python DER model equivalent) of self.
+        """
+        return pyFuelSwitching(
+            space_heating=self.space_heating, water_heating=self.water_heating,
+        )
+
+
+class FuelSwitchingStrategy(IntervalFrameFileMixin, DERStrategy):
+    """
+    Container to store FuelSwitchingStrategy objects.
+    """
+
+    der_type = "FuelSwitching"
+
+    class Meta:
+        verbose_name_plural = "Fuel Switching strategies"
+
+    class FuelSwitchingIntervalFrame(ArbitraryDataFrameFile):
+        # directory for parquet file storage
+        file_directory = os.path.join(MEDIA_ROOT, "fuel_switching_openei")
+
+    # Required by IntervalFrameFileMixin pointing to DataFrameFile class.
+    frame_file_class = FuelSwitchingIntervalFrame
+
+    @property
+    def der_strategy(self) -> pyFuelSwitchingStrategy:
+        """
+        Return pyFuelSwitching equivalent of self.
+        """
+        return pyFuelSwitchingStrategy(tmy3_file=self.tmy3_parser)
+
+    @property
+    def gas_dataframe(self):
+        return self.tmy3_parser.gas_dataframe
+
+    @property
+    def tmy3_parser(self):
+        df = self.intervalframe.dataframe
+        return TMY3Parser(df)
+
+
+class FuelSwitchingSimulation(DERSimulation):
+    """
+    Container for storing FuelSwitching simulations.
+    """
+
+    der_type = "FuelSwitching"
+
+    class Meta(DERSimulation.Meta):
+        verbose_name_plural = "Fuel Switching simulations"
+
+    class FuelSwitchingSimulationFrame(PowerIntervalFrameFile):
+        """
+        Model for handling FuelSwitching PowerIntervalFrameFiles.
+        """
+
+        file_directory = os.path.join(
+            MEDIA_ROOT, "der_simulations_fuelswitching"
+        )
+
+    # Required by IntervalFrameFileMixin.
+    frame_file_class = FuelSwitchingSimulationFrame
+
+    @classmethod
+    def get_simulation_builder(
+        cls, der: pyFuelSwitching, der_strategy: pyFuelSwitchingStrategy
+    ) -> FuelSwitchingSimulationBuilder:
+        return FuelSwitchingSimulationBuilder(
+            der=der, der_strategy=der_strategy
+        )
+
+    @classmethod
+    def get_intervalframes(cls, meters: Set[Meter]):
+        return {meter: meter.energy_container for meter in meters}

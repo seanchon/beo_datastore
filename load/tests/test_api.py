@@ -8,7 +8,7 @@ from rest_framework.test import APITestCase
 
 from django.contrib.auth.models import User
 
-from beo_datastore.libs.api.tests import BasicAuthenticationTestMixin
+from beo_datastore.libs.tests import BasicAuthenticationTestMixin
 from beo_datastore.libs.fixtures import (
     flush_intervalframe_files,
     load_intervalframe_files,
@@ -249,9 +249,7 @@ class TestFileProtection(APITestCase):
         post_endpoint = "/v1/load/origin_file/"
 
         # user_1 uploads a file
-        user_1 = User.objects.create(
-            username="PG&E User", email="user@pge.com"
-        )
+        user_1 = User.objects.create(username="PG&E User", email="user@pge.com")
         self.client.force_authenticate(user=user_1)
 
         file_location = "load/tests/files/test.csv"

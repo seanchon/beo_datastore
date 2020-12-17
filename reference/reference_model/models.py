@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from functools import reduce
 import pandas as pd
-from typing import List
+from typing import List, Set
 import uuid
 
 from django.contrib.auth.models import User
@@ -20,6 +20,8 @@ from navigader_core.der.builder import (
     DERStrategy as pyDERStrategy,
 )
 from navigader_core.load.intervalframe import (
+    EnergyContainer,
+    GasIntervalFrame,
     PowerIntervalFrame,
     ValidationIntervalFrame,
 )
@@ -162,7 +164,7 @@ class MeterDataMixin(object):
         """
         Computes aggregate metrics on the model only if they have not already
         been computed. The model is expected to have `total_kwh` and
-        `max_monthly_demand` fields. Note that this does not save the model.
+        `max_monthly_demand` fields.
         """
         intervalframe = self.meter_intervalframe
         if self.total_kwh is None:
@@ -204,6 +206,15 @@ class MeterGroup(
         """
         raise NotImplementedError(
             "meter_intervalframe must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def has_gas(self):
+        """
+        Returns boolean indicating if the MeterGroup has gas data
+        """
+        raise NotImplementedError(
+            "has_gas must be set in {}".format(self.__class__)
         )
 
     @property
@@ -263,12 +274,39 @@ class Meter(PolymorphicValidationModel, MeterDataMixin):
         ordering = ["-created_at"]
 
     @property
-    def meter_intervalframe(self):
+    def meter_intervalframe(self) -> PowerIntervalFrame:
         """
         Return PowerIntervalFrame related to a building's load.
         """
         raise NotImplementedError(
             "meter_intervalframe must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def gas_intervalframe(self) -> GasIntervalFrame:
+        """
+        Return GasIntervalFrame containing gas usage data
+        """
+        raise NotImplementedError(
+            "gas_intervalframe must be set in {}".format(self.__class__)
+        )
+
+    @property
+    def energy_container(self) -> EnergyContainer:
+        """
+        Return EnergyContainer related to meter
+        """
+        return EnergyContainer(
+            kw=self.meter_intervalframe, gas=self.gas_intervalframe
+        )
+
+    @property
+    def has_gas(self):
+        """
+        Returns boolean indicating if the Meter has gas data
+        """
+        raise NotImplementedError(
+            "has_gas must be set in {}".format(self.__class__)
         )
 
     @staticmethod
@@ -538,6 +576,14 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         return self.post_der_intervalframe
 
     @property
+    def gas_intervalframe(self) -> GasIntervalFrame:
+        return self.meter.gas_intervalframe
+
+    @property
+    def has_gas(self):
+        return False
+
+    @property
     def pre_vs_post_average_288_html_plot(self):
         """
         Return Django-formatted HTML pre vs. post average 288 plt.
@@ -696,6 +742,10 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
         )
 
     @classmethod
+    def get_intervalframes(cls, meters: Set[Meter]):
+        return {meter: meter.meter_intervalframe for meter in meters}
+
+    @classmethod
     def generate(
         cls,
         der_configuration: DERConfiguration,
@@ -735,9 +785,7 @@ class DERSimulation(IntervalFrameFileMixin, Meter):
             )
             director = DERSimulationDirector(builder=builder)
             new_simulation = director.run_many_simulations(
-                intervalframe_dict={
-                    meter: meter.meter_intervalframe for meter in new_meters
-                },
+                intervalframe_dict=cls.get_intervalframes(meters=new_meters),
                 start=start,
                 end_limit=end_limit,
                 multiprocess=multiprocess,

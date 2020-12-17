@@ -405,7 +405,7 @@ class DERSimulationDirector:
 
     def run_single_simulation(
         self,
-        intervalframe: ValidationIntervalFrame,
+        intervalframe: PowerIntervalFrame,
         start: datetime = pd.Timestamp.min,
         end_limit: datetime = pd.Timestamp.max,
     ) -> DERProduct:
@@ -428,6 +428,8 @@ class DERSimulationDirector:
 
         :param intervalframe_dict: dict with {id: ValidationIntervalFrame}
             pairs
+        :param start: simulation starting time
+        :param end_limit: simulation end limit time
         :param multiprocess: True to multiprocess
         """
 

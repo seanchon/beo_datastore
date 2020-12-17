@@ -11,6 +11,7 @@ from der.simulation.models import (
     BatteryStrategy,
     EVSEConfiguration,
     EVSEStrategy,
+    FuelSwitchingConfiguration,
     SolarPVConfiguration,
     SolarPVStrategy,
 )
@@ -50,7 +51,14 @@ class SolarPVConfigurationSerializer(BaseSerializer):
         fields = ("address", "array_type", "azimuth", "tilt")
 
 
+class FuelSwitchingConfigurationSerializer(BaseSerializer):
+    class Meta:
+        model = FuelSwitchingConfiguration
+        fields = ("space_heating", "water_heating")
+
+
 class DERConfigurationSerializer(BaseSerializer):
+
     data = serializers.SerializerMethodField()
 
     class Meta:
@@ -75,6 +83,8 @@ class DERConfigurationSerializer(BaseSerializer):
             serializer = EVSEConfigurationSerializer
         elif isinstance(obj, SolarPVConfiguration):
             serializer = SolarPVConfigurationSerializer
+        elif isinstance(obj, FuelSwitchingConfiguration):
+            serializer = FuelSwitchingConfigurationSerializer
         else:
             return {}
         return serializer(obj, many=False, read_only=True).data
@@ -159,4 +169,5 @@ class DERStrategySerializer(BaseSerializer):
             serializer = SolarPVStrategySerializer
         else:
             return {}
+
         return serializer(obj, many=False, read_only=True).data

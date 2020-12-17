@@ -39,7 +39,7 @@ def drop_evse_configuration_duplicates(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("simulation", "0013_drop_solar_parameters_json_uniqueness"),
+        ("simulation", "0014_auto_20201209_0135"),
     ]
 
     operations = [

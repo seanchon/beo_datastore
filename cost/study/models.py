@@ -32,6 +32,7 @@ from cost.procurement.models import (
 from cost.utility_rate.models import RatePlan, StoredBillCalculation
 from der.simulation.models import (
     EVSESimulation,
+    FuelSwitchingSimulation,
     SolarPVSimulation,
     StoredBatterySimulation,
 )
@@ -261,6 +262,25 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
             and not self.report.empty
             and not self.report_summary.empty
         )
+
+    @property
+    def origin_file(self):
+        """
+        Returns the OriginFile meter group that was used as the base of the
+        scenario stack
+        """
+        parent = self.meter_group
+        if isinstance(parent, OriginFile):
+            return parent
+        else:
+            return parent.origin_file
+
+    @property
+    def has_gas(self):
+        """
+        Returns boolean indicating if the scenario's origin file has gas data
+        """
+        return self.origin_file.has_gas
 
     @property
     def meter_intervalframe(self):
@@ -803,6 +823,8 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
             return EVSESimulation
         elif der_type == "SolarPV":
             return SolarPVSimulation
+        elif der_type == "FuelSwitching":
+            return FuelSwitchingSimulation
         else:
             raise RuntimeError(
                 "DERConfiguration has unrecognized der_type: {}".format(

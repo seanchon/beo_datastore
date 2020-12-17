@@ -64,9 +64,7 @@ class TestItem17Ingest(TestCase):
         """
         Test ingest of 15-minute Item 17 file with kW readings.
         """
-        file = os.path.join(
-            BASE_DIR, "load/customer/tests/files/15_min_kw.csv"
-        )
+        file = os.path.join(BASE_DIR, "load/customer/tests/files/15_min_kw.csv")
         origin_file = self.create_origin_file(file)
         self.ingest_origin_file_meters(origin_file.id)
 
@@ -79,6 +77,10 @@ class TestItem17Ingest(TestCase):
         self.assertEqual(
             meter.intervalframe.dataframe.loc[MIDNIGHT_2018]["kw"], 0.5
         )
+
+        # test therms
+        self.assertTrue(origin_file.has_gas)
+        self.assertEqual(origin_file.total_therms, 2)
 
     def test_15_min_kwh_ingest(self):
         """
@@ -100,13 +102,15 @@ class TestItem17Ingest(TestCase):
             meter.intervalframe.dataframe.loc[MIDNIGHT_2018]["kw"], 2
         )
 
+        # test therms
+        self.assertFalse(origin_file.has_gas)
+        self.assertIsNone(origin_file.total_therms)
+
     def test_60_min_kw_ingest(self):
         """
         Test ingest of 60-minute Item 17 file with kW readings.
         """
-        file = os.path.join(
-            BASE_DIR, "load/customer/tests/files/60_min_kw.csv"
-        )
+        file = os.path.join(BASE_DIR, "load/customer/tests/files/60_min_kw.csv")
         origin_file = self.create_origin_file(file)
         self.ingest_origin_file_meters(origin_file.id)
 

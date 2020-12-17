@@ -11,7 +11,7 @@ from beo_datastore.libs.utils import chunks
 from beo_datastore.settings import ADMINS, APP_URL
 
 from load.customer.models import CustomerMeter, CustomerPopulation, OriginFile
-from load.libs.ingest import reformat_item_17
+from load.libs.ingest import reformat_item_17, get_gas_dataframe
 from reference.reference_model.models import MeterGroup
 
 
@@ -117,6 +117,7 @@ def ingest_meters(origin_file_id, sa_ids, overwrite=False):
             rate_plan_name = sa_id_df["RS"].iloc[-1]  # get most-recent RS
             forward_df = reformat_item_17(sa_id_df[sa_id_df["DIR"] == "D"])
             reverse_df = reformat_item_17(sa_id_df[sa_id_df["DIR"] == "R"])
+            gas_df = get_gas_dataframe(sa_id_df[sa_id_df["DIR"] == "D"])
             CustomerMeter.get_or_create(
                 origin_file=origin_file,
                 sa_id=sa_id,
@@ -124,6 +125,7 @@ def ingest_meters(origin_file_id, sa_ids, overwrite=False):
                 multiple_rate_plans=multiple_rate_plans,
                 forward_df=forward_df,
                 reverse_df=reverse_df,
+                gas_df=gas_df,
             )
         except Exception as e:
             # Log failed meter ingests, but continue processing other meters.
@@ -177,9 +179,7 @@ def rerun_incomplete_origin_file_ingests(older_than_minutes: int):
     """
     incomplete_origin_files = OriginFile.objects.filter(
         completed=False,
-        locked_unlocked_at__lte=(
-            now() - timedelta(minutes=older_than_minutes)
-        ),
+        locked_unlocked_at__lte=(now() - timedelta(minutes=older_than_minutes)),
     )
     incomplete_ids = incomplete_origin_files.values_list("id", flat=True)
 
