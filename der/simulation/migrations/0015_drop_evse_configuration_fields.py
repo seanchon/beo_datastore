@@ -42,15 +42,4 @@ class Migration(migrations.Migration):
         ("simulation", "0014_auto_20201209_0135"),
     ]
 
-    operations = [
-        migrations.RemoveField(
-            model_name="evseconfiguration", name="ev_capacity",
-        ),
-        migrations.RemoveField(
-            model_name="evseconfiguration", name="ev_efficiency",
-        ),
-        migrations.RunPython(
-            drop_evse_configuration_duplicates,
-            reverse_code=migrations.RunPython.noop,
-        ),
-    ]
+    operations = []
