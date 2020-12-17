@@ -201,6 +201,7 @@ class CAISORateSerializer(BaseSerializer):
         fields = (
             "id",
             "name",
+            "created_at",
             "data",
             "filters",
             "caiso_report",
@@ -256,6 +257,7 @@ class RatePlanSerializer(BaseSerializer):
         fields = (
             "id",
             "name",
+            "created_at",
             "rate_collections",
             "description",
             "demand_min",
@@ -277,6 +279,7 @@ class SystemProfileSerializer(BaseSerializer):
         fields = (
             "id",
             "name",
+            "created_at",
             "load_serving_entity",
             "resource_adequacy_rate",
             "data",
