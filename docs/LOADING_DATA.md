@@ -54,9 +54,9 @@ python manage.py runscript load.customer.scripts.ingest_item_17 --script-args <L
 
 ## Cost Data
 
-### Clean Net Short GHG
+### Clean System Power GHG Rates
 
-The following script will ingest GHG lookup tables from the CPUC's [Clean Net Short Calculator Tool](http://www.cpuc.ca.gov/General.aspx?id=6442451195).
+The following script will ingest GHG lookup tables from 288 CSV data files derived from the CPUC's [Clean System Power Calculator Tool](https://www.cpuc.ca.gov/General.aspx?id=6442459770).
 
 ```
 python manage.py runscript cost.ghg.scripts.ingest_ghg_data

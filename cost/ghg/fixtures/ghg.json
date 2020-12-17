@@ -3,9 +3,9 @@
   "model": "ghg.ghgrate",
   "pk": 1,
   "fields": {
-    "name": "Clean Net Short",
+    "name": "Clean System Power 2018",
     "effective": "2018-01-01",
-    "source": "http://www.cpuc.ca.gov/General.aspx?id=6442451195",
+    "source": "https://www.cpuc.ca.gov/General.aspx?id=6442459770",
     "rate_unit": 3
   }
 },
@@ -13,9 +13,9 @@
   "model": "ghg.ghgrate",
   "pk": 2,
   "fields": {
-    "name": "Clean Net Short",
+    "name": "Clean System Power 2022",
     "effective": "2022-01-01",
-    "source": "http://www.cpuc.ca.gov/General.aspx?id=6442451195",
+    "source": "https://www.cpuc.ca.gov/General.aspx?id=6442459770",
     "rate_unit": 3
   }
 },
@@ -23,9 +23,9 @@
   "model": "ghg.ghgrate",
   "pk": 3,
   "fields": {
-    "name": "Clean Net Short",
+    "name": "Clean System Power 2026",
     "effective": "2026-01-01",
-    "source": "http://www.cpuc.ca.gov/General.aspx?id=6442451195",
+    "source": "https://www.cpuc.ca.gov/General.aspx?id=6442459770",
     "rate_unit": 3
   }
 },
@@ -33,25 +33,15 @@
   "model": "ghg.ghgrate",
   "pk": 4,
   "fields": {
-    "name": "Clean Net Short",
+    "name": "Clean System Power 2030",
     "effective": "2030-01-01",
-    "source": "http://www.cpuc.ca.gov/General.aspx?id=6442451195",
+    "source": "https://www.cpuc.ca.gov/General.aspx?id=6442459770",
     "rate_unit": 3
   }
 },
 {
   "model": "ghg.ghgrate",
   "pk": 5,
-  "fields": {
-    "name": "Natural Gas",
-    "effective": "2015-01-01",
-    "source": "https://www.mcecleanenergy.org/wp-content/uploads/2018/01/Understanding_MCE_GHG_EmissionFactors_2015.pdf",
-    "rate_unit": 3
-  }
-},
-{
-  "model": "ghg.ghgrate",
-  "pk": 6,
   "fields": {
     "name": "CARB - Unspecified Power",
     "effective": "2013-01-01",

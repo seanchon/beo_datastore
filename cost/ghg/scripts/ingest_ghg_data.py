@@ -1,22 +1,23 @@
-from datetime import date
-import numpy as np
-import os
-import pandas as pd
 import re
+from datetime import date
+from pathlib import Path
 
-from beo_datastore.libs.load.dataframe import read_csv
+import numpy as np
+
+from beo_datastore.libs.dataframe import read_csv
 from beo_datastore.settings import BASE_DIR
-
 from cost.ghg.models import GHGRate
 from reference.reference_model.models import RateUnit
 
 
-def get_year_from_filename(filename):
-    year_str = re.findall("\d{4}", filename)[0]
-    return int(year_str)
+CSP_SOURCE_URL = "https://www.cpuc.ca.gov/General.aspx?id=6442459770"
 
 
-def create_cns_object(csv_path, year):
+def get_year_from_filename(path):
+    return int(re.findall(r"\d{4}", path.name)[0])
+
+
+def update_or_create_ghg_rates(csv_path, year):
     dataframe = read_csv(csv_path, index_col=0)
     dataframe.columns = dataframe.columns.astype(np.int64)
 
@@ -26,54 +27,46 @@ def create_cns_object(csv_path, year):
     # convert from tCO2/MWh to tCO2/kWh
     dataframe = dataframe / 1000
 
-    name = "Clean Net Short"
+    name = f"Clean System Power {year}"
     effective = date(year, 1, 1)
-    if not GHGRate.objects.filter(name=name, effective=effective):
-        GHGRate.create(
+    ghg_rate = GHGRate.objects.filter(
+        effective=effective, name__icontains="clean net short"
+    ).first()
+
+    if ghg_rate:
+        ghg_rate.name = name
+        ghg_rate.frame.dataframe = dataframe
+        ghg_rate.source = CSP_SOURCE_URL
+        ghg_rate.save()
+        print(f"Updated: {ghg_rate}")
+    else:
+        ghg_rate = GHGRate.create(
             name=name,
             effective=effective,
-            source="http://www.cpuc.ca.gov/General.aspx?id=6442451195",
+            source=CSP_SOURCE_URL,
             rate_unit=RateUnit.objects.get(
                 numerator__name="tCO2", denominator__name="kwh"
             ),
             dataframe=dataframe,
         )
+        print(f"Created: {ghg_rate}")
 
 
 def run():
     """
+    Ingest Clean System Power GHG rates from 288 CSV files.
+    - GHGRate instances are uniquely identified by effective date 20XX-01-01
+    - Existing "Clean Net Short" GHGRates will have their dataframes updated
+      with CSP data of the same year. If no CNS rate is found for a given
+      year, a new GHGRate instance will be created
+
     Usage:
         - python manage.py runscript cost.ghg.scripts.ingest_ghg_data
     """
-    # Ingest Clean Net Short Data
-    data_dir = "cost/ghg/scripts/data/"
-    for csv_file in [
-        "cns_2018.csv",
-        "cns_2022.csv",
-        "cns_2026.csv",
-        "cns_2030.csv",
-    ]:
-        create_cns_object(
-            csv_path=os.path.join(BASE_DIR, data_dir, csv_file),
-            year=get_year_from_filename(csv_file),
-        )
 
-    # Ingest Natural Gas Constant
-    dataframe = pd.DataFrame(
-        0.000380, columns=np.array(range(1, 13)), index=np.array(range(0, 24))
-    )
-    name = "Natural Gas"
-    effective = date(2015, 1, 1)
-    if not GHGRate.objects.filter(name=name, effective=effective):
-        GHGRate.create(
-            name=name,
-            effective=effective,
-            source=(
-                "https://www.mcecleanenergy.org/wp-content/uploads/2018/01/"
-                "Understanding_MCE_GHG_EmissionFactors_2015.pdf"
-            ),
-            rate_unit=RateUnit.objects.get(
-                numerator__name="tCO2", denominator__name="kwh"
-            ),
-            dataframe=dataframe,
+    data_dir = Path(BASE_DIR + "/cost/ghg/scripts/csp_data/")
+    csv_files = data_dir.glob("*.csv")
+    for csv_file in csv_files:
+        update_or_create_ghg_rates(
+            csv_path=csv_file, year=get_year_from_filename(csv_file),
         )
