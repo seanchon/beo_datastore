@@ -1,0 +1,12 @@
+# Install deployment dependencies
+-r requirements.txt
+
+# Development dependencies
+redis==3.4.1
+
+# Development tools
+awscli==1.17.17         # AWS
+awsebcli==3.2.2         # AWS Elasticbean
+black==19.10b0          # Code Quality, Code formating
+flake8==3.8.4           # Code Quality, Style guide enforcement
+pre-commit==1.20.0      # Code Quality, Git pre commits hooks

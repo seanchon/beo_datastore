@@ -6,7 +6,6 @@ attrs==19.3.0
 backcall==0.1.0
 beautifulsoup4==4.8.2
 billiard==3.6.3.0
-black==19.10b0
 bleach==3.1.1
 boto3==1.11.1
 botocore==1.14.17
@@ -83,7 +82,6 @@ parso==0.6.2
 pathspec==0.7.0
 pexpect==4.8.0
 pickleshare==0.7.5
-pre-commit==1.20.0
 prometheus-client==0.7.1
 prompt-toolkit==2.0.10
 psycopg2-binary==2.8.3
@@ -98,9 +96,8 @@ python-dateutil==2.8.1
 python-stdnum==1.13
 python3-openid==3.1.0
 pytz==2020.4
-PyYAML==5.3
+PyYAML==5.2
 pyzmq==19.0.0
-redis==3.4.1
 regex==2020.2.20
 requests==2.22.0
 requests-oauthlib==1.2.0
