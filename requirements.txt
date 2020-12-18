@@ -24,7 +24,7 @@ cycler==0.10.0
 decorator==4.4.1
 defusedxml==0.6.0
 distlib==0.3.0
-Django==2.2.7
+Django==2.2.16
 django-allauth==0.40.0
 django-auto-repr==1.1
 django-celery-beat==1.5.0
@@ -97,7 +97,7 @@ python-crontab==2.4.0
 python-dateutil==2.8.1
 python-stdnum==1.13
 python3-openid==3.1.0
-pytz==2019.3
+pytz==2020.4
 PyYAML==5.3
 pyzmq==19.0.0
 redis==3.4.1
@@ -115,7 +115,7 @@ simplejson==3.17.0
 six==1.14.0
 sklearn==0.0
 soupsieve==2.0
-sqlparse==0.3.0
+sqlparse==0.4.1
 terminado==0.8.3
 testpath==0.4.4
 text-unidecode==1.3
