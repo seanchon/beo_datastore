@@ -410,7 +410,7 @@ class EVSEStrategy(DERStrategy):
         :param description: strategy description
         :param start_charge_hour: hour at which charging can begin
         :param end_charge_hour: hour at the start of which charging must end
-        :param distance: the number of miles the drivers commute one-way
+        :param distance: the number of miles the EV travels per day
         :param name: name of the strategy
         :param objective: the DERStrategy objective
         :param load_serving_entity: the LSE to assign the EVSEStrategy to
@@ -435,9 +435,9 @@ class EVSEStrategy(DERStrategy):
         drive_schedule, _ = DERSchedule.get_or_create_from_frame288(
             create_fixed_schedule(
                 [0] * drive_hour_1
-                + [distance]
+                + [distance / 2]
                 + [0] * (drive_hour_2 - drive_hour_1 - 1)
-                + [distance]
+                + [distance / 2]
                 + [0] * (23 - drive_hour_2)
             )
         )
