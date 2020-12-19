@@ -54,7 +54,7 @@ for item in df.itertuples():
         for column in email_columns:
             email_domain = getattr(item, column)
             if email_domain:
-                EmailDomain.objects.create(
+                EmailDomain.objects.get_or_create(
                     domain="@" + email_domain,
                     load_serving_entity=load_serving_entity,
                 )
