@@ -2,6 +2,7 @@ from datetime import datetime
 from faker import Factory
 import itertools
 import json
+from unittest.mock import patch
 import pandas as pd
 
 from rest_framework import status
@@ -18,13 +19,12 @@ from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate
 from cost.study.models import Scenario
 from cost.utility_rate.models import RateCollection, RatePlan
-from der.simulation.models import BatteryConfiguration, BatteryStrategy
+from der.simulation.models import BatteryConfiguration
 from der.simulation.scripts.generate_der_strategy import (
     generate_bill_reduction_battery_strategy,
 )
 from load.customer.models import OriginFile
 from reference.auth_user.models import LoadServingEntity
-from reference.reference_model.models import MeterGroup
 
 
 class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
@@ -41,6 +41,20 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         "caiso_rate",
     ]
 
+    endpoint = "/v1/cost/scenario/"
+    endpoints = [
+        "/v1/cost/scenario/?include[]={}".format(x)
+        for x in [
+            "ders",
+            "der_simulations",
+            "meters",
+            "meter_group",
+            "metadata",
+            "report",
+            "report_summary",
+        ]
+    ]
+
     def setUp(self):
         """
         Initialize endpoints to test and loads parquet files.
@@ -51,93 +65,102 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         faker = Factory.create()
         self.user = User.objects.create(
             username=faker.user_name(),
-            email=faker.email(domain="@pge.com"),
+            email=faker.email(domain="mcecleanenergy.org"),
             is_superuser=False,
         )
 
-        self.endpoints = [
-            "/v1/cost/scenario/?include[]={}".format(x)
-            for x in [
-                "ders",
-                "der_simulations",
-                "meters",
-                "meter_group",
-                "metadata",
-                "report",
-                "report_summary",
-            ]
-        ]
-
         # create MeterGroup
-        meter_group = OriginFile.objects.first()
-        meter_group.owners.add(self.user)
+        self.meter_group = OriginFile.objects.first()
+        self.meter_group.owners.add(self.user)
+
+        # Make cost function objects to use in scenarios
+        self.procurement_rate = CAISORate.objects.first()
+        self.ghg_rate = GHGRate.objects.first()
+        self.rate_plan = RatePlan.objects.create(
+            load_serving_entity=self.meter_group.load_serving_entity,
+            name="ABC",
+            sector="Residential",
+        )
+        self.rate_plan.rate_collections.set([RateCollection.objects.first()])
 
         # create battery
-        configuration, _ = BatteryConfiguration.objects.get_or_create(
+        self.configuration, _ = BatteryConfiguration.objects.get_or_create(
             rating=150, discharge_duration_hours=4, efficiency=0.9
         )
 
         # create a battery strategy from a RatePlan
-        rate_plan = RatePlan.objects.first()
-        battery_strategy = generate_bill_reduction_battery_strategy(
+        self.strategy = generate_bill_reduction_battery_strategy(
             name="E-19",
             charge_grid=True,
             discharge_grid=False,
-            rate_plan=rate_plan,
+            rate_plan=self.rate_plan,
         )
 
         # create Scenario
         scenario, _ = Scenario.objects.get_or_create(
             start=datetime(2018, 1, 1),
             end_limit=datetime(2018, 1, 1, 1),
-            der_strategy=battery_strategy,
-            der_configuration=configuration,
-            meter_group=meter_group,
-            rate_plan=RatePlan.objects.first(),
+            der_strategy=self.strategy,
+            der_configuration=self.configuration,
+            meter_group=self.meter_group,
+            rate_plan=self.rate_plan,
+            ghg_rate=self.ghg_rate,
         )
-        scenario.ghg_rate = GHGRate.objects.first()
-        scenario.save()
-        scenario.run()
 
     def tearDown(self):
         flush_intervalframe_files()
 
-    def test_post_duplicate_scenario(self):
+    def make_request_data(self, cost_functions=None):
+        """
+        Helper method to create the POST request parameters
+        """
+        if cost_functions is None:
+            cost_functions = {}
+
+        return {
+            "cost_functions": cost_functions,
+            "name": "test",
+            "meter_group_ids": [str(self.meter_group.id)],
+            "ders": [
+                {
+                    "der_configuration_id": str(self.configuration.id),
+                    "der_strategy_id": str(self.strategy.id),
+                }
+            ],
+        }
+
+    def test_post_scenario(self):
+        """
+        Tests that a scenario is run on POST
+        """
+        self.client.force_authenticate(user=self.user)
+
+        # Create the scenario
+        data = self.make_request_data()
+        response = self.client.post(self.endpoint, data, format="json")
+
+        # Assert the scenario has been assigned the correct rates
+        scenario = Scenario.objects.get(id=response.data["id"])
+        self.assertTrue(scenario.has_completed)
+
+    @patch("cost.views.run_scenario")
+    def test_post_duplicate_scenario(self, _):
         """
         Test new objects created on POST to /cost/scenario/.
         """
-        post_endpoint = "/v1/cost/scenario/"
         self.client.force_authenticate(user=self.user)
 
         # Delete all Scenario objects
         Scenario.objects.all().delete()
 
-        meter_group = MeterGroup.objects.first()
-        configuration = BatteryConfiguration.objects.first()
-        strategy = BatteryStrategy.objects.first()
-
-        data = {
-            "cost_functions": {},
-            "name": "test",
-            "meter_group_ids": [str(meter_group.id)],
-            "ders": [
-                {
-                    "der_configuration_id": str(configuration.id),
-                    "der_strategy_id": str(strategy.id),
-                }
-            ],
-        }
-
-        # 0 count
-        self.assertEqual(Scenario.objects.count(), 0)
-
-        # 1 count
-        response = self.client.post(post_endpoint, data, format="json")
+        # First request should create a scenario
+        data = self.make_request_data()
+        response = self.client.post(self.endpoint, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Scenario.objects.count(), 1)
 
-        # 1 count - do not create duplicates
-        response = self.client.post(post_endpoint, data, format="json")
+        # Second request should not create a duplicate
+        response = self.client.post(self.endpoint, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Scenario.objects.count(), 1)
 
@@ -145,60 +168,58 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         """
         Test Scenario only appears for owner of MeterGroup.
         """
-        get_endpoint = "/v1/cost/scenario/"
         self.client.force_authenticate(user=self.user)
 
         # 1 Scenario related to MeterGroup
-        response = self.client.get(get_endpoint)
+        response = self.client.get(self.endpoint)
         self.assertEqual(len(response.data["results"]["scenarios"]), 1)
 
         # 0 Scenario
         self.user.meter_groups.clear()
-        response = self.client.get(get_endpoint)
+        response = self.client.get(self.endpoint)
         self.assertEqual(len(response.data["results"]["scenarios"]), 0)
 
-    def test_scenario_creation_assigns_cost_functions(self):
+    @patch("cost.views.run_scenario")
+    def test_scenario_creation_assigns_cost_functions(self, _):
         """
         Tests that cost functions are correctly assigned to the scenario upon
         creation
         """
         self.client.force_authenticate(user=self.user)
 
-        # Delete all Scenario objects
-        Scenario.objects.all().delete()
-
-        meter_group = MeterGroup.objects.first()
-        configuration = BatteryConfiguration.objects.first()
-        strategy = BatteryStrategy.objects.first()
-        rate_plan = RatePlan.objects.first()
-        ghg_rate = GHGRate.objects.first()
-        procurement_rate = CAISORate.objects.first()
-
-        data = {
-            "cost_functions": {
-                "rate_plan": rate_plan.id,
-                "ghg_rate": ghg_rate.id,
-                "procurement_rate": procurement_rate.id,
-            },
-            "name": "test",
-            "meter_group_ids": [str(meter_group.id)],
-            "ders": [
-                {
-                    "der_configuration_id": str(configuration.id),
-                    "der_strategy_id": str(strategy.id),
-                }
-            ],
-        }
+        data = self.make_request_data(
+            {
+                "rate_plan": self.rate_plan.id,
+                "ghg_rate": self.ghg_rate.id,
+                "procurement_rate": self.procurement_rate.id,
+            }
+        )
 
         # Create the scenario
-        post_endpoint = "/v1/cost/scenario/"
-        response = self.client.post(post_endpoint, data, format="json")
+        response = self.client.post(self.endpoint, data, format="json")
+        scenario = Scenario.objects.get(id=response.data["id"])
 
         # Assert the scenario has been assigned the correct rates
+        self.assertEqual(scenario.rate_plan, self.rate_plan)
+        self.assertEqual(scenario.ghg_rate, self.ghg_rate)
+        self.assertEqual(scenario.procurement_rate, self.procurement_rate)
+
+    @patch("cost.views.run_scenario")
+    @patch.object(OriginFile, "primary_linked_rate_plan_name", new="ABC")
+    def test_scenario_creation_automatic_rate_plan_assignment(self, _):
+        """
+        Tests that a scenario will be assigned the proper rate plan when "auto"
+        is passed
+        """
+        self.client.force_authenticate(user=self.user)
+
+        # Create the scenario
+        data = self.make_request_data({"rate_plan": "auto"})
+        response = self.client.post(self.endpoint, data, format="json")
         scenario = Scenario.objects.get(id=response.data["id"])
-        self.assertEqual(scenario.rate_plan, rate_plan)
-        self.assertEqual(scenario.ghg_rate, ghg_rate)
-        self.assertEqual(scenario.procurement_rate, procurement_rate)
+
+        # Assert the scenario has been assigned the correct rates
+        self.assertEqual(scenario.rate_plan, self.rate_plan)
 
 
 class CostFunctionTestMixin:

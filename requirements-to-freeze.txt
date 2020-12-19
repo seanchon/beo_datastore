@@ -1,5 +1,4 @@
 # see https://www.kennethreitz.org/essays/a-better-pip-workflow
-black
 boto3
 bs4
 cached-property
@@ -30,11 +29,9 @@ jsonfield
 matplotlib
 notebook
 pandas
-pre-commit
 pyarrow
 pycurl
 psycopg2-binary
-redis
 requests
 rise
 s3fs

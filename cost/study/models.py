@@ -952,13 +952,21 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
           required
         """
         if "rate_plan" in cost_functions:
-            try:
-                self.rate_plan = RatePlan.objects.get(
-                    id=cost_functions["rate_plan"],
-                    load_serving_entity=self.load_serving_entity,
-                )
-            except RatePlan.DoesNotExist:
-                pass
+            cost_function_selection = cost_functions["rate_plan"]
+            if cost_function_selection == "auto":
+                origin_file = self.origin_file
+                self.rate_plan = RatePlan.get_linked_rate_plans(
+                    load_serving_entity=origin_file.load_serving_entity,
+                    rate_plan_name=origin_file.primary_linked_rate_plan_name,
+                ).first()
+            else:
+                try:
+                    self.rate_plan = RatePlan.objects.get(
+                        id=cost_functions["rate_plan"],
+                        load_serving_entity=self.load_serving_entity,
+                    )
+                except RatePlan.DoesNotExist:
+                    pass
 
         if "ghg_rate" in cost_functions:
             try:

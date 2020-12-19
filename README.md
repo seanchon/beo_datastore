@@ -11,10 +11,9 @@ These steps should be performed in the directory where this project has been dow
 ```
 $ python -m venv <env_name>
 $ source <env_name>/bin/activate
-(<env_name>)$ pip install -r requirements.txt
+(<env_name>)$ pip install -r requirements_dev.txt
 (<env_name>)$ pre-commit install
 (<env_name>)$ brew install redis
-(<env_name>)$ pip install redis
 
 ```
 

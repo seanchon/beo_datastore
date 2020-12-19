@@ -17,7 +17,7 @@ from navigader_core.der.evse import (
 
 
 # EVSE model specifications
-ev_mpkwh = 3.5
+ev_mpkwh = 3.3
 ev_count = 15
 evse_rating = 1.9
 evse_count = 5
@@ -37,7 +37,7 @@ class TestEVSE(TestCase):
         1. The following hypothetical load conditions:
             - 2020/01/01 midnight to 2020/01/02 midnight: 0kW
         2. The following EVSE model specifications:
-            - EV driving efficiency: 3.5 miles/kwh
+            - EV driving efficiency: 3.3 miles/kwh
             - EVSE rating: 150 kw
             - number of electric vehicles: 15
             - number of electric vehicle chargers: 5

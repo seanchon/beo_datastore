@@ -273,7 +273,7 @@ def generate_commuter_evse_strategy(
     description = user_description or (
         "Vehicles begin charging at {start_charge_hour} and end charging at "
         "{end_charge_hour}. In between charges the vehicles are assumed to "
-        "commute {distance} miles one way.".format(
+        "travel {distance} miles total.".format(
             distance=distance,
             start_charge_hour=format_hour(start_charge_hour),
             end_charge_hour=format_hour(end_charge_hour),
