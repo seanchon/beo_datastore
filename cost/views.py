@@ -91,7 +91,8 @@ class ScenarioViewSet(CreateListRetrieveUpdateDestroyViewSet):
                     "dictionary mapping a cost function-type to the ID of the "
                     "cost function to apply. Expected keys are 'rate_plan', "
                     "'ghg_rate', 'procurement_rate' and 'system_profile'. No "
-                    "key is required"
+                    "key is required. The 'rate_plan' key can be set to 'auto' "
+                    "for automatic rate plan assignment."
                 ),
             ),
             coreapi.Field(
@@ -513,10 +514,7 @@ class CAISORateViewSet(CostFunctionViewSet):
 
         try:
             df.set_index(
-                keys=indices,
-                verify_integrity=True,
-                drop=True,
-                inplace=True,
+                keys=indices, verify_integrity=True, drop=True, inplace=True,
             )
         except Exception as e:
             raise serializers.ValidationError(
@@ -787,10 +785,7 @@ class SystemProfileViewSet(CostFunctionViewSet):
 
         try:
             df.set_index(
-                keys=indices,
-                verify_integrity=True,
-                drop=True,
-                inplace=True,
+                keys=indices, verify_integrity=True, drop=True, inplace=True,
             )
         except Exception as e:
             raise serializers.ValidationError(
