@@ -9,6 +9,8 @@ from beo_datastore.libs.api.serializers import (
 from der.simulation.models import (
     BatteryConfiguration,
     BatteryStrategy,
+    ders_configurations,
+    ders_strategies,
     EVSEConfiguration,
     EVSEStrategy,
     FuelSwitchingConfiguration,
@@ -77,16 +79,11 @@ class DERConfigurationSerializer(BaseSerializer):
         """
         Nest related serializer under "data".
         """
-        if isinstance(obj, BatteryConfiguration):
-            serializer = BatteryConfigurationSerializer
-        elif isinstance(obj, EVSEConfiguration):
-            serializer = EVSEConfigurationSerializer
-        elif isinstance(obj, SolarPVConfiguration):
-            serializer = SolarPVConfigurationSerializer
-        elif isinstance(obj, FuelSwitchingConfiguration):
-            serializer = FuelSwitchingConfigurationSerializer
+        if type(obj) in ders_configurations.values():
+            serializer = eval(obj.__class__.__name__ + "Serializer")
         else:
             return {}
+
         return serializer(obj, many=False, read_only=True).data
 
 
@@ -161,12 +158,8 @@ class DERStrategySerializer(BaseSerializer):
         """
         Nest related serializer under "data".
         """
-        if isinstance(obj, BatteryStrategy):
-            serializer = BatteryStrategySerializer
-        elif isinstance(obj, EVSEStrategy):
-            serializer = EVSEStrategySerializer
-        elif isinstance(obj, SolarPVStrategy):
-            serializer = SolarPVStrategySerializer
+        if type(obj) in ders_strategies.values():
+            serializer = eval(obj.__class__.__name__ + "Serializer")
         else:
             return {}
 

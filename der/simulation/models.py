@@ -64,6 +64,8 @@ from reference.reference_model.models import (
     Meter,
 )
 
+DERS = frozenset(["Battery", "EVSE", "SolarPV", "FuelSwitching"])
+
 
 class DERScheduleFrame288(Frame288File):
     """
@@ -811,7 +813,8 @@ class FuelSwitchingConfiguration(DERConfiguration):
         Return pyFuelSwitching (Python DER model equivalent) of self.
         """
         return pyFuelSwitching(
-            space_heating=self.space_heating, water_heating=self.water_heating,
+            space_heating=self.space_heating,
+            water_heating=self.water_heating,
         )
 
 
@@ -882,3 +885,7 @@ class FuelSwitchingSimulation(DERSimulation):
     @classmethod
     def get_intervalframes(cls, meters: Set[Meter]):
         return {meter: meter.energy_container for meter in meters}
+
+
+ders_strategies = {der: eval(der + "Strategy") for der in DERS}
+ders_configurations = {der: eval(der + "Configuration") for der in DERS}

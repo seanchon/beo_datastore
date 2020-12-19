@@ -15,13 +15,12 @@ from cost.procurement.models import SystemProfile
 from cost.utility_rate.models import RatePlan
 from der.simulation.models import (
     BatteryConfiguration,
-    BatteryStrategy,
     DERConfiguration,
+    ders_configurations,
+    ders_strategies,
     DERSimulation,
     DERStrategy,
     EVSEConfiguration,
-    EVSEStrategy,
-    FuelSwitchingConfiguration,
     FuelSwitchingStrategy,
     SolarPVConfiguration,
     SolarPVStrategy,
@@ -108,16 +107,9 @@ class DERConfigurationViewSet(DERObjectViewSet):
         ]
     )
 
-    der_model_map = {
-        "Battery": BatteryConfiguration,
-        "EVSE": EVSEConfiguration,
-        "SolarPV": SolarPVConfiguration,
-        "FuelSwitching": FuelSwitchingConfiguration,
-    }
-
     def get_der_model(self):
         der_type = self._param("der_type")
-        return self.der_model_map.get(der_type, DERConfiguration)
+        return ders_configurations.get(der_type, DERConfiguration)
 
     def create(self, request):
         self._require_data_fields("der_type")
@@ -321,16 +313,9 @@ class DERStrategyViewSet(DERObjectViewSet):
         ]
     )
 
-    der_model_map = {
-        "Battery": BatteryStrategy,
-        "EVSE": EVSEStrategy,
-        "SolarPV": SolarPVStrategy,
-        "FuelSwitching": FuelSwitchingStrategy,
-    }
-
     def get_der_model(self):
         der_type = self._param("der_type")
-        return self.der_model_map.get(der_type, DERStrategy)
+        return ders_strategies.get(der_type, DERStrategy)
 
     def create(self, request):
         self._require_data_fields("name", "der_type")
