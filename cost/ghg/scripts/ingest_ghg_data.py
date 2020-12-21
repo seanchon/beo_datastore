@@ -40,7 +40,7 @@ def update_or_create_ghg_rates(csv_path, year):
         ghg_rate.save()
         print(f"Updated: {ghg_rate}")
     else:
-        ghg_rate = GHGRate.create(
+        ghg_rate, created = GHGRate.get_or_create(
             name=name,
             effective=effective,
             source=CSP_SOURCE_URL,
@@ -49,7 +49,10 @@ def update_or_create_ghg_rates(csv_path, year):
             ),
             dataframe=dataframe,
         )
-        print(f"Created: {ghg_rate}")
+        if created:
+            print(f"Created: {ghg_rate}")
+        else:
+            print(f"Existed: {ghg_rate}")
 
 
 def run():
@@ -68,5 +71,6 @@ def run():
     csv_files = data_dir.glob("*.csv")
     for csv_file in csv_files:
         update_or_create_ghg_rates(
-            csv_path=csv_file, year=get_year_from_filename(csv_file),
+            csv_path=csv_file,
+            year=get_year_from_filename(csv_file),
         )
