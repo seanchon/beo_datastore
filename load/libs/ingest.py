@@ -60,9 +60,10 @@ def reformat_timestamp_columns(dataframe):
 
 def is_time_str(time_string: str) -> bool:
     """
-    Return True if time_string in H:MM or HH:MM format. Ignore double quotes.
+    Return True if time_string in H:MM, HH:MM, H:MM:SS, HH:MM:SS format,
+    ignore double quotes.
     """
-    return re.search(r"^\"?\d{1,2}\:\d{2}\"?$", time_string)
+    return bool(re.search(r"^\"?\d{1,2}:\d{2}(:\d{2})?\"?$", time_string))
 
 
 def get_timestamp_columns(columns: list) -> list:
@@ -74,9 +75,13 @@ def get_timestamp_columns(columns: list) -> list:
 
 def create_naive_datetime(time_string: str) -> datetime:
     """
-    Convert time string (ex. "08:00") to a naive_datetime on December 31, 1999.
-    Convert occurances of "24" to "00".
+    Convert time strings either HH:MM:SS or HH:MM,to a naive_datetime on December 31, 1999.
+    Convert occurrences of "24" to "00".
     """
+    # Ignore seconds i.e. convert %H:%M:%S to %H:%M
+    if len(time_string.split(":")) == 3:
+        time_string = time_string[:-3]
+
     hour, minute = time_string.split(":")
     if hour == "24":
         time_string = "00:" + minute
