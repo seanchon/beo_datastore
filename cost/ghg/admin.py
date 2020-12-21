@@ -10,6 +10,7 @@ from cost.ghg.models import GHGRate, StoredGHGCalculation
 class GHGRateAdmin(admin.ModelAdmin):
     readonly_fields = ["html_table"]
     search_fields = ["id", "name"]
+    ordering = ["-effective"]
 
 
 @admin.register(StoredGHGCalculation)
