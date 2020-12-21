@@ -1,7 +1,11 @@
 from dynamic_rest.fields import DynamicRelationField
 from rest_framework import serializers
 
-from beo_datastore.libs.api.serializers import BaseSerializer, DataField
+from beo_datastore.libs.api.serializers import (
+    BaseSerializer,
+    DataField,
+    IntervalFrameField,
+)
 from cost.study.models import Scenario
 from load.customer.models import CustomerCluster, CustomerMeter, OriginFile
 from load.openei.models import ReferenceMeter
@@ -45,7 +49,7 @@ class MeterGroupSerializer(BaseSerializer):
     meters = serializers.SerializerMethodField()
     metadata = serializers.SerializerMethodField()
     owners = serializers.StringRelatedField(many=True)
-    date_range = serializers.SerializerMethodField()
+    date_range = IntervalFrameField(source="date_range")
     total_therms = serializers.SerializerMethodField()
 
     class Meta:
@@ -91,12 +95,6 @@ class MeterGroupSerializer(BaseSerializer):
             return ScenarioSerializer(obj, many=False, read_only=True).data
         else:
             return {}
-
-    def get_date_range(self, obj):
-        """
-        Returns the meter group's date range
-        """
-        return obj.intervalframe.date_range
 
     def get_total_therms(self, obj):
         """

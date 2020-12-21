@@ -5,7 +5,11 @@ import dateutil.parser
 from dynamic_rest.fields import DynamicComputedField, DynamicRelationField
 from rest_framework import serializers
 
-from beo_datastore.libs.api.serializers import BaseSerializer, DataField
+from beo_datastore.libs.api.serializers import (
+    BaseSerializer,
+    DataField,
+    IntervalFrameField,
+)
 from cost.ghg.models import GHGRate
 from cost.procurement.models import CAISORate, SystemProfile
 from cost.study.models import Scenario
@@ -191,6 +195,7 @@ class GHGRateSerializer(BaseSerializer):
 
 class CAISORateSerializer(BaseSerializer):
     data = DataField()
+    date_range = IntervalFrameField(source="date_range")
     filters = serializers.JSONField()
     load_serving_entity = DynamicRelationField(
         LoadServingEntitySerializer, deferred=True, embed=True
@@ -203,6 +208,7 @@ class CAISORateSerializer(BaseSerializer):
             "name",
             "created_at",
             "data",
+            "date_range",
             "filters",
             "caiso_report",
             "load_serving_entity",
@@ -248,7 +254,7 @@ class RatePlanSerializer(BaseSerializer):
         LoadServingEntitySerializer, deferred=True
     )
     rate_collections = DynamicRelationField(
-        RateCollectionSerializer, many=True, deferred=True
+        RateCollectionSerializer, many=True, deferred=True, embed=True
     )
     start_date = EffectiveDateComputedField()
 
@@ -270,6 +276,7 @@ class RatePlanSerializer(BaseSerializer):
 
 class SystemProfileSerializer(BaseSerializer):
     data = DataField()
+    date_range = IntervalFrameField(source="date_range")
     load_serving_entity = DynamicRelationField(
         LoadServingEntitySerializer, deferred=True, embed=True
     )
@@ -283,4 +290,5 @@ class SystemProfileSerializer(BaseSerializer):
             "load_serving_entity",
             "resource_adequacy_rate",
             "data",
+            "date_range",
         )
