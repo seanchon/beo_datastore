@@ -221,3 +221,32 @@ class DataField(ContextMixin, DynamicComputedField):
             intervalframe.aggregation_column = column
 
         return intervalframe
+
+
+class IntervalFrameField(DynamicComputedField):
+    """
+    Computed field for serializing an object's intervalframe, or properties
+    thereof
+    """
+
+    # The key used to access the instance objects' dataframes. Defaults to
+    # "intervalframe"
+    frame_key: str
+
+    # The intervalframe field to access and serialize
+    source: str
+
+    def __init__(
+        self,
+        frame_key: str = "intervalframe",
+        source: str = None,
+        *args,
+        **kwargs,
+    ):
+        self.frame_key = frame_key
+        self.source = source
+        super().__init__(*args, **kwargs)
+
+    def get_attribute(self, instance):
+        intervalframe = getattr(instance, self.frame_key)
+        return getattr(intervalframe, self.source)
