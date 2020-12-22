@@ -1,3 +1,4 @@
+https://openei.org/datasets/files/961/pub/COMMERCIAL_LOAD_DATA_E_PLUS_OUTPUT/USA_CA_San.Francisco.Intl.AP.724940_TMY3/RefBldgMediumOfficeNew2004_7.1_5.0_3C_USA_CA_SAN_FRANCISCO.csv
 Date/Time,Electricity:Facility [kW](Hourly),Fans:Electricity [kW](Hourly),Cooling:Electricity [kW](Hourly),Heating:Electricity [kW](Hourly),InteriorLights:Electricity [kW](Hourly),InteriorEquipment:Electricity [kW](Hourly),Gas:Facility [kW](Hourly),Heating:Gas [kW](Hourly),Water Heater:WaterSystems:Gas [kW](Hourly),Electricity:Facility [kW](Monthly)
  01/01  01:00:00,33.5753521762,0.0,0.0,0.0,2.68041601173,16.0824960704,0.02,0.0,0.02
  01/01  02:00:00,33.5753521762,0.0,0.0,0.0,2.68041601173,16.0824960704,0.02,0.0,0.02

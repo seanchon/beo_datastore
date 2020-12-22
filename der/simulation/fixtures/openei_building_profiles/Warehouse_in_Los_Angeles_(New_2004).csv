@@ -1,3 +1,4 @@
+https://openei.org/datasets/files/961/pub/COMMERCIAL_LOAD_DATA_E_PLUS_OUTPUT/USA_CA_Los.Angeles.Intl.AP.722950_TMY3/RefBldgWarehouseNew2004_7.1_5.0_3B_USA_CA_LOS_ANGELES.csv
 Date/Time,Electricity:Facility [kW](Hourly),Fans:Electricity [kW](Hourly),Cooling:Electricity [kW](Hourly),Heating:Electricity [kW](Hourly),InteriorLights:Electricity [kW](Hourly),InteriorEquipment:Electricity [kW](Hourly),Gas:Facility [kW](Hourly),Heating:Gas [kW](Hourly),Electricity:Facility [kW](Monthly),Gas:Facility [kW](Monthly)
  01/01  01:00:00,17.6107785305,2.19495425601,0.0,0.0,5.48122459637,1.0115996781,68.2903416195,68.2903416195
  01/01  02:00:00,17.1787038805,1.76287960606,0.0,0.0,5.48122459637,1.0115996781,54.8657888918,54.8657888918

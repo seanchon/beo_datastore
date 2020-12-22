@@ -1,3 +1,4 @@
+https://openei.org/datasets/files/961/pub/COMMERCIAL_LOAD_DATA_E_PLUS_OUTPUT/USA_CA_Los.Angeles.Intl.AP.722950_TMY3/RefBldgSecondarySchoolNew2004_7.1_5.0_3B_USA_CA_LOS_ANGELES.csv
 Date/Time,Electricity:Facility [kW](Hourly),Fans:Electricity [kW](Hourly),Cooling:Electricity [kW](Hourly),Heating:Electricity [kW](Hourly),InteriorLights:Electricity [kW](Hourly),InteriorEquipment:Electricity [kW](Hourly),Gas:Facility [kW](Hourly),Heating:Gas [kW](Hourly),InteriorEquipment:Gas [kW](Hourly),Water Heater:WaterSystems:Gas [kW](Hourly)
  01/01  01:00:00,121.30805487,3.85671322937,0.0,0.0,43.513341876,52.539744,23.4190811675,18.5648211675,4.83426,0.02
  01/01  02:00:00,121.427086738,3.9707103723,0.0,0.0,43.513341876,52.539744,24.5011447079,19.6468847079,4.83426,0.02

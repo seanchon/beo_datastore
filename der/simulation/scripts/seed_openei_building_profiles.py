@@ -21,8 +21,8 @@ def run():
     csv_files = data_dir.glob("*.csv")
 
     for openei_file in csv_files:
-        building_profile_name = openei_file.name
-        dataframe = pd.read_csv(openei_file)
+        building_profile_name = openei_file.name.replace("_", " ")
+        dataframe = pd.read_csv(openei_file, skiprows=1)
         errors, _ = TMY3Parser.validate(dataframe)
         if errors:
             print(f"Failed : {building_profile_name} -> {errors}")
