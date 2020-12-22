@@ -121,7 +121,7 @@ if __name__ == "__main__":
         load_base_fixtures_and_intervalframes()
         load_open_ei_reference_meters()
         load_open_ei_utility_rates()
-    # LoadOpenEI Building Profiles
+    # Create Fuel-Switching configurations and load OpenEI Building Profiles
     if args.fuel_switching:
         seed_fuel_switching()
     # Loads basic data
