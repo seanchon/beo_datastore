@@ -6,7 +6,7 @@ import coreapi
 import numpy as np
 import pandas as pd
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, deletion
 from django.http.request import QueryDict
 from rest_framework import serializers, status
 from rest_framework.decorators import action
@@ -378,7 +378,12 @@ class CostFunctionViewSet(CreateListRetrieveDestroyViewSet):
 
     def destroy(self, request, *args, **kwargs):
         if self.user_can_delete_cost_fn(request):
-            return super().destroy(request, *args, **kwargs)
+            try:
+                return super().destroy(request, *args, **kwargs)
+            except deletion.ProtectedError:
+                raise serializers.ValidationError(
+                    "This object cannot be deleted because it is being used."
+                )
         else:
             self.permission_denied(request)
 
@@ -514,7 +519,10 @@ class CAISORateViewSet(CostFunctionViewSet):
 
         try:
             df.set_index(
-                keys=indices, verify_integrity=True, drop=True, inplace=True,
+                keys=indices,
+                verify_integrity=True,
+                drop=True,
+                inplace=True,
             )
         except Exception as e:
             raise serializers.ValidationError(
@@ -785,7 +793,10 @@ class SystemProfileViewSet(CostFunctionViewSet):
 
         try:
             df.set_index(
-                keys=indices, verify_integrity=True, drop=True, inplace=True,
+                keys=indices,
+                verify_integrity=True,
+                drop=True,
+                inplace=True,
             )
         except Exception as e:
             raise serializers.ValidationError(

@@ -71,7 +71,7 @@ class EVSEStrategyAdmin(admin.ModelAdmin):
 
 @admin.register(SolarPVConfiguration)
 class SolarPVConfigurationAdmin(admin.ModelAdmin):
-    readonly_fields = ["parameters", "intervalframe_html_plot"]
+    readonly_fields = ["parameters"]
     search_fields = ["parameters"]
 
 

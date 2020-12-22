@@ -1,7 +1,7 @@
 import coreapi
 import pandas as pd
 from django.core.exceptions import NON_FIELD_ERRORS, ValidationError
-from django.db.models import Q
+from django.db.models import Q, deletion
 from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
@@ -84,7 +84,12 @@ class DERObjectViewSet(CreateListRetrieveDestroyViewSet):
 
     def destroy(self, request, *args, **kwargs):
         if self.user_can_delete_der_object(request):
-            return super().destroy(request, *args, **kwargs)
+            try:
+                return super().destroy(request, *args, **kwargs)
+            except deletion.ProtectedError:
+                raise serializers.ValidationError(
+                    "This object cannot be deleted because it is being used."
+                )
         else:
             self.permission_denied(request)
 

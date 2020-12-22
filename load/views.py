@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.schemas import AutoSchema
 
 from django.core.exceptions import ValidationError
+from django.db.models.deletion import ProtectedError
 
 from beo_datastore.libs.api.viewsets import (
     CreateViewSet,
@@ -135,7 +136,10 @@ class CustomerClusterViewSet(CreateViewSet):
 
     def create(self, request):
         self._require_data_fields(
-            "meter_group_id", "type", "number_of_clusters", "normalize",
+            "meter_group_id",
+            "type",
+            "number_of_clusters",
+            "normalize",
         )
 
         try:
@@ -247,6 +251,14 @@ class MeterGroupViewSet(ListRetrieveDestroyViewSet):
             model = MeterGroup
 
         return model.objects.filter(owners=user)
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            raise serializers.ValidationError(
+                "This customer segment cannot be deleted because it is being used in a scenario"
+            )
 
 
 class MeterViewSet(ListRetrieveViewSet):
