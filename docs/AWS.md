@@ -210,7 +210,7 @@ The following values will be used in configuring the [Elastic Beanstalk Environm
 
 ### SETTING ENVIRONMENT VARIABLES
 
-Under **Configuration** -> **Software**, the following **Environment properties** should be carefully set for security reasons and  allowing services to communicate with one another.
+Under **Configuration** -> **Software**, the following **Environment properties** should be carefully set for security reasons and to allow services to communicate with one another.
 
 ```
 ADMIN_URL=<HARD TO GUESS ADMIN PAGE NAME>
