@@ -21,8 +21,6 @@ $ source <env_name>/bin/activate
 
 A handful of environment variables need to be configured on a local machine. On a personal computer, the following should be put into a file called `.env` located in this repository's root directory. The environment variables will be automatically loaded, but the command `export $(<.env)` can be used to export the environment variables to your local machine.
 
-The following can be used with PostgreSQL.
-
 ```
 APP_ENV=local
 APP_URL=http://localhost:3000
@@ -67,6 +65,7 @@ Several options can be provided to this script to customize the initial environm
 | `flush`  | Empties the database, but does not delete it. This will keep the current migration status. Used in combination with other flags this can be a quick way to reset a local environment to a useful default state. Has no effect when used with `--reset`. |
 | `seed`   | Seeds the database with starting data, including sample meters and utility rates.                                                                                                                                                                       |
 | `openei` | Seeds the database with OpenEI reference building data from California and PG&E rate data from OpenEI.                                                        |
+| `fuel-switching` | Seeds the database with fuel switching configurations and strategies (OpenEI building profiles).                                                        |
 | `lse`    | Seeds the database with load serving entities and their email domain(s).                                                        |
 
 ### LOADING TEST DATA

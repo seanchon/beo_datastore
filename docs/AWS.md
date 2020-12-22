@@ -210,9 +210,10 @@ The following values will be used in configuring the [Elastic Beanstalk Environm
 
 ### SETTING ENVIRONMENT VARIABLES
 
-Under **Configuration** -> **Software**, the following **Environment properties** should be set, which will allow all machines to communicate with one another.
+Under **Configuration** -> **Software**, the following **Environment properties** should be carefully set for security reasons and to allow services to communicate with one another.
 
 ```
+ADMIN_URL=<HARD TO GUESS ADMIN PAGE NAME>
 APP_ENV=<FROM APPLICATION NAME>
 APP_URL=<PUBLIC URL>
 AWS_ACCESS_KEY_ID=<FROM IAM>
@@ -239,6 +240,8 @@ SUPPORT_EMAIL=<FROM SES>
 SUPPORT_PASSWORD=<FROM SES>
 WORKER=<0 OR 1>
 ```
+
+As a layer of security the ```ADMIN_URL``` environment variable is provided to change the default Django admin page url to a custom name. This is to prevent attackers to easily profile the backend Django web app.
 
 ### DEPLOYING THE APPLICATION TO AWS
 
