@@ -19,6 +19,7 @@ from beo_datastore.libs.api.viewsets import (
     ListRetrieveViewSet,
 )
 from beo_datastore.libs.dataframe import download_dataframe
+from cost.utility_rate.models import RatePlan
 from cost.procurement.models import CAISORate, SystemProfile
 from cost.study.models import Scenario
 from cost.utility_rate.libs import (
@@ -170,6 +171,45 @@ class ScenarioViewSet(CreateListRetrieveUpdateDestroyViewSet):
                 "cost_functions",
             ]
         )
+
+        cost_function_map = {
+            "rate_plan": RatePlan,
+            "procurement_rate": CAISORate,
+            "system_profile": SystemProfile,
+        }
+
+        year = None
+        for meter_group_id in meter_group_ids:
+            mg = MeterGroup.objects.get(id=meter_group_id)
+            if len(mg.years) != 1:
+                raise serializers.ValidationError(
+                    "Meter group spans multiple years"
+                )
+
+            mg_year = mg.years[0]
+            if year is None:
+                year = mg_year
+            elif year != mg_year:
+                raise serializers.ValidationError(
+                    "Encountered two meter groups without shared year"
+                )
+
+        for cost_function_name, cost_function_id in cost_functions.items():
+            if cost_function_id == "auto" or cost_function_name == "ghg_rate":
+                continue
+            cost_function = cost_function_map[cost_function_name].objects.get(
+                id=cost_function_id
+            )
+            if cost_function_name == "rate_plan":
+                if cost_function.start_date.year > year:
+                    raise serializers.ValidationError(
+                        "Rate Plan starts later than interval data"
+                    )
+            else:
+                if cost_function.intervalframe.dataframe.index[0].year != year:
+                    raise serializers.ValidationError(
+                        "Encountered a cost function with the wrong year"
+                    )
 
         with transaction.atomic():
             for meter_group_id in meter_group_ids:

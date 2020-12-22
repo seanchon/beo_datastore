@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from faker import Factory
 import itertools
 import json
@@ -15,8 +15,11 @@ from beo_datastore.libs.fixtures import (
     flush_intervalframe_files,
     load_intervalframe_files,
 )
+from beo_datastore.libs.intervalframe_file import (
+    ProcurementRateIntervalFrameFile,
+)
 from cost.ghg.models import GHGRate
-from cost.procurement.models import CAISORate
+from cost.procurement.models import CAISORate, SystemProfile
 from cost.study.models import Scenario
 from cost.utility_rate.models import RateCollection, RatePlan
 from der.simulation.models import BatteryConfiguration
@@ -39,6 +42,7 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
         "ghg",
         "utility_rate",
         "caiso_rate",
+        "system_profile",
     ]
 
     endpoint = "/v1/cost/scenario/"
@@ -75,6 +79,12 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
 
         # Make cost function objects to use in scenarios
         self.procurement_rate = CAISORate.objects.first()
+        self.procurement_rate.intervalframe = ProcurementRateIntervalFrameFile(
+            pd.read_parquet(
+                "cost/procurement/fixtures/ProcurementIntervalFrame_2.parquet"
+            )
+        )
+        self.shift_year(self.procurement_rate, -1)
         self.ghg_rate = GHGRate.objects.first()
         self.rate_plan = RatePlan.objects.create(
             load_serving_entity=self.meter_group.load_serving_entity,
@@ -82,6 +92,9 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
             sector="Residential",
         )
         self.rate_plan.rate_collections.set([RateCollection.objects.first()])
+        self.system_profile = SystemProfile.objects.filter(
+            load_serving_entity=self.user.profile.load_serving_entity
+        ).first()
 
         # create battery
         self.configuration, _ = BatteryConfiguration.objects.get_or_create(
@@ -109,6 +122,13 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
 
     def tearDown(self):
         flush_intervalframe_files()
+
+    def shift_year(self, obj, years=1):
+        df = obj.intervalframe.dataframe
+        df.index += timedelta(365 * years)
+        obj.intervalframe.dataframe = df
+        obj.intervalframe.save()
+        obj.save()
 
     def make_request_data(self, cost_functions=None):
         """
@@ -192,17 +212,61 @@ class TestEndpointsCost(APITestCase, BasicAuthenticationTestMixin):
                 "rate_plan": self.rate_plan.id,
                 "ghg_rate": self.ghg_rate.id,
                 "procurement_rate": self.procurement_rate.id,
+                "system_profile": self.system_profile.id,
             }
         )
 
         # Create the scenario
         response = self.client.post(self.endpoint, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         scenario = Scenario.objects.get(id=response.data["id"])
 
         # Assert the scenario has been assigned the correct rates
         self.assertEqual(scenario.rate_plan, self.rate_plan)
         self.assertEqual(scenario.ghg_rate, self.ghg_rate)
         self.assertEqual(scenario.procurement_rate, self.procurement_rate)
+        self.assertEqual(scenario.system_profile, self.system_profile)
+
+    @patch("cost.views.run_scenario")
+    def test_scenario_creation_validates_year_alignment(self, _):
+        """
+        Tests that cost functions are correctly assigned to the scenario upon
+        creation
+        """
+        self.client.force_authenticate(user=self.user)
+
+        data = self.make_request_data(
+            {
+                "rate_plan": self.rate_plan.id,
+                "ghg_rate": self.ghg_rate.id,
+                "procurement_rate": self.procurement_rate.id,
+                "system_profile": self.system_profile.id,
+            }
+        )
+
+        self.shift_year(self.system_profile, 1)
+
+        # Create the scenario
+        response = self.client.post(self.endpoint, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.shift_year(self.system_profile, -1)
+        data = self.make_request_data(
+            {
+                "rate_plan": self.rate_plan.id,
+                "ghg_rate": self.ghg_rate.id,
+                "procurement_rate": self.procurement_rate.id,
+                "system_profile": self.system_profile.id,
+            }
+        )
+
+        self.shift_year(self.procurement_rate, 1)
+
+        # Create the scenario
+        response = self.client.post(self.endpoint, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        self.shift_year(self.procurement_rate, -1)
 
     @patch("cost.views.run_scenario")
     @patch.object(OriginFile, "primary_linked_rate_plan_name", new="ABC")
