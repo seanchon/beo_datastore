@@ -1,17 +1,23 @@
-from django.conf.urls import url, include
+import os
+
+from django.conf.urls import include, url
 from django.contrib import admin
 from rest_auth.views import PasswordResetView
 from rest_framework_swagger.views import get_swagger_view
 
-from .routers import v1_router
 from user.serializers import PasswordResetSerializer
-
+from .routers import v1_router
 
 schema_view = get_swagger_view(title="BEO Datastore")
 
+# Provide a different name for the admin via `ADMIN_URL` environment variable
+# to prevent attackers from easily profiling the site.
+hard_to_guess_admin = os.environ.get("ADMIN_URL", default="admin")
+hard_to_guess_admin = hard_to_guess_admin.strip().replace("/", "").lower()
+
 urlpatterns = [
     url(r"^$", schema_view),
-    url(r"^admin/", admin.site.urls),
+    url(r"^{}/".format(hard_to_guess_admin), admin.site.urls),
     url(r"^admin/docs/", include("django.contrib.admindocs.urls")),
     url(r"^api-auth/", include("rest_framework.urls")),
     url(r"^rest-auth/registration/", include("user.urls")),
