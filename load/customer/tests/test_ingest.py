@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import ntpath
 import os
 
@@ -17,6 +17,13 @@ from reference.auth_user.models import LoadServingEntity
 
 
 MIDNIGHT_2018 = datetime(2018, 1, 1, 0, 0)
+
+
+def interval_generator(start: datetime, end: datetime, interval: timedelta):
+    current = start
+    while current < end:
+        yield current
+        current += interval
 
 
 class TestItem17Ingest(TestCase):
@@ -74,9 +81,16 @@ class TestItem17Ingest(TestCase):
         # test value ingest/conversion
         # 1.0 kw - 0.5 kw @ 15 minutes = 0.5 kw
         meter = CustomerMeter.objects.last()
-        self.assertEqual(
-            meter.intervalframe.dataframe.loc[MIDNIGHT_2018]["kw"], 0.5
-        )
+
+        interval = timedelta(minutes=15)
+        start = MIDNIGHT_2018
+        end = start + timedelta(days=1)
+        intervals = interval_generator(start, end, interval)
+        # test all intervals in one day
+        for interval in intervals:
+            self.assertEqual(
+                meter.intervalframe.dataframe.loc[interval]["kw"], 0.50
+            )
 
         # test therms
         self.assertTrue(origin_file.has_gas)
@@ -120,9 +134,16 @@ class TestItem17Ingest(TestCase):
         # test value ingest/conversion
         # 1.0 kw - 0.5 kw @ 60 minutes = 0.5 kw
         meter = CustomerMeter.objects.last()
-        self.assertEqual(
-            meter.intervalframe.dataframe.loc[MIDNIGHT_2018]["kw"], 0.5
-        )
+
+        interval = timedelta(minutes=60)
+        start = MIDNIGHT_2018
+        end = start + timedelta(days=1)
+        intervals = interval_generator(start, end, interval)
+        # test all intervals in one day
+        for interval in intervals:
+            self.assertEqual(
+                meter.intervalframe.dataframe.loc[interval]["kw"], 0.50
+            )
 
     def test_60_min_kwh_ingest(self):
         """
