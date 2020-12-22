@@ -18,6 +18,7 @@ hard_to_guess_admin = hard_to_guess_admin.strip().replace("/", "").lower()
 urlpatterns = [
     url(r"^$", schema_view),
     url(r"^{}/".format(hard_to_guess_admin), admin.site.urls),
+    url(r"^api-auth/", include("rest_framework.urls")),
     url(r"^rest-auth/registration/", include("user.urls")),
     url(
         r"^rest-auth/password/reset/$",
