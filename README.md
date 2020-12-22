@@ -21,8 +21,6 @@ $ source <env_name>/bin/activate
 
 A handful of environment variables need to be configured on a local machine. On a personal computer, the following should be put into a file called `.env` located in this repository's root directory. The environment variables will be automatically loaded, but the command `export $(<.env)` can be used to export the environment variables to your local machine.
 
-The following can be used with PostgreSQL.
-
 ```
 APP_ENV=local
 APP_URL=http://localhost:3000
