@@ -49,10 +49,10 @@ def parse_arguments():
         help="import OpenEI data",
     )
     parser.add_argument(
-        "--openei-buildings",
+        "--fuel-switching",
         action="store_true",
-        dest="open_ei_buildings",
-        help="import OpenEI building profiles for fuel switching simulations",
+        dest="fuel_switching",
+        help="seed fuel switching configurations and strategies",
     )
     parser.add_argument(
         "--lse",
@@ -83,10 +83,10 @@ def load_open_ei_utility_rates(
     )
 
 
-def load_open_ei_building_profiles() -> None:
+def seed_fuel_switching() -> None:
     call_command(
         "runscript",
-        "der.simulation.scripts.seed_openei_building_profiles",
+        "der.simulation.scripts.seed_fuel_switching",
     )
 
 
@@ -122,8 +122,8 @@ if __name__ == "__main__":
         load_open_ei_reference_meters()
         load_open_ei_utility_rates()
     # LoadOpenEI Building Profiles
-    if args.open_ei_buildings:
-        load_open_ei_building_profiles()
+    if args.fuel_switching:
+        seed_fuel_switching()
     # Loads basic data
     if not args.seed and not args.open_ei:
         load_base_fixtures_and_intervalframes()
