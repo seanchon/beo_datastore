@@ -239,14 +239,7 @@ class EffectiveDateComputedField(DynamicComputedField):
         super(EffectiveDateComputedField, self).__init__(**kwargs)
 
     def get_attribute(self, rate_plan):
-        rate_collection = rate_plan.rate_collections.order_by(
-            "effective_date"
-        ).first()
-        return (
-            rate_collection.effective_date
-            if rate_collection is not None
-            else None
-        )
+        return rate_plan.start_date
 
 
 class RatePlanSerializer(BaseSerializer):

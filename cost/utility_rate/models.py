@@ -70,6 +70,17 @@ class RatePlan(RateDataMixin, TimeStampMixin, ValidationModel):
             }
         )
 
+    @property
+    def start_date(self):
+        rate_collection = self.rate_collections.order_by(
+            "effective_date"
+        ).first()
+        return (
+            rate_collection.effective_date
+            if rate_collection is not None
+            else None
+        )
+
     @staticmethod
     def get_rate_plan_alias(rate_plan_name):
         """

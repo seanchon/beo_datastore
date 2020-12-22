@@ -365,7 +365,7 @@ class DERConfiguration(PolymorphicValidationModel):
     load_serving_entity = models.ForeignKey(
         to=LoadServingEntity,
         related_name="der_configurations",
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         blank=True,
         null=True,
     )
@@ -417,7 +417,7 @@ class DERStrategy(PolymorphicValidationModel):
     load_serving_entity = models.ForeignKey(
         to=LoadServingEntity,
         related_name="der_strategies",
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         blank=True,
         null=True,
     )

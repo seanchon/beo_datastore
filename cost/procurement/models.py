@@ -40,7 +40,10 @@ from reference.reference_model.models import DERSimulation
 
 
 class SystemProfile(
-    IntervalFrameFileMixin, RateDataMixin, TimeStampMixin, ValidationModel,
+    IntervalFrameFileMixin,
+    RateDataMixin,
+    TimeStampMixin,
+    ValidationModel,
 ):
     """
     SystemProfile is aggregated meter intervals for `all`
@@ -57,7 +60,7 @@ class SystemProfile(
     load_serving_entity = models.ForeignKey(
         to=LoadServingEntity,
         related_name="system_profiles",
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
     )
     resource_adequacy_rate = models.FloatField(
         validators=[MinValueValidator(0.0)]
@@ -505,7 +508,10 @@ class CAISOReport(IntervalFrameFileMixin, ValidationModel):
 
 
 class CAISORate(
-    IntervalFrameFileMixin, RateDataMixin, TimeStampMixin, ValidationModel,
+    IntervalFrameFileMixin,
+    RateDataMixin,
+    TimeStampMixin,
+    ValidationModel,
 ):
     """
     Container for referencing associated CAISO ProcurementRateIntervalFrame.
@@ -524,7 +530,7 @@ class CAISORate(
         **empty
     )
     load_serving_entity = models.ForeignKey(
-        to=LoadServingEntity, on_delete=models.PROTECT, **empty
+        to=LoadServingEntity, on_delete=models.CASCADE, **empty
     )
 
     class Meta:

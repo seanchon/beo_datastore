@@ -72,13 +72,13 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
     start = models.DateTimeField()
     end_limit = models.DateTimeField()
     der_strategy = models.ForeignKey(
-        to=DERStrategy, related_name="scenarios", on_delete=models.CASCADE
+        to=DERStrategy, related_name="scenarios", on_delete=models.PROTECT
     )
     der_configuration = models.ForeignKey(
-        to=DERConfiguration, related_name="scenarios", on_delete=models.CASCADE
+        to=DERConfiguration, related_name="scenarios", on_delete=models.PROTECT
     )
     meter_group = models.ForeignKey(
-        to=MeterGroup, related_name="scenarios", on_delete=models.CASCADE
+        to=MeterGroup, related_name="scenarios", on_delete=models.PROTECT
     )
     # Constrains Meters and RatePlan to belong to LSE. If null is True, any
     # Meter and RatePlan can be used in optimization.
@@ -642,7 +642,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
 
     @property
     def ghg_calculations(self):
-        """"
+        """
         Return StoredGHGCalculations related to self.
         """
         return StoredGHGCalculation.objects.select_related(
