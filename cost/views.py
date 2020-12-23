@@ -559,10 +559,7 @@ class CAISORateViewSet(CostFunctionViewSet):
 
         try:
             df.set_index(
-                keys=indices,
-                verify_integrity=True,
-                drop=True,
-                inplace=True,
+                keys=indices, verify_integrity=True, drop=True, inplace=True,
             )
         except Exception as e:
             raise serializers.ValidationError(
@@ -606,7 +603,7 @@ class CAISORateViewSet(CostFunctionViewSet):
         return download_dataframe(
             caiso_rate.intervalframe.dataframe,
             index=True,
-            filename="caiso-rate-data.csv",
+            filename="procurement-rate-data.csv",
         )
 
 
@@ -833,10 +830,7 @@ class SystemProfileViewSet(CostFunctionViewSet):
 
         try:
             df.set_index(
-                keys=indices,
-                verify_integrity=True,
-                drop=True,
-                inplace=True,
+                keys=indices, verify_integrity=True, drop=True, inplace=True,
             )
         except Exception as e:
             raise serializers.ValidationError(
