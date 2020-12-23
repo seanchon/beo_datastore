@@ -1,26 +1,13 @@
-import sys
-from urllib.error import HTTPError
-
 import pandas as pd
 from numpy import nan
 
+from beo_datastore.settings import BASE_DIR
 from reference.auth_user.models import EmailDomain, LoadServingEntity
 
-# Public url to download load serving entities csv file.
-LOAD_SERVICE_ENTITIES_FILE = (
-    "https://tvrp.box.com/shared/static/vmr7chhp70ufaholf3i5w4ny5mbytgub.csv"
-)
+LOAD_SERVICE_ENTITIES_FILE = "/reference/reference_model/fixtures/LSE_List.csv"
 
-try:
-    print("\nDownloading list of load serving entities...")
-    df = pd.read_csv(LOAD_SERVICE_ENTITIES_FILE)
-    df = df.replace({nan: None})
-except HTTPError:
-    print("Download Failed!")
-    sys.exit(1)
-except Exception:
-    print("FileFormatError or OtherError!")
-    sys.exit(1)
+df = pd.read_csv(BASE_DIR + LOAD_SERVICE_ENTITIES_FILE)
+df = df.replace({nan: None})
 
 existing_entities = LoadServingEntity.objects.values_list(
     "short_name", flat=True

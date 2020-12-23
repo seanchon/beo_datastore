@@ -1,291 +1,315 @@
 [
-  {
-    "model": "auth_user.loadservingentity",
-    "pk": 1,
-    "fields": {
-      "name": "Pacific Gas & Electric Co",
-      "short_name": "PG&E",
-      "state": "CA",
-      "_parent_utility": null
-    }
-  },
-  {
-    "model": "auth_user.emaildomain",
-    "pk": 2,
-    "fields": {
-      "domain": "@terraverde.energy",
-      "load_serving_entity": 1
-    }
-  },
-  {
-    "model": "auth_user.loadservingentity",
-    "pk": 2,
-    "fields": {
-      "name": "MCE Clean Energy",
-      "short_name": "MCE",
-      "state": "CA",
-      "_parent_utility": 1
-    }
-  },
-  {
-    "model": "auth_user.emaildomain",
-    "pk": 3,
-    "fields": {
-      "domain": "@mcecleanenergy.org",
-      "load_serving_entity": 2
-    }
-  },
-  {
-    "model": "auth_user.loadservingentity",
-    "pk": 3,
-    "fields": {
-      "name": "Southern California Edison Co",
-      "short_name": "SCE",
-      "state": "CA",
-      "_parent_utility": null
-    }
-  },
-  {
-    "model": "auth_user.loadservingentity",
-    "pk": 4,
-    "fields": {
-      "name": "San Diego Gas & Electric Co",
-      "short_name": "SDG&E",
-      "state": "CA",
-      "_parent_utility": null
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 1,
-    "fields": {
-      "name": "Large Office",
-      "floor_area": 498588,
-      "number_of_floors": 12
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 2,
-    "fields": {
-      "name": "Medium Office",
-      "floor_area": 53628,
-      "number_of_floors": 3
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 3,
-    "fields": {
-      "name": "Small Office",
-      "floor_area": 5500,
-      "number_of_floors": 1
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 4,
-    "fields": {
-      "name": "Warehouse",
-      "floor_area": 52045,
-      "number_of_floors": 1
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 5,
-    "fields": {
-      "name": "Stand-alone Retail",
-      "floor_area": 24962,
-      "number_of_floors": 1
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 6,
-    "fields": {
-      "name": "Strip Mall",
-      "floor_area": 22500,
-      "number_of_floors": 1
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 7,
-    "fields": {
-      "name": "Primary School",
-      "floor_area": 73960,
-      "number_of_floors": 1
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 8,
-    "fields": {
-      "name": "Secondary School",
-      "floor_area": 210887,
-      "number_of_floors": 2
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 9,
-    "fields": {
-      "name": "Super Market",
-      "floor_area": 45000,
-      "number_of_floors": 1
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 10,
-    "fields": {
-      "name": "Quick Service Restaurant",
-      "floor_area": 2500,
-      "number_of_floors": 1
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 11,
-    "fields": {
-      "name": "Full Service Restaurant",
-      "floor_area": 5500,
-      "number_of_floors": 1
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 12,
-    "fields": {
-      "name": "Hospital",
-      "floor_area": 241351,
-      "number_of_floors": 5
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 13,
-    "fields": {
-      "name": "Outpatient Health Care",
-      "floor_area": 40946,
-      "number_of_floors": 3
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 14,
-    "fields": {
-      "name": "Small Hotel",
-      "floor_area": 43200,
-      "number_of_floors": 4
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 15,
-    "fields": {
-      "name": "Large Hotel",
-      "floor_area": 122120,
-      "number_of_floors": 6
-    }
-  },
-  {
-    "model": "reference_model.buildingtype",
-    "pk": 16,
-    "fields": {
-      "name": "Midrise Apartment",
-      "floor_area": 33740,
-      "number_of_floors": 4
-    }
-  },
-  {
-    "model": "reference_model.dataunit",
-    "pk": 1,
-    "fields": {
-      "name": "kwh"
-    }
-  },
-  {
-    "model": "reference_model.dataunit",
-    "pk": 2,
-    "fields": {
-      "name": "kw"
-    }
-  },
-  {
-    "model": "reference_model.dataunit",
-    "pk": 3,
-    "fields": {
-      "name": "therm"
-    }
-  },
-  {
-    "model": "reference_model.dataunit",
-    "pk": 4,
-    "fields": {
-      "name": "$"
-    }
-  },
-  {
-    "model": "reference_model.dataunit",
-    "pk": 5,
-    "fields": {
-      "name": "tCO2"
-    }
-  },
-  {
-    "model": "reference_model.dataunit",
-    "pk": 6,
-    "fields": {
-      "name": "day"
-    }
-  },
-  {
-    "model": "reference_model.dataunit",
-    "pk": 7,
-    "fields": {
-      "name": "month"
-    }
-  },
-  {
-    "model": "reference_model.rateunit",
-    "pk": 1,
-    "fields": {
-      "numerator": 4,
-      "denominator": 1
-    }
-  },
-  {
-    "model": "reference_model.rateunit",
-    "pk": 2,
-    "fields": {
-      "numerator": 4,
-      "denominator": 2
-    }
-  },
-  {
-    "model": "reference_model.rateunit",
-    "pk": 3,
-    "fields": {
-      "numerator": 5,
-      "denominator": 1
-    }
-  },
-  {
-    "model": "reference_model.rateunit",
-    "pk": 4,
-    "fields": {
-      "numerator": 4,
-      "denominator": 6
-    }
-  },
-  {
-    "model": "reference_model.rateunit",
-    "pk": 5,
-    "fields": {
-      "numerator": 4,
-      "denominator": 7
-    }
+{
+  "model": "auth_user.loadservingentity",
+  "pk": 1,
+  "fields": {
+    "name": "Pacific Gas & Electric Co",
+    "short_name": "PG&E",
+    "state": "CA",
+    "_parent_utility": null
   }
+},
+{
+  "model": "auth_user.emaildomain",
+  "pk": 1,
+  "fields": {
+    "domain": "@pge.com",
+    "load_serving_entity": 1
+  }
+},
+{
+  "model": "auth_user.emaildomain",
+  "pk": 2,
+  "fields": {
+    "domain": "@terraverde.energy",
+    "load_serving_entity": 1
+  }
+},
+{
+  "model": "auth_user.loadservingentity",
+  "pk": 2,
+  "fields": {
+    "name": "MCE Clean Energy",
+    "short_name": "MCE",
+    "state": "CA",
+    "_parent_utility": 1
+  }
+},
+{
+  "model": "auth_user.emaildomain",
+  "pk": 3,
+  "fields": {
+    "domain": "@mcecleanenergy.org",
+    "load_serving_entity": 2
+  }
+},
+{
+  "model": "auth_user.loadservingentity",
+  "pk": 3,
+  "fields": {
+    "name": "Southern California Edison Co",
+    "short_name": "SCE",
+    "state": "CA",
+    "_parent_utility": null
+  }
+},
+{
+  "model": "auth_user.emaildomain",
+  "pk": 4,
+  "fields": {
+    "domain": "@sce.com",
+    "load_serving_entity": 3
+  }
+},
+{
+  "model": "auth_user.loadservingentity",
+  "pk": 4,
+  "fields": {
+    "name": "San Diego Gas & Electric Co",
+    "short_name": "SDG&E",
+    "state": "CA",
+    "_parent_utility": null
+  }
+},
+{
+  "model": "auth_user.emaildomain",
+  "pk": 5,
+  "fields": {
+    "domain": "@sdge.com",
+    "load_serving_entity": 4
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 1,
+  "fields": {
+    "name": "Large Office",
+    "floor_area": 498588,
+    "number_of_floors": 12
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 2,
+  "fields": {
+    "name": "Medium Office",
+    "floor_area": 53628,
+    "number_of_floors": 3
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 3,
+  "fields": {
+    "name": "Small Office",
+    "floor_area": 5500,
+    "number_of_floors": 1
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 4,
+  "fields": {
+    "name": "Warehouse",
+    "floor_area": 52045,
+    "number_of_floors": 1
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 5,
+  "fields": {
+    "name": "Stand-alone Retail",
+    "floor_area": 24962,
+    "number_of_floors": 1
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 6,
+  "fields": {
+    "name": "Strip Mall",
+    "floor_area": 22500,
+    "number_of_floors": 1
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 7,
+  "fields": {
+    "name": "Primary School",
+    "floor_area": 73960,
+    "number_of_floors": 1
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 8,
+  "fields": {
+    "name": "Secondary School",
+    "floor_area": 210887,
+    "number_of_floors": 2
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 9,
+  "fields": {
+    "name": "Super Market",
+    "floor_area": 45000,
+    "number_of_floors": 1
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 10,
+  "fields": {
+    "name": "Quick Service Restaurant",
+    "floor_area": 2500,
+    "number_of_floors": 1
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 11,
+  "fields": {
+    "name": "Full Service Restaurant",
+    "floor_area": 5500,
+    "number_of_floors": 1
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 12,
+  "fields": {
+    "name": "Hospital",
+    "floor_area": 241351,
+    "number_of_floors": 5
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 13,
+  "fields": {
+    "name": "Outpatient Health Care",
+    "floor_area": 40946,
+    "number_of_floors": 3
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 14,
+  "fields": {
+    "name": "Small Hotel",
+    "floor_area": 43200,
+    "number_of_floors": 4
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 15,
+  "fields": {
+    "name": "Large Hotel",
+    "floor_area": 122120,
+    "number_of_floors": 6
+  }
+},
+{
+  "model": "reference_model.buildingtype",
+  "pk": 16,
+  "fields": {
+    "name": "Midrise Apartment",
+    "floor_area": 33740,
+    "number_of_floors": 4
+  }
+},
+{
+  "model": "reference_model.dataunit",
+  "pk": 1,
+  "fields": {
+    "name": "kwh"
+  }
+},
+{
+  "model": "reference_model.dataunit",
+  "pk": 2,
+  "fields": {
+    "name": "kw"
+  }
+},
+{
+  "model": "reference_model.dataunit",
+  "pk": 3,
+  "fields": {
+    "name": "therm"
+  }
+},
+{
+  "model": "reference_model.dataunit",
+  "pk": 4,
+  "fields": {
+    "name": "$"
+  }
+},
+{
+  "model": "reference_model.dataunit",
+  "pk": 5,
+  "fields": {
+    "name": "tCO2"
+  }
+},
+{
+  "model": "reference_model.dataunit",
+  "pk": 6,
+  "fields": {
+    "name": "day"
+  }
+},
+{
+  "model": "reference_model.dataunit",
+  "pk": 7,
+  "fields": {
+    "name": "month"
+  }
+},
+{
+  "model": "reference_model.rateunit",
+  "pk": 1,
+  "fields": {
+    "numerator": 4,
+    "denominator": 1
+  }
+},
+{
+  "model": "reference_model.rateunit",
+  "pk": 2,
+  "fields": {
+    "numerator": 4,
+    "denominator": 2
+  }
+},
+{
+  "model": "reference_model.rateunit",
+  "pk": 3,
+  "fields": {
+    "numerator": 5,
+    "denominator": 1
+  }
+},
+{
+  "model": "reference_model.rateunit",
+  "pk": 4,
+  "fields": {
+    "numerator": 4,
+    "denominator": 6
+  }
+},
+{
+  "model": "reference_model.rateunit",
+  "pk": 5,
+  "fields": {
+    "numerator": 4,
+    "denominator": 7
+  }
+}
 ]

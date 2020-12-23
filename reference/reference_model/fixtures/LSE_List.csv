@@ -1,0 +1,30 @@
+﻿name,short_name,state,parent_utility,parent_utility_2,email_domain,Is_CALCCA_MEMBER,is_utility_company
+Pacific Gas & Electric Co,PG&E,CA,,,,FALSE,TRUE
+Southern California Edison Co,SCE,CA,,,,FALSE,TRUE
+San Diego Gas & Electric Co,SDG&E,CA,,,,FALSE,TRUE
+Apple Valley Choice Energy,AVCE,CA,SCE,,avchoiceenergy.com,TRUE,FALSE
+Baldwin Park Resident Owned Utility District,BPROUD,CA,SCE,,baldwinpark.com,TRUE,FALSE
+Central Coast Community Energy,3CE,CA,PG&E,SCE,3cenergy.org,TRUE,FALSE
+Clean Energy Alliance,CEA,CA,SDG&E,,thecleanenergyalliance.org,TRUE,FALSE
+Clean Power Alliance,CPA,CA,SCE,,cleanpoweralliance.org,TRUE,FALSE
+Clean Power SF,CPSF,CA,PG&E,,cleanpowersf.org,TRUE,FALSE
+Desert Community Energy,DCE,CA,SCE,,desertcommunityenergy.org,TRUE,FALSE
+East Bay Community Energy,EBCE,CA,PG&E,,ebce.org,TRUE,FALSE
+Lancaster Choice Energy,LCE,CA,SCE,,lancasterchoiceenergy.com,TRUE,FALSE
+MCE Clean Energy,MCE,CA,PG&E,,mcecleanenergy.org,TRUE,FALSE
+Peninsula Clean Energy,PCE,CA,PG&E,,peninsulacleanenergy.com,TRUE,FALSE
+PICO RIVERA INNOVATIVE MUNICIPAL ENERG,PRIME,CA,SCE,,poweredbyprime.org,TRUE,FALSE
+Pioneer Community Energy,Pioneer,CA,PG&E,,pioneercommunityenergy.ca.gov,TRUE,FALSE
+Pomona Choice Energy,Pomona,CA,SCE,,pomonachoiceenergy.org,TRUE,FALSE
+Rancho Mirage Energy Authority,RMEA,CA,SCE,,ranchomirageenergy.org,TRUE,FALSE
+Redwood Coast Energy Authority,RCEA,CA,PG&E,,redwoodenergy.org,TRUE,FALSE
+San Diego Community Power,SDCP,CA,SDG&E,,sdcommunitypower.org,TRUE,FALSE
+San Jacinto Power,SJP,CA,SCE,,sanjacintopower.com,TRUE,FALSE
+San Jose Clean Energy,SJCE,CA,PG&E,,sanjosecleanenergy.org,TRUE,FALSE
+Silicon Valley Clean Energy,SVCE,CA,PG&E,,svcleanenergy.org,TRUE,FALSE
+Solana Energy Alliance,SEA,CA,SDG&E,,SolanaEnergyAlliance.org,TRUE,FALSE
+Sonoma Clean Power,SCP,CA,PG&E,,sonomacleanpower.org,TRUE,FALSE
+Valley Clean Energy,VCEA,CA,PG&E,,valleycleanenergy.org,TRUE,FALSE
+Western Community Energy,WCE,CA,SCE,,westerncommunityenergy.com,TRUE,FALSE
+TerraVerde Energy,TVE,CA,,,terraverde.energy,FALSE,FALSE
+King City Community Power,KCCP ,CA,PG&E,,kingcitycommunitypower.org,TRUE,FALSE
