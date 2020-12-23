@@ -31,7 +31,7 @@ def create_strategies():
         strategy, created = FuelSwitchingStrategy.get_or_create(
             name=name,
             description=get_strategy_description(
-                building_profile_name=building_profile_name,
+                building_profile_name=name,
                 openei_file=openei_file,
             ),
             load_serving_entity=None,
