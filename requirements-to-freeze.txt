@@ -27,13 +27,11 @@ ipdb
 ipython
 jsonfield
 matplotlib
-notebook
 pandas
 pyarrow
 pycurl
 psycopg2-binary
 requests
-rise
 s3fs
 scipy
 simple-terminal
