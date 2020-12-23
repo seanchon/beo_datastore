@@ -1,5 +1,61 @@
 [
   {
+    "model": "auth_user.loadservingentity",
+    "pk": 1,
+    "fields": {
+      "name": "Pacific Gas & Electric Co",
+      "short_name": "PG&E",
+      "state": "CA",
+      "_parent_utility": null
+    }
+  },
+  {
+    "model": "auth_user.emaildomain",
+    "pk": 2,
+    "fields": {
+      "domain": "@terraverde.energy",
+      "load_serving_entity": 1
+    }
+  },
+  {
+    "model": "auth_user.loadservingentity",
+    "pk": 2,
+    "fields": {
+      "name": "MCE Clean Energy",
+      "short_name": "MCE",
+      "state": "CA",
+      "_parent_utility": 1
+    }
+  },
+  {
+    "model": "auth_user.emaildomain",
+    "pk": 3,
+    "fields": {
+      "domain": "@mcecleanenergy.org",
+      "load_serving_entity": 2
+    }
+  },
+  {
+    "model": "auth_user.loadservingentity",
+    "pk": 3,
+    "fields": {
+      "name": "Southern California Edison Co",
+      "short_name": "SCE",
+      "state": "CA",
+      "_parent_utility": null
+    }
+  },
+  {
+    "model": "auth_user.loadservingentity",
+    "pk": 4,
+    "fields": {
+      "name": "San Diego Gas & Electric Co",
+      "short_name": "SDG&E",
+      "state": "CA",
+      "_parent_utility": null
+    }
+  },
+  {
     "model": "reference_model.buildingtype",
     "pk": 1,
     "fields": {
