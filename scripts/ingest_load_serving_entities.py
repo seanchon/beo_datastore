@@ -28,36 +28,45 @@ existing_entities = LoadServingEntity.objects.values_list(
 
 email_columns = [x for x in df.columns if x.startswith("email_domain")]
 
-for item in df.itertuples():
+# Add IOU utility companies.
+utilities_df: pd.DataFrame = df[df["is_utility_company"]]
+for utility in utilities_df.itertuples():
+    utility, created = LoadServingEntity.objects.get_or_create(
+        name=utility.name.strip().title(),
+        short_name=utility.short_name.strip().upper(),
+        state=utility.state.strip()[:2].upper(),
+        _parent_utility=None,
+    )
 
-    short_name = item.short_name.strip().upper()
+# Add CCA LSEs.
+cca_df: pd.DataFrame = df[~df["is_utility_company"]]
+for cca in cca_df.itertuples():
+
+    short_name = cca.short_name.strip().upper()
 
     if short_name not in existing_entities:
 
-        name = item.name.strip().title()
-        state = item.state.strip()[:2].upper()
+        name = cca.name.strip().title()
+        state = cca.state.strip()[:2].upper()
 
-        if item.is_utility_company:
-            parent_utility = None
-        else:
+        if cca.parent_utility:
             parent_utility = LoadServingEntity.objects.get(
-                short_name=item.parent_utility
+                short_name=cca.parent_utility
             )
+        else:
+            parent_utility = None
 
-        load_serving_entity = LoadServingEntity.objects.create(
+        load_serving_entity, created = LoadServingEntity.objects.get_or_create(
             name=name,
             short_name=short_name,
             state=state,
             _parent_utility=parent_utility,
         )
 
-        for column in email_columns:
-            email_domain = getattr(item, column)
-            if email_domain:
-                EmailDomain.objects.get_or_create(
-                    domain="@" + email_domain,
-                    load_serving_entity=load_serving_entity,
-                )
+        EmailDomain.objects.get_or_create(
+            domain="@" + cca.email_domain,
+            load_serving_entity=load_serving_entity,
+        )
 
 added = LoadServingEntity.objects.count() - existing_entities.count()
 print(
