@@ -195,7 +195,9 @@ class TestFileUpload(APITestCase):
         post_endpoint = "/v1/load/origin_file/"
         file_location = "load/tests/files/test.csv"
 
-        user = User.objects.create(username="PG&E User", email="user@pge.com")
+        user = User.objects.create(
+            username="MCE User", email="user@mcecleanenergy.org"
+        )
         self.client.force_authenticate(user=user)
 
         # 0 OriginFiles
@@ -249,7 +251,9 @@ class TestFileProtection(APITestCase):
         post_endpoint = "/v1/load/origin_file/"
 
         # user_1 uploads a file
-        user_1 = User.objects.create(username="PG&E User", email="user@pge.com")
+        user_1 = User.objects.create(
+            username="MCE User 1", email="user_1@mcecleanenergy.org"
+        )
         self.client.force_authenticate(user=user_1)
 
         file_location = "load/tests/files/test.csv"
@@ -264,7 +268,7 @@ class TestFileProtection(APITestCase):
 
         # user_2 uploads a file
         user_2 = User.objects.create(
-            username="MCE User", email="user@mcecleanenergy.org"
+            username="MCE User 2", email="user_2@mcecleanenergy.org"
         )
         self.client.force_authenticate(user=user_2)
 

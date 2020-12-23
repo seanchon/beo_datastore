@@ -22,7 +22,7 @@ class TestRegistration(APITestCase):
 
     def register_user(
         self,
-        email="jdoe@pge.com",
+        email="jdoe@mcecleanenergy.org",
         username="john_doe",
         password1=GOOD_PASSWORD,
         password2=GOOD_PASSWORD,
@@ -38,7 +38,7 @@ class TestRegistration(APITestCase):
         )
 
     @staticmethod
-    def get_user(email: str = "jdoe@pge.com"):
+    def get_user(email: str = "jdoe@mcecleanenergy.org"):
         return User.objects.get(email=email)
 
     def test_register_with_unrecognized_email(self):
@@ -66,9 +66,7 @@ class TestRegistration(APITestCase):
 
         # profile should've been associated with the proper LSE
         profile = Profile.objects.get(user=user)
-        self.assertEqual(
-            profile.load_serving_entity.name, "Pacific Gas & Electric Co"
-        )
+        self.assertEqual(profile.load_serving_entity.name, "MCE Clean Energy")
 
     def test_verify_email(self):
         """
