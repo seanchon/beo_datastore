@@ -33,4 +33,3 @@ scipy                   # Scientific Library for Python.
 sklearn                 # A set of python modules for machine learning and data mining.
 us                      # A package for easily working with US and state metadata.
 Werkzeug                # Comprehensive WSGI web application library.
-de
