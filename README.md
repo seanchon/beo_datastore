@@ -123,7 +123,4 @@ coverage html -d coverage --skip-covered  # ignore files with 100% coverage
 ```
 
 ### UPDATING PIP PACKAGES
-
-This project follows the recommended process outlined in https://www.kennethreitz.org/essays/a-better-pip-workflow.
-
 When a new package is added to the project, add it to `requirements-to-freeze.txt` then run `pip install -r requirements-to-freeze.txt` or `pip install -r requirements-to-freeze.txt --upgrade` (if you want to upgrade all packages). Followed by `pip freeze > requirements.txt`.

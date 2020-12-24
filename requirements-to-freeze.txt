@@ -1,43 +1,35 @@
-# see https://www.kennethreitz.org/essays/a-better-pip-workflow
-boto3
-bs4
-cached-property
-celery
-coverage
-docutils
-Django
-django-allauth
-django-auto-repr
-django-celery-beat
-django-celery-results
-django-cors-headers
-django-dotenv
-django-extensions
-django-filter
-django-localflavor
-django-polymorphic
-django-rest-auth
-django-rest-swagger
-django-storages
-djangorestframework
-dynamic-rest
-Faker
-ijson
-ipdb
-ipython
-jsonfield
-matplotlib
-notebook
-pandas
-pyarrow
-pycurl
-psycopg2-binary
-requests
-rise
-s3fs
-scipy
-simple-terminal
-sklearn
-us
-Werkzeug
-xlrd
+boto3                   # The AWS SDK for Python.
+bs4                     # Screen-scraping library.
+cached-property         # A decorator for caching properties in classes.
+celery                  # Distributed Task Queue.
+coverage                # Code coverage measurement for Python.
+docutils                # Documentation Utilities - Required-by botocore.
+Django                  # The project core backend web framework.
+django-allauth          # Authentication, registration, account management.
+django-auto-repr        # Give Django models a useful __repr__ .
+django-celery-beat      # Database-backed Periodic Tasks.
+django-celery-results   # Celery result backends for Django.
+django-cors-headers     # Handling the server headers required for Cross-Origin Resource Sharing (CORS).
+django-dotenv           # `foreman` reads from .env. manage.py doesn't. Let's fix that!
+django-extensions       # A Collection of custom extensions for the Django.
+django-filter           # Allows users to filter querysets dynamically.
+django-localflavor      # Country-specific Django helpers.
+django-polymorphic      # Polymorphic inheritance for Django models.
+django-rest-auth        # Create a set of REST API endpoints for Authentication and Registration.
+django-rest-swagger     # Swagger UI for Django REST Framework 3.5+.
+django-storages         # Support for many storage backends in Django.
+djangorestframework     # The project's core Web API framework over Django.
+dynamic-rest            # Adds Dynamic API support to Django REST Framework.
+Faker                   # Generates fake data.
+ipython                 # Interactive shell
+jsonfield               # A reusable Django field that allows you to store validated JSON in your model
+matplotlib              # The Python's core scientific plotting package.
+pandas                  # The Python's core data structures for data analysis, time series, and statistics.
+pyarrow                 # Apache Arrow.
+psycopg2-binary         # PostgreSQL Database Adapter.
+requests                # HTTP library.
+s3fs                    # Filesystem interface over S3.
+scipy                   # Scientific Library for Python.
+sklearn                 # A set of python modules for machine learning and data mining.
+us                      # A package for easily working with US and state metadata.
+Werkzeug                # Comprehensive WSGI web application library.
