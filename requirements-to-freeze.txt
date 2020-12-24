@@ -14,28 +14,26 @@ django-cors-headers
 django-dotenv
 django-extensions
 django-filter
-django-localflavor
-django-polymorphic
+django-localflavor      # Country-specific Django helpers
+django-polymorphic      #
 django-rest-auth
 django-rest-swagger
-django-storages
+django-storages         # Support for many storage backends in Django
 djangorestframework
-dynamic-rest
+dynamic-rest            # Adds Dynamic API support to Django REST Framework
 Faker
-ijson
-ipdb
+# ijson
+# ipdb
 ipython
-jsonfield
+jsonfield               # A reusable Django field that allows you to store validated JSON in your model
 matplotlib
 pandas
-pyarrow
-pycurl
-psycopg2-binary
-requests
-s3fs
-scipy
-simple-terminal
-sklearn
-us
-Werkzeug
-xlrd
+pyarrow                 # Apache Arrow
+# pycurl
+psycopg2-binary         # PostgreSQL Database Adapter
+requests                # HTTP
+s3fs                    # Filesystem interface over S3
+scipy                   # Scientific Library for Python
+sklearn                 # A set of python modules for machine learning and data mining
+us                      # A package for easily working with US and state metadata
+Werkzeug                # Comprehensive WSGI web application library
