@@ -12,7 +12,7 @@ django-celery-results   # Celery result backends for Django.
 django-cors-headers     # Handling the server headers required for Cross-Origin Resource Sharing (CORS).
 django-dotenv           # `foreman` reads from .env. manage.py doesn't. Let's fix that!
 django-extensions       # A Collection of custom extensions for the Django.
-django-filter
+django-filter           # Allows users to filter querysets dynamically.
 django-localflavor      # Country-specific Django helpers.
 django-polymorphic      # Polymorphic inheritance for Django models.
 django-rest-auth        # Create a set of REST API endpoints for Authentication and Registration.
@@ -33,3 +33,4 @@ scipy                   # Scientific Library for Python.
 sklearn                 # A set of python modules for machine learning and data mining.
 us                      # A package for easily working with US and state metadata.
 Werkzeug                # Comprehensive WSGI web application library.
+de
