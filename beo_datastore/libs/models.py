@@ -181,7 +181,7 @@ class TaskStatusModelMixin(models.Model):
             )
         self.locked = True
         self.locked_unlocked_at = now()
-        self.save()
+        self.save_thread_safe("locked", "locked_unlocked_at")
 
     def release_lock(self) -> None:
         """
@@ -190,7 +190,7 @@ class TaskStatusModelMixin(models.Model):
         if self.locked:
             self.locked = False
             self.locked_unlocked_at = now()
-            self.save()
+            self.save_thread_safe("locked", "locked_unlocked_at")
 
     def mark_complete(self) -> None:
         """
@@ -199,7 +199,7 @@ class TaskStatusModelMixin(models.Model):
         if not self.completed:
             self.completed = True
             self.completed_incompleted_at = now()
-            self.save()
+            self.save_thread_safe("completed", "completed_incompleted_at")
 
     def mark_incomplete(self) -> None:
         """
@@ -208,7 +208,18 @@ class TaskStatusModelMixin(models.Model):
         if self.completed:
             self.completed = False
             self.completed_incompleted_at = now()
-            self.save()
+            self.save_thread_safe("completed", "completed_incompleted_at")
+
+    def save_thread_safe(self, *fields: str):
+        """
+        Saves a set of fields using the `update_fields` argument to
+        `models.Model.save`. It's important for the Celery tasks to only save
+        the fields that are expected to change, as otherwise fields that have
+        changed in other threads will be overwritten.
+
+        :param fields: array of strings specifying the the fields to save
+        """
+        return super(TaskStatusModelMixin, self).save(update_fields=fields)
 
 
 class TimeStampMixin(models.Model):
@@ -341,14 +352,26 @@ class FrameFileMixin(object):
         """
         return dataframe_to_html(self.frame.dataframe)
 
-    def save(self, *args, **kwargs):
+    def save_frame(self):
+        """
+        Saves the attached frame file if there is one
+        """
         if hasattr(self, "_frame"):
             self._frame.save()
+
+    def delete_frame(self):
+        """
+        Deletes the attached frame file if there is one
+        """
+        if hasattr(self, "_frame"):
+            self._frame.delete()
+
+    def save(self, *args, **kwargs):
+        self.save_frame()
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        if hasattr(self, "_frame"):
-            self._frame.delete()
+        self.delete_frame()
         super().delete(*args, **kwargs)
 
     @classmethod

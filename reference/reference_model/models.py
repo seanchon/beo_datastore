@@ -173,7 +173,7 @@ class MeterDataMixin(object):
         if self.max_monthly_demand is None:
             self.max_monthly_demand = intervalframe.maximum
 
-        self.save()
+        self.save(update_fields=["total_kwh", "max_monthly_demand"])
 
 
 class MeterGroup(

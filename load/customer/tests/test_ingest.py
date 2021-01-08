@@ -44,7 +44,8 @@ class TestItem17Ingest(TestCase):
             if origin_file.db_exists:
                 origin_file.db_drop()
 
-    def create_origin_file(self, file):
+    @staticmethod
+    def create_origin_file(file):
         """
         Perform ingest of OriginFile and associated meters.
         """
@@ -58,20 +59,67 @@ class TestItem17Ingest(TestCase):
 
         return origin_file
 
-    def ingest_origin_file_meters(self, origin_file_id):
+    @staticmethod
+    def ingest_origin_file_meters(origin_file_id):
         """
-        Runs load.tasks.ingest_origin_file_meters synchronously.
+        Runs load.tasks.ingest_meters synchronously.
         """
         ingest_origin_file(origin_file_id)
         origin_file = OriginFile.objects.get(id=origin_file_id)
         for sa_ids in chunks(origin_file.db_get_sa_ids(), n=50):
             ingest_meters(origin_file.id, sa_ids)
 
+    def test_aggregate_metrics_with_gas(self):
+        """
+        Test meter ingest calculates aggregate metrics correctly when uploaded
+        file has gas data
+        """
+        file = os.path.join(
+            BASE_DIR, "load/customer/tests/files/15_min_kw.csv"
+        )
+        origin_file = self.create_origin_file(file)
+        self.ingest_origin_file_meters(origin_file.id)
+
+        # One meter has gas data, the other does not
+        meters = origin_file.meters
+        meter_with_gas = meters.filter(customermeter__sa_id=1).first()
+        meter_no_gas = meters.filter(customermeter__sa_id=2).first()
+
+        # Both should have total_kwh and max_monthly_demand
+        self.assertGreater(meter_with_gas.total_kwh, 0)
+        self.assertGreater(meter_no_gas.total_kwh, 0)
+        self.assertGreater(meter_with_gas.max_monthly_demand, 0)
+        self.assertGreater(meter_no_gas.max_monthly_demand, 0)
+
+        # Only one meter has gas data
+        self.assertGreater(meter_with_gas.total_therms, 0)
+        self.assertEqual(meter_no_gas.total_therms, 0)
+
+    def test_aggregate_metrics_no_gas(self):
+        """
+        Test meter ingest calculates aggregate metrics correctly when uploaded
+        file has no gas column
+        """
+        file = os.path.join(
+            BASE_DIR, "load/customer/tests/files/60_min_kw.csv"
+        )
+        origin_file = self.create_origin_file(file)
+        self.ingest_origin_file_meters(origin_file.id)
+
+        # All meters should have total_kwh and max_monthly_demand, no gas_usage
+        self.assertGreater(origin_file.meters.count(), 0)
+        for meter in origin_file.meters.all():
+            self.assertGreater(meter.total_kwh, 0)
+            self.assertGreater(meter.max_monthly_demand, 0)
+            self.assertIsNone(meter.total_therms)
+
     def test_15_min_kw_ingest(self):
         """
         Test ingest of 15-minute Item 17 file with kW readings.
         """
-        file = os.path.join(BASE_DIR, "load/customer/tests/files/15_min_kw.csv")
+        file = os.path.join(
+            BASE_DIR, "load/customer/tests/files/15_min_kw.csv"
+        )
         origin_file = self.create_origin_file(file)
         self.ingest_origin_file_meters(origin_file.id)
 
@@ -124,7 +172,9 @@ class TestItem17Ingest(TestCase):
         """
         Test ingest of 60-minute Item 17 file with kW readings.
         """
-        file = os.path.join(BASE_DIR, "load/customer/tests/files/60_min_kw.csv")
+        file = os.path.join(
+            BASE_DIR, "load/customer/tests/files/60_min_kw.csv"
+        )
         origin_file = self.create_origin_file(file)
         self.ingest_origin_file_meters(origin_file.id)
 
@@ -165,7 +215,7 @@ class TestItem17Ingest(TestCase):
             meter.intervalframe.dataframe.loc[MIDNIGHT_2018]["kw"], 0.5
         )
 
-    def test_dupicate_origin_files_ingest(self):
+    def test_duplicate_origin_files_ingest(self):
         """
         Test that running the same ingest twice does not increase origin file
         count on second run.

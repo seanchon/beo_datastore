@@ -4,7 +4,6 @@ import json
 from jsonfield import JSONField
 import os
 import pandas as pd
-from pathlib import Path
 import re
 
 from django.core.exceptions import ValidationError
@@ -37,7 +36,6 @@ from der.simulation.models import (
     StoredBatterySimulation,
 )
 from load.customer.models import OriginFile
-from load.tasks import aggregate_meter_group_intervalframes
 from reference.reference_model.models import (
     DERConfiguration,
     DERStrategy,
@@ -429,7 +427,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
                 self._report_summary = json.loads(
                     self.get_report_summary().to_json()
                 )
-                self.save()
+                self.save_thread_safe("_report", "_report_summary")
 
     def get_report(self):
         """
@@ -897,7 +895,10 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
 
         return reduce(
             lambda x, y: x + y,
-            (nested_getattr(x, frame_attr) for x in self.der_simulations.all()),
+            (
+                nested_getattr(x, frame_attr)
+                for x in self.der_simulations.all()
+            ),
             PowerIntervalFrame(),
         )
 
@@ -912,35 +913,7 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
                 self.intervalframe = (
                     self.pre_der_intervalframe + der_intervalframe
                 )
-                self.save()
-
-    def make_origin_file(self):
-        """
-        Makes an origin file from the post-DER simulation data, to be used for
-        making compound simulations with multiple DERs.
-
-        NOTE: This is a temporary method for use until a scenario can be the
-        starting point for the creation of a new scenario.
-        """
-        # spoof file
-        blank_file = "/tmp/null.csv"
-        Path(blank_file).touch()
-
-        meter_group = self.meter_group
-        origin_file, _ = OriginFile.get_or_create(
-            name=self.name,
-            load_serving_entity=meter_group.load_serving_entity,
-            file=open(blank_file, "rb"),
-        )
-
-        origin_file.expected_meter_count = meter_group.meters.count()
-        origin_file.meters.add(*self.der_simulations)
-        origin_file.owners.add(*meter_group.owners.all())
-        origin_file.save()
-
-        aggregate_meter_group_intervalframes.delay(origin_file.id)
-
-        return origin_file
+                self.save_frame()
 
     def assign_cost_functions(self, cost_functions):
         """
@@ -951,6 +924,8 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
           "ghg_rate", "procurement_rate" and "system_profile". No key is
           required
         """
+        updated_fields = []
+
         if "rate_plan" in cost_functions:
             cost_function_selection = cost_functions["rate_plan"]
             if cost_function_selection == "auto":
@@ -959,28 +934,30 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
                     load_serving_entity=origin_file.load_serving_entity,
                     rate_plan_name=origin_file.primary_linked_rate_plan_name,
                 ).first()
+                updated_fields.append("rate_plan")
             else:
                 try:
                     self.rate_plan = RatePlan.objects.get(
                         id=cost_functions["rate_plan"],
                         load_serving_entity=self.load_serving_entity,
                     )
+                    updated_fields.append("rate_plan")
                 except RatePlan.DoesNotExist:
                     pass
 
         if "ghg_rate" in cost_functions:
             try:
-                self.ghg_rate = GHGRate.objects.get(
-                    id=cost_functions["ghg_rate"]
-                )
+                rate_id = cost_functions["ghg_rate"]
+                self.ghg_rate = GHGRate.objects.get(id=rate_id)
+                updated_fields.append("ghg_rate")
             except GHGRate.DoesNotExist:
                 pass
 
         if "procurement_rate" in cost_functions:
             try:
-                self.procurement_rate = CAISORate.objects.get(
-                    id=cost_functions["procurement_rate"]
-                )
+                rate_id = cost_functions["procurement_rate"]
+                self.procurement_rate = CAISORate.objects.get(id=rate_id)
+                updated_fields.append("procurement_rate")
             except CAISORate.DoesNotExist:
                 pass
 
@@ -990,8 +967,9 @@ class Scenario(IntervalFrameFileMixin, MeterGroup):
                     id=cost_functions["system_profile"],
                     load_serving_entity=self.load_serving_entity,
                 )
+                updated_fields.append("system_profile")
             except SystemProfile.DoesNotExist:
                 pass
 
         # save the above changes
-        self.save()
+        self.save_thread_safe(*updated_fields)

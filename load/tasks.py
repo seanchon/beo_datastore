@@ -38,7 +38,7 @@ def ingest_origin_file_meters(origin_file_id, chunk_size=5, overwrite=False):
 
     # set locked_unlocked_at for rerun_incomplete_origin_file_ingests() check
     origin_file.locked_unlocked_at = now()
-    origin_file.save()
+    origin_file.save_thread_safe("locked_unlocked_at")
 
     # recreate file database
     if not origin_file.db_exists or overwrite:
@@ -80,7 +80,7 @@ def ingest_origin_file(origin_file_id):
 
     # store number of unique SA IDs
     origin_file.expected_meter_count = len(origin_file.db_get_sa_ids())
-    origin_file.save()
+    origin_file.save_thread_safe("expected_meter_count")
 
 
 @app.task(soft_time_limit=1800, max_retries=3)

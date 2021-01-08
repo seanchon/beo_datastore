@@ -308,7 +308,7 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
                     (x.meter_intervalframe for x in self.meters.all()),
                     PowerIntervalFrame(),
                 )
-                self.save()
+                self.save_frame()
 
     @classmethod
     def get_or_create(cls, file, name, load_serving_entity, owner=None):
@@ -406,7 +406,9 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
         db_names = db_names.union(cls.db_get_orphaned_db_names())
 
         for db_name in db_names:
-            cls.db_execute_global("DROP DATABASE IF EXISTS {};".format(db_name))
+            cls.db_execute_global(
+                "DROP DATABASE IF EXISTS {};".format(db_name)
+            )
 
     def db_connect(self):
         """
@@ -504,7 +506,7 @@ class OriginFile(IntervalFrameFileMixin, MeterGroup):
                 meter_group_df[meter_group_df["DIR"] == "R"]
             )
             self.intervalframe.dataframe = d_df.add(r_df, fill_value=0)
-            self.save()
+            self.save_frame()
 
     def db_drop(self):
         """
@@ -601,7 +603,9 @@ class GasUsage(IntervalFrameFileMixin, ValidationModel):
         ordering = ["id"]
 
     @classmethod
-    def get_or_create_from_dataframe(cls, dataframe: Union[pd.DataFrame, None]):
+    def get_or_create_from_dataframe(
+        cls, dataframe: Union[pd.DataFrame, None]
+    ):
         """
         Gets or creates a GasUsage model given a gas dataframe. If no dataframe
         is provided or if the dataframe is empty, returns None.
@@ -676,11 +680,10 @@ class CustomerMeter(Meter):
         """
         Computes the total_therms field
         """
-        if not self.has_gas:
-            return
-
-        self.total_therms = self.gas_usage.intervalframe.total
         super().build_aggregate_metrics()
+        if self.has_gas:
+            self.total_therms = self.gas_usage.intervalframe.total
+            self.save(update_fields=["total_therms"])
 
     @property
     def state(self):

@@ -26,7 +26,7 @@ def run_scenario(scenario_id):
 
     # set locked_unlocked_at for rerun_incomplete_scenarios() check
     scenario.locked_unlocked_at = now()
-    scenario.save()
+    scenario.save_thread_safe("locked_unlocked_at")
 
     for meter in scenario.meter_group.meters.all():
         run_simulation_and_cost.delay(
