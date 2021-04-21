@@ -133,4 +133,4 @@ zipp==3.0.0
 
 # internal libraries
 # configured using https://github.com/NavigaDER's personal access token
-git+https://d786f4bc3601d9ae758ab82d300f9c668e160f77:x-oauth-basic@github.com/TerraVerdeRenewablePartners/pyoasis.git
+#git+https://d786f4bc3601d9ae758ab82d300f9c668e160f77:x-oauth-basic@github.com/TerraVerdeRenewablePartners/pyoasis.git
